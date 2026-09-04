@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-export default async function WalletPage() {
+export default async function WalletPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
+  const { error, ok } = await searchParams;
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
@@ -20,6 +21,8 @@ export default async function WalletPage() {
   return (
     <main className="container py-8 space-y-6">
       <h1 className="text-2xl font-bold">المحفظة</h1>
+      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {ok && <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{ok}</p>}
       <div className="grid sm:grid-cols-3 gap-4">
         <Card><CardHeader><CardTitle className="text-sm">Balance</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{wallet?.balance ?? 0}</CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm">Pending</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{wallet?.pending_balance ?? 0}</CardContent></Card>

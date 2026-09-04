@@ -1,13 +1,9 @@
 import Link from 'next/link';
 import { ShieldCheck, UserCheck, Building2, Zap } from 'lucide-react';
-import { registerAction } from '@/features/auth/services';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+import { RegisterForm } from '@/components/forms/register-form';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default function RegisterPage() {
   return (
     <main className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
@@ -47,31 +43,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
                 سجّل دخول
               </Link>
             </p>
-            {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-            <form action={registerAction} className="mt-6 space-y-4">
-              <div>
-                <Label htmlFor="username">اسم المستخدم</Label>
-                <Input id="username" name="username" required minLength={3} dir="ltr" placeholder="hunter_eg" className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <Input id="email" name="email" type="email" required dir="ltr" placeholder="you@example.com" className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="password">كلمة السر (8+ أحرف)</Label>
-                <Input id="password" name="password" type="password" required minLength={8} dir="ltr" placeholder="••••••••" className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="role">أنا…</Label>
-                <select id="role" name="role" className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm" defaultValue="researcher">
-                  <option value="researcher">باحث أمني — أكتشف وأكسب</option>
-                  <option value="company">شركة — عايز أحمي منتجي</option>
-                </select>
-              </div>
-              <Button type="submit" className="w-full bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
-                إنشاء الحساب
-              </Button>
-            </form>
+            <RegisterForm />
           </CardContent>
         </Card>
       </div>

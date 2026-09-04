@@ -1,9 +1,6 @@
 import Link from 'next/link';
 import { ShieldCheck, Bug, Wallet, Trophy, type LucideIcon } from 'lucide-react';
-import { loginAction } from '@/features/auth/services';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+import { LoginForm } from '@/components/forms/login-form';
 import { Card, CardContent } from '@/components/ui/card';
 
 const perks: [LucideIcon, string][] = [
@@ -12,8 +9,8 @@ const perks: [LucideIcon, string][] = [
   [Trophy, 'سمعة مهنية مبنية على نتائج موثقة'],
 ];
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
-  const { error, ok } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
+  const { ok } = await searchParams;
   return (
     <main className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
@@ -51,26 +48,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 اعمل واحد مجانًا
               </Link>
             </p>
-            {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {ok && <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{ok}</p>}
-            <form action={loginAction} className="mt-6 space-y-4">
-              <div>
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <Input id="email" name="email" type="email" required dir="ltr" placeholder="you@example.com" className="mt-1" />
-              </div>
-              <div>
-                <div className="flex justify-between">
-                  <Label htmlFor="password">كلمة السر</Label>
-                  <Link href="/forgot-password" className="text-xs text-muted-foreground underline">
-                    نسيتها؟
-                  </Link>
-                </div>
-                <Input id="password" name="password" type="password" required dir="ltr" placeholder="••••••••" className="mt-1" />
-              </div>
-              <Button type="submit" className="w-full bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
-                دخول
-              </Button>
-            </form>
+            <LoginForm />
+            <p className="mt-4 text-center text-sm">
+              <Link href="/forgot-password" className="text-muted-foreground underline">
+                نسيت كلمة السر؟
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

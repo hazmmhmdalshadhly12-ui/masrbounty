@@ -729,6 +729,7 @@ DROP POLICY IF EXISTS "profiles_own_update" ON public.profiles; CREATE POLICY "p
 DROP POLICY IF EXISTS "profiles_own_insert" ON public.profiles; CREATE POLICY "profiles_own_insert" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 -- user_roles: admin read, service manage (no direct user write)
 DROP POLICY IF EXISTS "roles_admin_read" ON public.user_roles; CREATE POLICY "roles_admin_read" ON public.user_roles FOR SELECT USING (auth.uid() = user_id OR public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "roles_self_insert" ON public.user_roles; CREATE POLICY "roles_self_insert" ON public.user_roles FOR INSERT WITH CHECK (auth.uid() = user_id AND role IN ('researcher', 'company'));
 -- researcher_profiles: public read if is_public, own write
 DROP POLICY IF EXISTS "rp_public_read" ON public.researcher_profiles; CREATE POLICY "rp_public_read" ON public.researcher_profiles FOR SELECT USING (is_public = true OR user_id = auth.uid() OR public.has_role('admin'));
 DROP POLICY IF EXISTS "rp_own_insert" ON public.researcher_profiles; CREATE POLICY "rp_own_insert" ON public.researcher_profiles FOR INSERT WITH CHECK (user_id = auth.uid());
