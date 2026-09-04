@@ -1,0 +1,1 @@
+export function toCSV(rows:Record<string,unknown>[]):string{if(!rows.length) return '';const h=Object.keys(rows[0]);return [h.join(','),...rows.map((r)=>h.map((k)=>JSON.stringify(r[k]??'')).join(','))].join('\n')}
