@@ -1,0 +1,1 @@
+export default function Page(){return (<main className="container py-8"><h1 className="text-2xl font-bold">forgot-password</h1><p className="text-muted-foreground">MasrBounty • forgot-password</p></main>)}
