@@ -346,7 +346,11 @@ CREATE TABLE IF NOT EXISTS public.payment_methods (
   is_default BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
-ALTER TABLE public.payout_requests ADD CONSTRAINT fk_payout_method FOREIGN KEY (payment_method_id) REFERENCES public.payment_methods(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_payout_method') THEN
+    ALTER TABLE public.payout_requests ADD CONSTRAINT fk_payout_method FOREIGN KEY (payment_method_id) REFERENCES public.payment_methods(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 -- 3.30 disputes
 CREATE TABLE IF NOT EXISTS public.disputes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
