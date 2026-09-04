@@ -13,5 +13,7 @@ export function friendlyAuthError(message: string): string {
   if (m.includes('password')) return 'كلمة السر قصيرة أو غير صالحة (8 أحرف على الأقل)';
   if (m.includes('phone')) return 'رقم الهاتف غير صالح';
   if (m.includes('network') || m.includes('fetch') || m.includes('timeout')) return 'تعذر الوصول لخدمة المصادقة — تحقق من الإنترنت وحاول مجددًا';
+  if (m.includes('smtp') || m.includes('sending') || m.includes('send email') || m.includes('mailer'))
+    return 'فشل إرسال بريد التفعيل (إعدادات SMTP) — راجع إعدادات البريد في Supabase أو عطّل SMTP المخصص مؤقتًا';
   return 'حدث خطأ — حاول مرة أخرى';
 }

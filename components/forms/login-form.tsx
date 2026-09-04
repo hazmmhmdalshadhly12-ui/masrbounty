@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { loginSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
+import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -27,10 +28,16 @@ export function LoginForm() {
     setBusy(true);
     try {
       const supabase = createClient();
-      const { error: err } = await supabase.auth.signInWithPassword(parsed.data);
+      const { data, error: err } = await supabase.auth.signInWithPassword(parsed.data);
       if (err) {
         setError(friendlyAuthError(err.message));
         return;
+      }
+      if (data.user) {
+        await ensureUserBootstrap(supabase, data.user.id, {
+          username: (data.user.user_metadata?.username as string) ?? undefined,
+          role: (data.user.user_metadata?.role as string) ?? undefined,
+        });
       }
       router.push('/dashboard');
       router.refresh();

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { registerSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
+import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'researcher' | 'company'>('researcher');
   const [error, setError] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -42,41 +44,60 @@ export function RegisterForm() {
         setError('فشل إنشاء الحساب — حاول مرة أخرى');
         return;
       }
-      // Profile row (RLS: own insert)
-      const { error: pErr } = await supabase
-        .from('profiles')
-        .insert({ id: data.user.id, username: parsed.data.username });
-      if (pErr) {
-        setError(
-          pErr.message.includes('duplicate') || pErr.code === '23505'
-            ? 'اسم المستخدم مستخدم بالفعل — اختر اسمًا آخر'
-            : friendlyAuthError(pErr.message)
-        );
+      // No session yet => email confirmation required. Rows will be
+      // bootstrapped automatically on first login.
+      if (!data.session) {
+        setPendingEmail(parsed.data.email);
         return;
       }
-      const { error: rErr } = await supabase
-        .from('user_roles')
-        .insert({ user_id: data.user.id, role: parsed.data.role });
-      if (rErr) {
-        setError(friendlyAuthError(rErr.message));
-        return;
-      }
-      if (parsed.data.role === 'researcher') {
-        // Wallet/reputation/stats rows are auto-created by DB trigger
-        const { error: rpErr } = await supabase
-          .from('researcher_profiles')
-          .insert({ user_id: data.user.id, display_name: parsed.data.username });
-        if (rpErr) {
-          setError(friendlyAuthError(rpErr.message));
-          return;
-        }
-      }
-      router.push('/login?ok=' + encodeURIComponent('تم إنشاء الحساب — سجّل الدخول الآن'));
+      await ensureUserBootstrap(supabase, data.user.id, {
+        username: parsed.data.username,
+        role: parsed.data.role,
+      });
+      router.push('/dashboard');
+      router.refresh();
     } catch {
       setError('تعذر إنشاء الحساب حاليًا — حاول لاحقًا');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function resend() {
+    setError(null);
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingEmail ?? email,
+      });
+      if (err) setError(friendlyAuthError(err.message));
+      else setError('أُعيد إرسال رابط التفعيل — تحقق من بريدك');
+    } catch {
+      setError('تعذر الإرسال حاليًا — حاول لاحقًا');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (pendingEmail) {
+    return (
+      <div className="mt-6 space-y-4">
+        <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+          تم إنشاء حسابك — أرسلنا رابط التفعيل إلى <b dir="ltr">{pendingEmail}</b>. أكّد بريدك ثم سجّل الدخول.
+        </p>
+        {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" disabled={busy} onClick={resend} className="flex-1">
+            إعادة إرسال الرابط
+          </Button>
+          <Button type="button" onClick={() => router.push('/login')} className="flex-1 bg-slate-900 text-white hover:bg-slate-700">
+            الذهاب للدخول
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
