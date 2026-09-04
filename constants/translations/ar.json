@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "MasrBounty"
+  },
+  "nav": {
+    "programs": "البرامج",
+    "leaderboard": "المتصدرين"
+  },
+  "reports": {
+    "title": "التقارير",
+    "create": "إنشاء تقرير"
+  },
+  "wallet": {
+    "balance": "الرصيد"
+  }
+}

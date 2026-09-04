@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "MasrBounty"
+  },
+  "nav": {
+    "programs": "Programs",
+    "leaderboard": "Leaderboard"
+  },
+  "reports": {
+    "title": "Reports",
+    "create": "Create report"
+  },
+  "wallet": {
+    "balance": "Balance"
+  }
+}
