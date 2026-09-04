@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { reportSchema } from '@/schemas/report';
 import { enforceRate, limits } from '@/lib/rate-limit';
 import { logAudit } from '@/services/audit';
+import { notify, reportParties } from '@/lib/notify';
 
 async function researcherIdOrThrow() {
   const supabase = await createServerClient();
@@ -81,9 +82,48 @@ export async function addCommentAction(reportId: string, formData: FormData) {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error('Unauthorized');
   enforceRate(`comment:${data.user.id}`, limits.comment.max, limits.comment.windowMs);
+  // Internal notes: only company members/admins may mark internal; everyone else posts public
+  let isInternal = formData.get('is_internal') === 'on';
+  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  let isMember = false;
+  if (report) {
+    const { data: prog } = await supabase.from('programs').select('company_id').eq('id', report.program_id).single();
+    if (prog) {
+      const { data: m } = await supabase
+        .from('company_members')
+        .select('id')
+        .eq('company_id', (prog as { company_id: string }).company_id)
+        .eq('user_id', data.user.id)
+        .single();
+      isMember = !!m;
+    }
+  }
+  const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', data.user.id);
+  const isStaff = (roles ?? []).some((r: { role: string }) => r.role === 'admin' || r.role === 'moderator');
+  if (isInternal && !isMember && !isStaff) isInternal = false;
   const { error } = await supabase
     .from('report_comments')
-    .insert({ report_id: reportId, author_id: data.user.id, body });
+    .insert({ report_id: reportId, author_id: data.user.id, body, is_internal: isInternal });
   if (error) throw new Error(error.message);
+  // Notify the other side (never notify yourself; never leak internal notes to reporter)
+  const parties = await reportParties(supabase, reportId);
+  if (!isInternal && parties.reporterUserId && parties.reporterUserId !== data.user.id) {
+    await notify(supabase, parties.reporterUserId, {
+      type: 'comment',
+      title: `تعليق جديد على التقرير ${parties.reportNumber}`,
+      link: `/dashboard/reports/${reportId}`,
+    });
+  }
+  if (isMember || isStaff) {
+    for (const uid of parties.memberUserIds) {
+      if (uid !== data.user.id) {
+        await notify(supabase, uid, {
+          type: 'comment',
+          title: `تعليق جديد على التقرير ${parties.reportNumber}`,
+          link: `/company/reports/${reportId}`,
+        });
+      }
+    }
+  }
   revalidatePath(`/dashboard/reports/${reportId}`);
 }

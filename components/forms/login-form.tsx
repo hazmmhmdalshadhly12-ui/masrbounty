@@ -34,6 +34,12 @@ export function LoginForm() {
         return;
       }
       if (data.user) {
+        const { data: profile } = await supabase.from('profiles').select('is_active').eq('id', data.user.id).single();
+        if (profile && profile.is_active === false) {
+          await supabase.auth.signOut();
+          setError('تم إيقاف حسابك — تواصل مع الإدارة عبر صفحة التواصل');
+          return;
+        }
         await ensureUserBootstrap(supabase, data.user.id, {
           username: (data.user.user_metadata?.username as string) ?? undefined,
           role: (data.user.user_metadata?.role as string) ?? undefined,

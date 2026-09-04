@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { disputeSchema } from '@/schemas/dispute';
 import { enforceRate, limits } from '@/lib/rate-limit';
 import { logAudit } from '@/services/audit';
+import { notify } from '@/lib/notify';
 
 export async function openDisputeAction(formData: FormData) {
   const parsed = disputeSchema.safeParse({ report_id: formData.get('report_id'), reason: formData.get('reason') });
@@ -50,6 +51,15 @@ export async function approvePayoutAction(payoutId: string, approve: boolean) {
   } else {
     await supabase.from('payout_requests').update({ status: 'rejected', reviewed_by: user.user.id }).eq('id', payoutId);
     await logAudit('payout', 'payout_requests', payoutId, { decision: 'rejected' }, user.user.id);
+  }
+  const { data: rp } = await supabase.from('researcher_profiles').select('user_id').eq('id', payout.researcher_id).single();
+  if (rp) {
+    await notify(supabase, (rp as { user_id: string }).user_id, {
+      type: 'payment',
+      title: approve ? `تمت الموافقة على سحب ${payout.amount}` : 'تم رفض طلب السحب',
+      body: approve ? 'المبلغ في طريقه إليك حسب وسيلة الدفع' : 'راجع وسيلة الدفع أو تواصل مع الدعم',
+      link: '/dashboard/payments',
+    });
   }
   revalidatePath('/admin/payments');
 }

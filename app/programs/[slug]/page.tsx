@@ -9,10 +9,16 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('slug', slug).single();
   if (!program) return <main className="container py-12">Program not found.</main>;
-  const [{ data: assets }, { data: rules }, { data: bounty }] = await Promise.all([
+  const [{ data: assets }, { data: rules }, { data: bounty }, { data: activity }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', program.id),
     supabase.from('program_rules').select('*').eq('program_id', program.id).order('sort_order'),
     supabase.from('bounty_policies').select('*').eq('program_id', program.id),
+    supabase
+      .from('report_events')
+      .select('id,from_status,to_status,created_at,reports!inner(program_id)')
+      .eq('reports.program_id', program.id)
+      .order('created_at', { ascending: false })
+      .limit(10),
   ]);
 
   return (
@@ -39,6 +45,17 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
       {!!bounty?.length && (
         <Card><CardHeader><CardTitle>Bounty ranges</CardTitle></CardHeader>
           <CardContent>{bounty.map((b) => <p key={b.id} className="text-sm">{b.severity}: {b.min_amount} – {b.max_amount} EGP</p>)}</CardContent>
+        </Card>
+      )}
+      {!!activity?.length && (
+        <Card><CardHeader><CardTitle>النشاط الأخير</CardTitle></CardHeader>
+          <CardContent>
+            {activity.map((e: { id: string; from_status: string | null; to_status: string | null; created_at: string }) => (
+              <p key={e.id} className="border-b py-2 text-sm last:border-0" dir="ltr">
+                {e.from_status ?? '—'} → {e.to_status ?? '—'} <span className="text-muted-foreground">{new Date(e.created_at).toLocaleDateString('ar-EG')}</span>
+              </p>
+            ))}
+          </CardContent>
         </Card>
       )}
       <Link href="/dashboard/reports/new"><Button>Submit a report</Button></Link>

@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
+import { notify } from '@/lib/notify';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,21 @@ import { Badge } from '@/components/ui/badge';
 async function updateStatus(id: string, formData: FormData) {
   'use server';
   const supabase = await createServerClient();
-  await supabase.from('programs').update({ status: String(formData.get('status')) }).eq('id', id);
+  const status = String(formData.get('status'));
+  const { data: program } = await supabase.from('programs').select('name').eq('id', id).single();
+  await supabase.from('programs').update({ status }).eq('id', id);
+  // Notify researchers who saved this program
+  const { data: savers } = await supabase
+    .from('saved_programs')
+    .select('researcher_id,researcher_profiles!inner(user_id)')
+    .eq('program_id', id);
+  for (const s of (savers ?? []) as unknown as { researcher_profiles: { user_id: string } }[]) {
+    await notify(supabase, s.researcher_profiles.user_id, {
+      type: 'program',
+      title: `تحديث البرنامج ${program?.name ?? ''}: ${status}`,
+      link: `/programs`,
+    });
+  }
   revalidatePath('/company/programs');
 }
 
@@ -53,15 +68,29 @@ async function deleteAsset(assetId: string, programId: string) {
   revalidatePath(`/company/programs/${programId}`);
 }
 
+async function inviteResearcher(programId: string, formData: FormData) {
+  'use server';
+  const supabase = await createServerClient();
+  const username = String(formData.get('username') ?? '').trim().replace(/^@/, '');
+  if (!username) throw new Error('Username required');
+  const { data: profile } = await supabase.from('profiles').select('id').eq('username', username).single();
+  if (!profile) throw new Error('User not found');
+  const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', profile.id).single();
+  if (!rp) throw new Error('Not a researcher');
+  await supabase.from('program_researchers').upsert({ program_id: programId, researcher_id: rp.id }, { onConflict: 'program_id,researcher_id' });
+  revalidatePath(`/company/programs/${programId}`);
+}
+
 export default async function ManageProgram({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerClient();
   const { id: programId } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('id', programId).single();
   if (!program) return <main className="container py-12">Not found.</main>;
-  const [{ data: assets }, { data: rules }, { data: bounty }] = await Promise.all([
+  const [{ data: assets }, { data: rules }, { data: bounty }, { data: invited }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', programId),
     supabase.from('program_rules').select('*').eq('program_id', programId),
     supabase.from('bounty_policies').select('*').eq('program_id', programId),
+    supabase.from('program_researchers').select('researcher_id,researcher_profiles(display_name)').eq('program_id', programId),
   ]);
   return (
     <main className="container py-8 max-w-3xl space-y-6">
@@ -97,6 +126,15 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
           <Input name="title" required placeholder="العنوان" />
           <Input name="content" required placeholder="المحتوى" />
           <Button size="sm" type="submit">إضافة</Button>
+        </form>
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle>باحثون مدعوون (للبرامج الخاصة)</CardTitle></CardHeader><CardContent>
+        {((invited ?? []) as unknown as { researcher_id: string; researcher_profiles: { display_name: string } | null }[]).map((i) => (
+          <p key={i.researcher_id} className="border-b py-1 text-sm">{i.researcher_profiles?.display_name}</p>
+        ))}
+        <form action={inviteResearcher.bind(null, program.id)} className="mt-3 flex gap-2">
+          <Input name="username" required placeholder="username الباحث" dir="ltr" />
+          <Button size="sm" type="submit">دعوة</Button>
         </form>
       </CardContent></Card>
       <Card><CardHeader><CardTitle>سياسات المكافآت (EGP)</CardTitle></CardHeader><CardContent>

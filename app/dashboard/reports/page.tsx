@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusPill } from '@/components/shared/status-pill';
+import { ExportButton } from '@/components/shared/export-button';
 
 export default async function ReportsPage() {
   const supabase = await createServerClient();
@@ -34,11 +35,14 @@ export default async function ReportsPage() {
           <h1 className="text-xl font-black tracking-tight">التقارير</h1>
           <p className="mt-1 text-sm text-muted-foreground">{reports?.length ?? 0} تقريرًا — آخر نشاط أولًا</p>
         </div>
-        <Link href="/dashboard/reports/new">
-          <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
-            <Plus className="h-4 w-4" /> تقرير جديد
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <ExportButton rows={(reports ?? []).map((r) => ({ number: r.report_number, title: r.title, status: r.status, severity: r.severity, bounty: r.bounty_amount }))} filename="my-reports.csv" />
+          <Link href="/dashboard/reports/new">
+            <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
+              <Plus className="h-4 w-4" /> تقرير جديد
+            </Button>
+          </Link>
+        </div>
       </div>
       {!reports?.length ? (
         <Card>

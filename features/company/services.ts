@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
 import { logAudit } from '@/services/audit';
+import { notify, reportParties } from '@/lib/notify';
 
 async function companyOfProgram(programId: string) {
   const supabase = await createServerClient();
@@ -29,8 +30,112 @@ export async function triageReportAction(reportId: string, status: string) {
   await companyOfProgram(report.program_id);
   const { error } = await supabase.from('reports').update({ status }).eq('id', reportId);
   if (error) throw new Error(error.message);
-  await logAudit('update', 'reports', reportId, { status }, (await supabase.auth.getUser()).data.user?.id);
+  const actor = (await supabase.auth.getUser()).data.user?.id;
+  await logAudit('update', 'reports', reportId, { status }, actor);
+  const parties = await reportParties(supabase, reportId);
+  if (parties.reporterUserId) {
+    await notify(supabase, parties.reporterUserId, {
+      type: 'report',
+      title: `تحديث التقرير ${parties.reportNumber}: ${status}`,
+      body: 'غيّرت الشركة حالة تقريرك — افتحه لعرض التفاصيل',
+      link: `/dashboard/reports/${reportId}`,
+    });
+  }
   revalidatePath('/company/reports');
+}
+
+export async function changeSeverityAction(reportId: string, formData: FormData) {
+  const severity = String(formData.get('severity') ?? '');
+  const reason = String(formData.get('reason') ?? '').trim();
+  const allowed = ['informational', 'low', 'medium', 'high', 'critical'];
+  if (!allowed.includes(severity)) throw new Error('Invalid severity');
+  if (reason.length < 5) throw new Error('Reason required (5+ chars)');
+  const supabase = await createServerClient();
+  const { data: report } = await supabase.from('reports').select('program_id,severity').eq('id', reportId).single();
+  if (!report) throw new Error('Not found');
+  await companyOfProgram(report.program_id);
+  const { error } = await supabase.from('reports').update({ severity }).eq('id', reportId);
+  if (error) throw new Error(error.message);
+  const actor = (await supabase.auth.getUser()).data.user?.id;
+  // Reason is preserved permanently on the timeline
+  await supabase.from('report_events').insert({
+    report_id: reportId,
+    actor_id: actor ?? null,
+    note: `Severity changed ${report.severity} → ${severity}. Reason: ${reason}`,
+  });
+  await logAudit('update', 'reports', reportId, { severity, reason }, actor);
+  const parties = await reportParties(supabase, reportId);
+  if (parties.reporterUserId) {
+    await notify(supabase, parties.reporterUserId, {
+      type: 'report',
+      title: `تغيّرت خطورة التقرير ${parties.reportNumber} إلى ${severity}`,
+      body: reason,
+      link: `/dashboard/reports/${reportId}`,
+    });
+  }
+  revalidatePath(`/company/reports/${reportId}`);
+}
+
+export async function markDuplicateAction(reportId: string, formData: FormData) {
+  const duplicateOf = String(formData.get('duplicate_of') ?? '').trim();
+  if (!duplicateOf) throw new Error('Original report id/number required');
+  const supabase = await createServerClient();
+  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  if (!report) throw new Error('Not found');
+  await companyOfProgram(report.program_id);
+  // Accept either UUID or MB-000001 number for the original
+  let originalId = duplicateOf;
+  if (!/^[0-9a-f-]{36}$/i.test(duplicateOf)) {
+    const { data: orig } = await supabase.from('reports').select('id').eq('report_number', duplicateOf.toUpperCase()).single();
+    if (!orig) throw new Error('Original report not found');
+    originalId = orig.id;
+  }
+  if (originalId === reportId) throw new Error('A report cannot duplicate itself');
+  await supabase.from('report_duplicates').insert({ report_id: reportId, duplicate_of: originalId, marked_by: (await supabase.auth.getUser()).data.user?.id ?? null });
+  await supabase.from('reports').update({ status: 'duplicate' }).eq('id', reportId);
+  const parties = await reportParties(supabase, reportId);
+  if (parties.reporterUserId) {
+    await notify(supabase, parties.reporterUserId, {
+      type: 'report',
+      title: `التقرير ${parties.reportNumber} حُدد كمكرر`,
+      link: `/dashboard/reports/${reportId}`,
+    });
+  }
+  revalidatePath(`/company/reports/${reportId}`);
+}
+
+export async function markPaidAction(awardId: string, formData: FormData) {
+  const reference = String(formData.get('reference') ?? '').trim().slice(0, 120);
+  if (!reference) throw new Error('Payment reference required');
+  const supabase = await createServerClient();
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Unauthorized');
+  const { data: award } = await supabase
+    .from('bounty_awards')
+    .select('id,amount,status,report_id,reports!inner(program_id,researcher_id)')
+    .eq('id', awardId)
+    .single();
+  if (!award) throw new Error('Award not found');
+  const programId = (award as unknown as { reports: { program_id: string } }).reports.program_id;
+  await companyOfProgram(programId);
+  if (award.status === 'paid') throw new Error('Already paid');
+  await supabase.from('bounty_awards').update({ status: 'paid', decided_at: new Date().toISOString() }).eq('id', awardId);
+  await supabase.from('bounty_payments').insert({
+    award_id: awardId,
+    amount: award.amount,
+    status: 'completed',
+    reference,
+    processed_by: user.user.id,
+  });
+  const parties = await reportParties(supabase, award.report_id);
+  if (parties.reporterUserId) {
+    await notify(supabase, parties.reporterUserId, {
+      type: 'payment',
+      title: `تم دفع مكافأة ${award.amount} — مرجع ${reference}`,
+      link: '/dashboard/payments',
+    });
+  }
+  revalidatePath('/company/payments');
 }
 
 export async function awardBountyAction(reportId: string, formData: FormData) {
@@ -64,5 +169,13 @@ export async function awardBountyAction(reportId: string, formData: FormData) {
   });
   await supabase.from('reports').update({ status: 'accepted', bounty_amount: amount }).eq('id', reportId);
   await logAudit('award', 'bounty_awards', award.id, { report_id: reportId, amount }, user.user.id);
+  const parties = await reportParties(supabase, reportId);
+  if (parties.reporterUserId) {
+    await notify(supabase, parties.reporterUserId, {
+      type: 'bounty',
+      title: `مكافأة ${amount} على التقرير ${parties.reportNumber}`,
+      link: '/dashboard/payments',
+    });
+  }
   revalidatePath(`/company/reports/${reportId}`);
 }

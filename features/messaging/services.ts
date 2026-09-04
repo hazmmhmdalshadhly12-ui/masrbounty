@@ -31,6 +31,7 @@ export async function sendMessageAction(formData: FormData) {
   if (error) throw new Error(error.message);
   await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', parsed.data.conversation_id);
   revalidatePath('/dashboard/messages');
+  revalidatePath('/company/messages');
 }
 
 export async function startConversationAction(formData: FormData) {
