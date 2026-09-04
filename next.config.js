@@ -4,11 +4,11 @@ const isProd = process.env.NODE_ENV === 'production';
 // Strict CSP: same-origin + Supabase endpoints + no inline scripts (Next needs 'unsafe-inline' for styles only)
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co",
   "font-src 'self' data:",
-  `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://*.supabase.co'} wss://*.supabase.co`,
+  `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://*.supabase.co'} wss://*.supabase.co https://cloudflareinsights.com`,
   "frame-ancestors 'self'",
   "form-action 'self'",
   'upgrade-insecure-requests',

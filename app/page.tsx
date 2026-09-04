@@ -20,17 +20,27 @@ const steps = [
 ];
 
 export default async function Home() {
-  const supabase = await createServerClient();
-  const [{ count: programs }, { count: reports }, { count: researchers }] = await Promise.all([
-    supabase.from('programs').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('reports').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
-    supabase.from('researcher_profiles').select('id', { count: 'exact', head: true }),
-  ]);
+  let programs = 0;
+  let reports = 0;
+  let researchers = 0;
+  try {
+    const supabase = await createServerClient();
+    const [p, r, u] = await Promise.all([
+      supabase.from('programs').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('reports').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
+      supabase.from('researcher_profiles').select('id', { count: 'exact', head: true }),
+    ]);
+    programs = p.count ?? 0;
+    reports = r.count ?? 0;
+    researchers = u.count ?? 0;
+  } catch {
+    /* render with zeros when DB is unreachable */
+  }
 
   const stats = [
-    [String(programs ?? 0), 'برنامج نشط'],
-    [String(reports ?? 0), 'تقرير مُرسل'],
-    [String(researchers ?? 0), 'باحث مسجّل'],
+    [String(programs), 'برنامج نشط'],
+    [String(reports), 'تقرير مُرسل'],
+    [String(researchers), 'باحث مسجّل'],
   ];
 
   return (
