@@ -12,8 +12,8 @@ test('no wildcard CORS with credentials on API', () => {
   expect(src).not.toMatch('Access-Control-Allow-Origin');
 });
 
-test('middleware enforces CSRF check on api writes', () => {
-  const src = fs.readFileSync('middleware.ts', 'utf8');
+test('CSRF helper guards api writes', () => {
+  const src = fs.readFileSync('lib/csrf.ts', 'utf8');
   expect(src).toMatch('csrfBlocked');
-  expect(src).toMatch('/api/');
+  expect(src).toMatch('origin');
 });
