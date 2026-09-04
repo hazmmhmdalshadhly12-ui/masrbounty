@@ -68,61 +68,60 @@ export async function loginAction(formData: FormData) {
   redirect('/dashboard');
 }
 
-export async function registerAction(formData: FormData) {
+async function step<T>(code: string, base: string, fn: () => PromiseLike<T>): Promise<T> {
   try {
-    const parsed = registerSchema.safeParse({
-      username: formData.get('username'),
-      email: formData.get('email'),
-      password: formData.get('password'),
-      role: formData.get('role'),
-    });
-    if (!parsed.success) redirect('/register?error=' + encodeURIComponent('بيانات التسجيل غير صالحة'));
-    let ip = 'unknown';
-    try {
-      ip = await clientIp();
-    } catch {
-      /* headers unavailable on some runtimes */
-    }
-    try {
-      enforceRate(`register:${ip}`, limits.register.max, limits.register.windowMs);
-    } catch {
-      redirect('/register?error=' + encodeURIComponent('محاولات كثيرة — انتظر قليلًا وحاول مجددًا'));
-    }
-    let supabase;
-    try {
-      supabase = await createServerClient();
-    } catch {
-      redirect('/register?error=' + encodeURIComponent('عطل في الاتصال بالخدمة — حاول لاحقًا'));
-    }
-    const { data, error } = await supabase.auth.signUp({
+    return await fn();
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('NEXT_REDIRECT')) throw e;
+    redirect(`${base}?error=` + encodeURIComponent(`تعذر إكمال الخطوة [${code}] — حاول لاحقًا`));
+  }
+}
+
+export async function registerAction(formData: FormData) {
+  const parsed = registerSchema.safeParse({
+    username: formData.get('username'),
+    email: formData.get('email'),
+    password: formData.get('password'),
+    role: formData.get('role'),
+  });
+  if (!parsed.success) redirect('/register?error=' + encodeURIComponent('بيانات التسجيل غير صالحة'));
+  const ip = await clientIp();
+  await step('REG-LIMIT', '/register', async () => {
+    enforceRate(`register:${ip}`, limits.register.max, limits.register.windowMs);
+  });
+  const supabase = await step('REG-CONN', '/register', createServerClient);
+  const { data, error } = await step('REG-SIGNUP', '/register', () =>
+    supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: { data: { username: parsed.data.username, role: parsed.data.role } },
-    });
-    if (error) redirect('/register?error=' + encodeURIComponent(friendlyAuthError(error.message)));
-    if (!data.user) redirect('/register?error=' + encodeURIComponent('فشل إنشاء الحساب — حاول مرة أخرى'));
-    // Create profile row (RLS allows own insert)
-    const { error: pErr } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      username: parsed.data.username,
-    });
-    if (pErr) redirect('/register?error=' + encodeURIComponent('اسم المستخدم مستخدم بالفعل — اختر اسمًا آخر'));
-    await supabase.from('user_roles').insert({ user_id: data.user.id, role: parsed.data.role });
-    if (parsed.data.role === 'researcher') {
-      const { data: rp } = await supabase
+    })
+  );
+  if (error) redirect('/register?error=' + encodeURIComponent(friendlyAuthError(error.message)));
+  if (!data.user) redirect('/register?error=' + encodeURIComponent('فشل إنشاء الحساب — حاول مرة أخرى'));
+  // Create profile row (RLS allows own insert)
+  const { error: pErr } = await step('REG-PROFILE', '/register', () =>
+    supabase.from('profiles').insert({ id: data.user!.id, username: parsed.data.username })
+  );
+  if (pErr) redirect('/register?error=' + encodeURIComponent('اسم المستخدم مستخدم بالفعل — اختر اسمًا آخر'));
+  await step('REG-ROLE', '/register', () =>
+    supabase.from('user_roles').insert({ user_id: data.user!.id, role: parsed.data.role })
+  );
+  if (parsed.data.role === 'researcher') {
+    const { data: rp } = await step('REG-RP', '/register', () =>
+      supabase
         .from('researcher_profiles')
-        .insert({ user_id: data.user.id, display_name: parsed.data.username })
+        .insert({ user_id: data.user!.id, display_name: parsed.data.username })
         .select('id')
-        .single();
-      if (rp) {
+        .single()
+    );
+    if (rp) {
+      await step('REG-WALLET', '/register', async () => {
         await supabase.from('wallets').insert({ researcher_id: rp.id });
         await supabase.from('researcher_reputation').insert({ researcher_id: rp.id, score: 0 });
         await supabase.from('researcher_stats').insert({ researcher_id: rp.id });
-      }
+      });
     }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes('NEXT_REDIRECT')) throw e;
-    redirect('/register?error=' + encodeURIComponent('تعذر إنشاء الحساب حاليًا — حاول لاحقًا'));
   }
   redirect('/login?ok=' + encodeURIComponent('تم إنشاء الحساب — سجّل الدخول الآن'));
 }
