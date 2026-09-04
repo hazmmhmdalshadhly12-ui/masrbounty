@@ -39,6 +39,48 @@ export default async function CompanySettings() {
           <Button type="submit">Save</Button>
         </form>
       </CardContent></Card>
+      {company && <VerificationCard companyId={company.id} />}
     </main>
+  );
+}
+
+async function VerificationCard({ companyId }: { companyId: string }) {
+  const supabase = await createServerClient();
+  const { data: verifs } = await supabase
+    .from('company_verifications')
+    .select('id,status,review_note,created_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  async function requestVerification(formData: FormData) {
+    'use server';
+    const supabase = await createServerClient();
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) throw new Error('Unauthorized');
+    const url = String(formData.get('document_url') ?? '').trim();
+    if (!/^https?:\/\/.+\..+/.test(url)) throw new Error('Invalid document URL');
+    await supabase.from('company_verifications').insert({
+      company_id: String(formData.get('company_id')),
+      document_url: url,
+      status: 'pending',
+    });
+    revalidatePath('/company/settings');
+  }
+
+  return (
+    <Card><CardHeader><CardTitle>توثيق الشركة</CardTitle></CardHeader><CardContent className="space-y-3">
+      {verifs?.map((v) => (
+        <p key={v.id} className="text-sm border rounded p-2">
+          {v.status}{v.review_note ? ` — ${v.review_note}` : ''}
+        </p>
+      ))}
+      <form action={requestVerification} className="flex gap-2">
+        <input type="hidden" name="company_id" value={companyId} />
+        <Input name="document_url" required placeholder="رابط مستند السجل التجاري (https://…)" dir="ltr" />
+        <Button type="submit">طلب توثيق</Button>
+      </form>
+      <p className="text-xs text-muted-foreground">نراجع المستند يدويًا؛ عند القبول تظهر شارة موثقة على ملف شركتك وبرامجها.</p>
+    </CardContent></Card>
   );
 }

@@ -11,6 +11,7 @@ export const reportSchema = z.object({
   impact: z.string().min(20),
   reproduction_steps: z.string().min(20),
   remediation: z.string().optional(),
+  cvss_score: z.coerce.number().min(0).max(10).optional(),
 });
 
 export type ReportInput = z.infer<typeof reportSchema>;

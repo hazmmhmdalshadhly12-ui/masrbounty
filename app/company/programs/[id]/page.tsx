@@ -26,6 +26,33 @@ async function addRule(id: string, formData: FormData) {
   revalidatePath(`/company/programs/${id}`);
 }
 
+async function saveBounty(id: string, formData: FormData) {
+  'use server';
+  const supabase = await createServerClient();
+  const severity = String(formData.get('severity'));
+  const min = Number(formData.get('min_amount'));
+  const max = Number(formData.get('max_amount'));
+  if (!severity || !(min >= 0) || !(max >= min)) throw new Error('Invalid bounty range');
+  await supabase
+    .from('bounty_policies')
+    .upsert({ program_id: id, severity, min_amount: min, max_amount: max }, { onConflict: 'program_id,severity' });
+  revalidatePath(`/company/programs/${id}`);
+}
+
+async function deleteRule(ruleId: string, programId: string) {
+  'use server';
+  const supabase = await createServerClient();
+  await supabase.from('program_rules').delete().eq('id', ruleId);
+  revalidatePath(`/company/programs/${programId}`);
+}
+
+async function deleteAsset(assetId: string, programId: string) {
+  'use server';
+  const supabase = await createServerClient();
+  await supabase.from('program_assets').delete().eq('id', assetId);
+  revalidatePath(`/company/programs/${programId}`);
+}
+
 export default async function ManageProgram({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerClient();
   const { id: programId } = await params;
@@ -46,24 +73,47 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
           <Button size="sm" type="submit">Update</Button>
         </form>
       </div>
-      <Card><CardHeader><CardTitle>Assets</CardTitle></CardHeader><CardContent>
-        {assets?.map((a) => <p key={a.id} className="text-sm border-b py-1">{a.type}: <span dir="ltr">{a.value}</span></p>)}
+      <Card><CardHeader><CardTitle>الأصول ({assets?.length ?? 0})</CardTitle></CardHeader><CardContent>
+        {assets?.map((a) => (
+          <div key={a.id} className="flex items-center justify-between border-b py-2 text-sm">
+            <span>{a.type}: <span dir="ltr">{a.value}</span></span>
+            <form action={deleteAsset.bind(null, a.id, program.id)}><Button size="sm" variant="ghost" type="submit">حذف</Button></form>
+          </div>
+        ))}
         <form action={addAsset.bind(null, program.id)} className="flex gap-2 mt-3">
           <select name="type" className="h-10 border rounded-md px-2"><option value="web">web</option><option value="api">api</option><option value="mobile">mobile</option><option value="network">network</option><option value="other">other</option></select>
           <Input name="value" required placeholder="https://… or 192.0.2.0/24" dir="ltr" />
-          <Button size="sm" type="submit">Add</Button>
+          <Button size="sm" type="submit">إضافة</Button>
         </form>
       </CardContent></Card>
-      <Card><CardHeader><CardTitle>Rules</CardTitle></CardHeader><CardContent>
-        {rules?.map((r) => <p key={r.id} className="text-sm border-b py-1"><b>{r.title}:</b> {r.content}</p>)}
+      <Card><CardHeader><CardTitle>القواعد ({rules?.length ?? 0})</CardTitle></CardHeader><CardContent>
+        {rules?.map((r) => (
+          <div key={r.id} className="flex items-center justify-between border-b py-2 text-sm">
+            <span><b>{r.title}:</b> {r.content}</span>
+            <form action={deleteRule.bind(null, r.id, program.id)}><Button size="sm" variant="ghost" type="submit">حذف</Button></form>
+          </div>
+        ))}
         <form action={addRule.bind(null, program.id)} className="flex gap-2 mt-3">
-          <Input name="title" required placeholder="Title" />
-          <Input name="content" required placeholder="Content" />
-          <Button size="sm" type="submit">Add</Button>
+          <Input name="title" required placeholder="العنوان" />
+          <Input name="content" required placeholder="المحتوى" />
+          <Button size="sm" type="submit">إضافة</Button>
         </form>
       </CardContent></Card>
-      <Card><CardHeader><CardTitle>Bounty policies</CardTitle></CardHeader><CardContent>
-        {!bounty?.length ? <p className="text-sm text-muted-foreground">None — add from Supabase or extend this form.</p> : bounty.map((b) => <p key={b.id} className="text-sm">{b.severity}: {b.min_amount}–{b.max_amount}</p>)}
+      <Card><CardHeader><CardTitle>سياسات المكافآت (EGP)</CardTitle></CardHeader><CardContent>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(bounty ?? []).map((b) => (
+            <p key={b.id} className="rounded-md border p-2 text-sm"><b>{b.severity}</b>: {b.min_amount} – {b.max_amount}</p>
+          ))}
+        </div>
+        <form action={saveBounty.bind(null, program.id)} className="mt-3 flex flex-wrap gap-2">
+          <select name="severity" className="h-10 border rounded-md px-2">
+            <option value="informational">informational</option><option value="low">low</option>
+            <option value="medium">medium</option><option value="high">high</option><option value="critical">critical</option>
+          </select>
+          <Input name="min_amount" type="number" min={0} required placeholder="من" className="w-28" dir="ltr" />
+          <Input name="max_amount" type="number" min={0} required placeholder="إلى" className="w-28" dir="ltr" />
+          <Button size="sm" type="submit">حفظ النطاق</Button>
+        </form>
       </CardContent></Card>
     </main>
   );

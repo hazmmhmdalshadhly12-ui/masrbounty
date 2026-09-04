@@ -36,7 +36,10 @@ export default async function NewReportPage() {
             <div><Label>Description</Label><Textarea name="description" required /></div>
             <div><Label>Impact</Label><Textarea name="impact" required /></div>
             <div><Label>Reproduction steps</Label><Textarea name="reproduction_steps" required /></div>
-            <div><Label>Remediation (optional)</Label><Textarea name="remediation" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>CVSS (0–10, اختياري)</Label><Input name="cvss_score" type="number" min={0} max={10} step={0.1} dir="ltr" placeholder="7.5" /></div>
+              <div><Label>Remediation (optional)</Label><Textarea name="remediation" /></div>
+            </div>
             <Button type="submit" className="w-full">إنشاء كمسودة</Button>
           </form>
         </CardContent>

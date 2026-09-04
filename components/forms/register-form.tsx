@@ -34,7 +34,10 @@ export function RegisterForm() {
       const { data, error: err } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
-        options: { data: { username: parsed.data.username, role: parsed.data.role } },
+        options: {
+          data: { username: parsed.data.username, role: parsed.data.role },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/welcome`,
+        },
       });
       if (err) {
         setError(friendlyAuthError(err.message));

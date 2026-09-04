@@ -34,16 +34,31 @@ export async function GET(request: Request) {
     },
   });
 
-  // PKCE flow (?code=...)
+  const badLink = `${origin}/login?error=` + encodeURIComponent('رابط غير صالح أو منتهي — اطلب رابطًا جديدًا');
+  // PKCE flow (?code=...) — honors the ?next= chosen by the sender
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) return NextResponse.redirect(badLink);
   }
   // Email-link flow (?token_hash=...&type=signup|recovery|email_change)
   else if (tokenHash && type) {
-    await supabase.auth.verifyOtp({
+    const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
       type: type as 'signup' | 'recovery' | 'email_change' | 'invite',
     });
+    if (error) return NextResponse.redirect(badLink);
+    // Confirmed identities land on a clear confirmation screen
+    if (type === 'signup' || type === 'invite' || type === 'email_change') {
+      return NextResponse.redirect(
+        `${origin}/login?ok=` + encodeURIComponent('تم تأكيد بريدك بنجاح — سجّل الدخول الآن')
+      );
+    }
+    // Password recovery continues to choosing a new password
+    if (type === 'recovery') {
+      return NextResponse.redirect(`${origin}/auth/update-password`);
+    }
+  } else {
+    return NextResponse.redirect(`${origin}/login`);
   }
   return NextResponse.redirect(`${origin}${next}`);
 }
