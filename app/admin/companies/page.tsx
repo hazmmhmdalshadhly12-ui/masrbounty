@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export default async function AdminCompanies() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('company_profiles').select('id,name,slug,is_verified').limit(100);
   const { data: verifs } = await supabase.from('company_verifications').select('id,company_id,status').eq('status', 'pending');
   return (

@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export default async function CompanyReports() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: reports } = await supabase.from('report_overview').select('*').order('created_at', { ascending: false }).limit(100);
   return (
     <main className="container py-8">

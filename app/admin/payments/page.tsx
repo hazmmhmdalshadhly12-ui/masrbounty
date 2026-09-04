@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export default async function AdminPayments() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('payout_requests').select('*').order('created_at', { ascending: false }).limit(100);
   return (
     <main className="container py-8">

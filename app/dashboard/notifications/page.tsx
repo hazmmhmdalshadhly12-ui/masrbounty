@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export default async function NotificationsPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
   const { data: notifs } = await supabase.from('notifications').select('*').eq('user_id', user.user.id).order('created_at', { ascending: false }).limit(50);

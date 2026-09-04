@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export default async function DisputesPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(100);
   return (
     <main className="container py-8">

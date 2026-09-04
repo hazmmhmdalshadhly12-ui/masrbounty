@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export default async function ProgramsPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: programs } = await supabase
     .from('programs')
     .select('id,name,slug,description,status,visibility')

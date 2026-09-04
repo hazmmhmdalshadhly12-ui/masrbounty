@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default async function ResearchersPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank').limit(50);
   return (
     <main className="container py-8">

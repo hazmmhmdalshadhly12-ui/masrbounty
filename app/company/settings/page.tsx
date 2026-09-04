@@ -7,7 +7,7 @@ import { slugify } from '@/utils/slug';
 
 async function saveCompany(formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const name = String(formData.get('name'));
@@ -23,7 +23,7 @@ async function saveCompany(formData: FormData) {
 }
 
 export default async function CompanySettings() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
   const { data: company } = await supabase.from('company_profiles').select('*').eq('owner_id', user.user.id).single();

@@ -7,33 +7,34 @@ import { Badge } from '@/components/ui/badge';
 
 async function updateStatus(id: string, formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase.from('programs').update({ status: String(formData.get('status')) }).eq('id', id);
   revalidatePath('/company/programs');
 }
 
 async function addAsset(id: string, formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase.from('program_assets').insert({ program_id: id, type: String(formData.get('type')), value: String(formData.get('value')) });
   revalidatePath(`/company/programs/${id}`);
 }
 
 async function addRule(id: string, formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase.from('program_rules').insert({ program_id: id, title: String(formData.get('title')), content: String(formData.get('content')) });
   revalidatePath(`/company/programs/${id}`);
 }
 
-export default async function ManageProgram({ params }: { params: { id: string } }) {
-  const supabase = createServerClient();
-  const { data: program } = await supabase.from('programs').select('*').eq('id', params.id).single();
+export default async function ManageProgram({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createServerClient();
+  const { id: programId } = await params;
+  const { data: program } = await supabase.from('programs').select('*').eq('id', programId).single();
   if (!program) return <main className="container py-12">Not found.</main>;
   const [{ data: assets }, { data: rules }, { data: bounty }] = await Promise.all([
-    supabase.from('program_assets').select('*').eq('program_id', params.id),
-    supabase.from('program_rules').select('*').eq('program_id', params.id),
-    supabase.from('bounty_policies').select('*').eq('program_id', params.id),
+    supabase.from('program_assets').select('*').eq('program_id', programId),
+    supabase.from('program_rules').select('*').eq('program_id', programId),
+    supabase.from('bounty_policies').select('*').eq('program_id', programId),
   ]);
   return (
     <main className="container py-8 max-w-3xl space-y-6">

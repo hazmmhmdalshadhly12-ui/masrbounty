@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function NewReportPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: programs } = await supabase.from('programs').select('id,name').eq('status', 'active').limit(100);
   return (
     <main className="container py-8 max-w-2xl">

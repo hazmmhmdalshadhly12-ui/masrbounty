@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 
-export default async function MessagesPage({ searchParams }: { searchParams: { c?: string } }) {
-  const supabase = createServerClient();
+export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
   const { data: memberships } = await supabase.from('conversation_members').select('conversation_id,conversations(id,subject)').eq('user_id', user.user.id);
-  const activeId = searchParams.c ?? (memberships?.[0]?.conversation_id as string | undefined);
+  const activeId = (await searchParams).c ?? (memberships?.[0]?.conversation_id as string | undefined);
   const { data: messages } = activeId
     ? await supabase.from('messages').select('id,body,sender_id,created_at').eq('conversation_id', activeId).order('created_at').limit(100)
     : { data: [] };

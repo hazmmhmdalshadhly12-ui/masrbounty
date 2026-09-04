@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function CompanyHome() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
   const { data: memberships } = await supabase.from('company_members').select('company_id,role,company_profiles(id,name,slug)').eq('user_id', user.user.id);

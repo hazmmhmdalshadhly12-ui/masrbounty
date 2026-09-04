@@ -3,9 +3,10 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-export default async function CompanyPublic({ params }: { params: { slug: string } }) {
-  const supabase = createServerClient();
-  const { data: company } = await supabase.from('company_profiles').select('*').eq('slug', params.slug).single();
+export default async function CompanyPublic({ params }: { params: Promise<{ slug: string }> }) {
+  const supabase = await createServerClient();
+  const { slug } = await params;
+  const { data: company } = await supabase.from('company_profiles').select('*').eq('slug', slug).single();
   if (!company) return <main className="container py-12">Company not found.</main>;
   const { data: programs } = await supabase.from('programs').select('id,name,slug,status').eq('company_id', company.id).eq('status', 'active').eq('visibility', 'public');
   return (

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export default async function CompanyPrograms() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
   const { data: programs } = await supabase.from('programs').select('id,name,slug,status,visibility').order('created_at', { ascending: false }).limit(100);

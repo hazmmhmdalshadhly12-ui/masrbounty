@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default async function CompanyReport({ params }: { params: { id: string } }) {
-  const supabase = createServerClient();
-  const { data: report } = await supabase.from('reports').select('*').eq('id', params.id).single();
+export default async function CompanyReport({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createServerClient();
+  const { id } = await params;
+  const { data: report } = await supabase.from('reports').select('*').eq('id', id).single();
   if (!report) return <main className="container py-12">Not found.</main>;
-  const { data: comments } = await supabase.from('report_comments').select('*').eq('report_id', params.id).order('created_at');
+  const { data: comments } = await supabase.from('report_comments').select('*').eq('report_id', id).order('created_at');
 
   return (
     <main className="container py-8 max-w-3xl space-y-6">

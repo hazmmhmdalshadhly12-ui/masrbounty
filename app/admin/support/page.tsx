@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 
 async function reply(ticketId: string, formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   await supabase.from('support_messages').insert({ ticket_id: ticketId, author_id: user.user.id, body: String(formData.get('body')) });
@@ -16,7 +16,7 @@ async function reply(ticketId: string, formData: FormData) {
 }
 
 export default async function Support() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: tickets } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(50);
   return (
     <main className="container py-8">

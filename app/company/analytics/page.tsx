@@ -4,7 +4,7 @@ import { ReportsChart } from '@/components/charts/reports-chart';
 import { SeverityChart } from '@/components/charts/severity-chart';
 
 export default async function AnalyticsPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('program_stats_view').select('*');
   const { data: reports } = await supabase.from('reports').select('status,severity').limit(1000);
   const byStatus = Object.entries(((reports ?? []) as { status: string }[]).reduce<Record<string, number>>((a, r) => ({ ...a, [r.status]: (a[r.status] ?? 0) + 1 }), {})).map(([status, count]) => ({ status, count }));

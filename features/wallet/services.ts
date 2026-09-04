@@ -10,7 +10,7 @@ export async function requestPayoutAction(formData: FormData) {
     payment_method_id: formData.get('payment_method_id'),
   });
   if (!parsed.success) throw new Error('Invalid payout request');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single();

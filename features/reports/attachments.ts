@@ -21,7 +21,7 @@ function ext(name: string): string {
 }
 
 export async function uploadAttachmentAction(reportId: string, formData: FormData) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   enforceRate(`upload:${user.user.id}`, limits.comment.max, limits.comment.windowMs);

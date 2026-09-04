@@ -8,7 +8,7 @@ import { enforceRate, limits } from '@/lib/rate-limit';
 import { logAudit } from '@/services/audit';
 
 async function researcherIdOrThrow() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error('Unauthorized');
   const { data: rp } = await supabase
@@ -76,7 +76,7 @@ export async function submitReportAction(reportId: string) {
 export async function addCommentAction(reportId: string, formData: FormData) {
   const body = String(formData.get('body') ?? '').trim();
   if (!body) throw new Error('Empty comment');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error('Unauthorized');
   enforceRate(`comment:${data.user.id}`, limits.comment.max, limits.comment.windowMs);

@@ -2,9 +2,10 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-export default async function ResearcherPublic({ params }: { params: { username: string } }) {
-  const supabase = createServerClient();
-  const { data: profile } = await supabase.from('profiles').select('id,username,full_name,avatar_url,bio').eq('username', params.username).single();
+export default async function ResearcherPublic({ params }: { params: Promise<{ username: string }> }) {
+  const supabase = await createServerClient();
+  const { username } = await params;
+  const { data: profile } = await supabase.from('profiles').select('id,username,full_name,avatar_url,bio').eq('username', username).single();
   if (!profile) return <main className="container py-12">Researcher not found.</main>;
   const { data: rp } = await supabase.from('researcher_profiles').select('id,display_name,skills,is_public').eq('user_id', profile.id).single();
   if (!rp || !rp.is_public) return <main className="container py-12">Profile is private.</main>;

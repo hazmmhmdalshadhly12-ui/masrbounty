@@ -17,7 +17,7 @@ export async function createProgramAction(formData: FormData) {
   };
   const parsed = programSchema.safeParse(raw);
   if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid program');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: company } = await supabase
@@ -37,7 +37,7 @@ export async function createProgramAction(formData: FormData) {
 }
 
 export async function toggleSaveProgram(programId: string, researcherId: string, saved: boolean) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   if (saved) {
     await supabase.from('saved_programs').delete().eq('program_id', programId).eq('researcher_id', researcherId);
   } else {

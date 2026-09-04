@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 
 async function moderate(formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   await supabase.from('moderation_actions').insert({
@@ -20,7 +20,7 @@ async function moderate(formData: FormData) {
 }
 
 export default async function Moderation() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('moderation_actions').select('*').order('created_at', { ascending: false }).limit(100);
   return (
     <main className="container py-8 max-w-2xl space-y-6">

@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 
 async function save(formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase.from('platform_settings').upsert({ key: String(formData.get('key')), value: JSON.parse(String(formData.get('value') || '{}')) });
   revalidatePath('/admin/settings');
 }
 
 export default async function AdminSettings() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('platform_settings').select('*');
   return (
     <main className="container py-8 max-w-2xl space-y-4">

@@ -20,7 +20,7 @@ const steps = [
 ];
 
 export default async function Home() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const [{ count: programs }, { count: reports }, { count: researchers }] = await Promise.all([
     supabase.from('programs').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('reports').select('id', { count: 'exact', head: true }).neq('status', 'draft'),

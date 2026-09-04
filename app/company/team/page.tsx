@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 
 async function invite(formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase.from('company_invitations').insert({
     company_id: String(formData.get('company_id')),
     email: String(formData.get('email')),
@@ -16,7 +16,7 @@ async function invite(formData: FormData) {
 }
 
 export default async function TeamPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
   const { data: companies } = await supabase.from('company_profiles').select('id,name').eq('owner_id', user.user.id);

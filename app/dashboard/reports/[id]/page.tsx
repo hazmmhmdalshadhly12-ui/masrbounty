@@ -7,14 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 
-export default async function ReportDetail({ params }: { params: { id: string } }) {
-  const supabase = createServerClient();
-  const { data: report } = await supabase.from('reports').select('*').eq('id', params.id).single();
+export default async function ReportDetail({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createServerClient();
+  const { id: reportId } = await params;
+  const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
   if (!report) return <main className="container py-12">Report not found.</main>;
   const [{ data: comments }, { data: events }, { data: attachments }] = await Promise.all([
-    supabase.from('report_comments').select('id,body,created_at').eq('report_id', params.id).order('created_at'),
-    supabase.from('report_events').select('id,from_status,to_status,created_at').eq('report_id', params.id).order('created_at'),
-    supabase.from('report_attachments').select('id,file_name,file_size,mime_type,created_at').eq('report_id', params.id).order('created_at'),
+    supabase.from('report_comments').select('id,body,created_at').eq('report_id', reportId).order('created_at'),
+    supabase.from('report_events').select('id,from_status,to_status,created_at').eq('report_id', reportId).order('created_at'),
+    supabase.from('report_attachments').select('id,file_name,file_size,mime_type,created_at').eq('report_id', reportId).order('created_at'),
   ]);
 
   return (

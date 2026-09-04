@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default async function HallOfFamePage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('hall_of_fame').select('*').order('recognized_at', { ascending: false }).limit(100);
   return (
     <main className="container py-8">

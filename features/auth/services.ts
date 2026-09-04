@@ -7,25 +7,25 @@ import { loginSchema, registerSchema } from '@/schemas/auth';
 import { enforceRate, limits } from '@/lib/rate-limit';
 import { logAudit, logSecurityEvent } from '@/services/audit';
 
-function clientIp(): string {
+async function clientIp(): Promise<string> {
   try {
-    return headers().get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    return (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
   } catch {
     return 'unknown';
   }
 }
 
 export async function loginAction(formData: FormData) {
-  enforceRate(`login:${clientIp()}`, limits.login.max, limits.login.windowMs);
+  enforceRate(`login:${await clientIp()}`, limits.login.max, limits.login.windowMs);
   const parsed = loginSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
   });
   if (!parsed.success) throw new Error('Invalid credentials format');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    await logSecurityEvent('login.failed', parsed.data.email, undefined, clientIp());
+    await logSecurityEvent('login.failed', parsed.data.email, undefined, await clientIp());
     throw new Error(error.message);
   }
   await logAudit('login', 'session', data.user?.id, {}, data.user?.id);
@@ -33,7 +33,7 @@ export async function loginAction(formData: FormData) {
 }
 
 export async function registerAction(formData: FormData) {
-  enforceRate(`register:${clientIp()}`, limits.register.max, limits.register.windowMs);
+  enforceRate(`register:${await clientIp()}`, limits.register.max, limits.register.windowMs);
   const parsed = registerSchema.safeParse({
     username: formData.get('username'),
     email: formData.get('email'),
@@ -41,7 +41,7 @@ export async function registerAction(formData: FormData) {
     role: formData.get('role'),
   });
   if (!parsed.success) throw new Error('Invalid registration data');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
@@ -71,7 +71,7 @@ export async function registerAction(formData: FormData) {
 }
 
 export async function logoutAction() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase.auth.signOut();
   redirect('/');
 }

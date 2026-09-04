@@ -12,7 +12,7 @@ export async function sendMessageAction(formData: FormData) {
     body: formData.get('body'),
   });
   if (!parsed.success) throw new Error('Invalid message');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   enforceRate(`msg:${user.user.id}`, limits.message.max, limits.message.windowMs);
@@ -37,7 +37,7 @@ export async function startConversationAction(formData: FormData) {
   const otherId = String(formData.get('user_id') ?? '');
   const subject = String(formData.get('subject') ?? '');
   if (!otherId) throw new Error('Missing user');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: conv, error } = await supabase.from('conversations').insert({ subject, created_by: user.user.id }).select('id').single();

@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default async function AdminHome() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const tables = ['profiles', 'programs', 'reports', 'payout_requests', 'disputes', 'support_tickets'] as const;
   const counts = await Promise.all(tables.map(async (t) => ({ t, n: (await supabase.from(t).select('id', { count: 'exact', head: true })).count ?? 0 })));
   const links = [

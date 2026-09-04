@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default async function LeaderboardPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data } = await supabase.from('researcher_leaderboard').select('*').limit(50);
   return (
     <main className="container py-8">

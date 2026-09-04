@@ -9,7 +9,7 @@ import { logAudit } from '@/services/audit';
 export async function openDisputeAction(formData: FormData) {
   const parsed = disputeSchema.safeParse({ report_id: formData.get('report_id'), reason: formData.get('reason') });
   if (!parsed.success) throw new Error('Invalid dispute');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   enforceRate(`dispute:${user.user.id}`, limits.dispute.max, limits.dispute.windowMs);
@@ -22,7 +22,7 @@ export async function resolveDisputeAction(disputeId: string, formData: FormData
   const resolution = String(formData.get('resolution') ?? '');
   const status = String(formData.get('status') ?? 'resolved');
   if (!['resolved', 'rejected'].includes(status)) throw new Error('Invalid status');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   await supabase.from('disputes').update({ status, resolution, resolved_by: user.user.id }).eq('id', disputeId);
@@ -32,7 +32,7 @@ export async function resolveDisputeAction(disputeId: string, formData: FormData
 }
 
 export async function approvePayoutAction(payoutId: string, approve: boolean) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: payout } = await supabase.from('payout_requests').select('*').eq('id', payoutId).single();

@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-export default async function ProgramDetail({ params }: { params: { slug: string } }) {
-  const supabase = createServerClient();
-  const { data: program } = await supabase.from('programs').select('*').eq('slug', params.slug).single();
+export default async function ProgramDetail({ params }: { params: Promise<{ slug: string }> }) {
+  const supabase = await createServerClient();
+  const { slug } = await params;
+  const { data: program } = await supabase.from('programs').select('*').eq('slug', slug).single();
   if (!program) return <main className="container py-12">Program not found.</main>;
   const [{ data: assets }, { data: rules }, { data: bounty }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', program.id),

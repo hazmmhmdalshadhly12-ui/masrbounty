@@ -3,9 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
-  const q = (searchParams.q ?? '').trim();
-  const supabase = createServerClient();
+export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const q = (((await searchParams).q) ?? '').trim();
+  const supabase = await createServerClient();
   let programs: { id: string; name: string; slug: string }[] = [];
   if (q) {
     const { data } = await supabase.from('programs').select('id,name,slug').ilike('name', `%${q}%`).eq('status', 'active').limit(20);

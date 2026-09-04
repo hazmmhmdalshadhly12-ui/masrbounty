@@ -1,28 +1,21 @@
-import { createServerClient as ssr } from '@supabase/ssr';
+import { createServerClient as ssr, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-export function createServerClient() {
-  const store = cookies();
+export async function createServerClient() {
+  const store = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) throw new Error('Missing Supabase env vars');
   return ssr(url, anon, {
     cookies: {
-      get(name: string) {
-        return store.get(name)?.value;
+      getAll() {
+        return store.getAll();
       },
-      set(name: string, value: string, options: object) {
+      setAll(toSet: { name: string; value: string; options: CookieOptions }[]) {
         try {
-          store.set(name, value, options as never);
+          toSet.forEach(({ name, value, options }) => store.set(name, value, options));
         } catch {
           /* called from Server Component - ignore */
-        }
-      },
-      remove(name: string, options: object) {
-        try {
-          store.set(name, '', options as never);
-        } catch {
-          /* ignore */
         }
       },
     },

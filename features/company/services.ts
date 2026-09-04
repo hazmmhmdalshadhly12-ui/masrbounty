@@ -5,7 +5,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { logAudit } from '@/services/audit';
 
 async function companyOfProgram(programId: string) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: program } = await supabase.from('programs').select('id,company_id').eq('id', programId).single();
@@ -23,7 +23,7 @@ async function companyOfProgram(programId: string) {
 export async function triageReportAction(reportId: string, status: string) {
   const allowed = ['triaged', 'informative', 'duplicate', 'not_applicable', 'accepted', 'resolved', 'closed'];
   if (!allowed.includes(status)) throw new Error('Invalid status');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
   await companyOfProgram(report.program_id);
@@ -36,7 +36,7 @@ export async function triageReportAction(reportId: string, status: string) {
 export async function awardBountyAction(reportId: string, formData: FormData) {
   const amount = Number(formData.get('amount'));
   if (!amount || amount < 0) throw new Error('Invalid amount');
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: report } = await supabase.from('reports').select('id,program_id,researcher_id').eq('id', reportId).single();

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 
 async function updateProfile(formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   await supabase.from('profiles').update({
@@ -21,7 +21,7 @@ async function updateProfile(formData: FormData) {
 
 async function addMethod(formData: FormData) {
   'use server';
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
   const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single();
@@ -37,7 +37,7 @@ async function addMethod(formData: FormData) {
 }
 
 export default async function SettingsPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) redirect('/login');
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.user.id).single();
