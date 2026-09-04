@@ -52,7 +52,32 @@
   * {
     @apply border-border;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Segoe UI', Tahoma, 'Cairo', 'Noto Kufi Arabic', system-ui, sans-serif;
+  }
+  ::selection {
+    background: #fbbf24;
+    color: #0a1628;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #fbbf24;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #334155;
   }
 }
