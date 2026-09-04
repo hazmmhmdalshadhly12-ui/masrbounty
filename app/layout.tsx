@@ -6,6 +6,8 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import type { Metadata } from 'next';
 
+export const runtime = 'edge';
+
 export const metadata: Metadata = {
   title: { default: 'MasrBounty', template: '%s | MasrBounty' },
   description: 'Egyptian Bug Bounty Platform — Authorized security testing only',
