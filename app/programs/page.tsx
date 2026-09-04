@@ -42,19 +42,19 @@ export default async function ProgramsPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {programs.map((p) => (
-              <Card key={p.id} className="group flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl">
+              <Card key={p.id} className="group flex flex-col transition-colors hover:border-slate-400">
                 <CardContent className="flex flex-1 flex-col p-6">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0a1628] text-amber-400">
-                      <AppWindow className="h-5 w-5" />
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border bg-muted">
+                      <AppWindow className="h-5 w-5 text-muted-foreground" />
                     </span>
                     <Badge variant="secondary">عام</Badge>
                   </div>
-                  <h2 className="mt-4 text-lg font-black group-hover:text-amber-600">{p.name}</h2>
+                  <h2 className="mt-4 text-lg font-bold">{p.name}</h2>
                   <p className="mt-2 line-clamp-2 flex-1 text-sm text-muted-foreground">{p.description}</p>
                   <Link href={`/programs/${p.slug}`} className="mt-5">
-                    <Button className="w-full bg-[#0a1628] text-white hover:bg-[#16294a]">
-                      عرض البرنامج <ArrowLeft className="h-4 w-4" />
+                    <Button variant="outline" className="w-full">
+                      عرض التفاصيل <ArrowLeft className="h-4 w-4" />
                     </Button>
                   </Link>
                 </CardContent>

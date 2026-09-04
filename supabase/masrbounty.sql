@@ -841,7 +841,17 @@ DROP POLICY IF EXISTS "avatars_public" ON storage.objects; CREATE POLICY "avatar
 DROP POLICY IF EXISTS "avatars_upload" ON storage.objects; CREATE POLICY "avatars_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='avatars' AND auth.role()='authenticated');
 DROP POLICY IF EXISTS "logos_public" ON storage.objects; CREATE POLICY "logos_public" ON storage.objects FOR SELECT USING (bucket_id='company-logos');
 DROP POLICY IF EXISTS "logos_upload" ON storage.objects; CREATE POLICY "logos_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='company-logos' AND auth.role()='authenticated');
-DROP POLICY IF EXISTS "attach_private" ON storage.objects; CREATE POLICY "attach_private" ON storage.objects FOR SELECT USING (bucket_id='report-attachments' AND auth.role()='authenticated');
+DROP POLICY IF EXISTS "attach_private" ON storage.objects; CREATE POLICY "attach_private" ON storage.objects FOR SELECT USING (
+  bucket_id='report-attachments' AND auth.role()='authenticated' AND (
+    public.has_role('admin') OR public.has_role('moderator') OR EXISTS(
+      SELECT 1 FROM public.reports r
+      LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+      LEFT JOIN public.programs p ON p.id = r.program_id
+      LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+      WHERE r.id = ((storage.foldername(name))[1])::uuid AND (rp.id IS NOT NULL OR cm.user_id IS NOT NULL)
+    )
+  )
+);
 DROP POLICY IF EXISTS "attach_upload" ON storage.objects; CREATE POLICY "attach_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='report-attachments' AND auth.role()='authenticated');
 
 -- 11. SEED (dev only, safe)

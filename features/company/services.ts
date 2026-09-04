@@ -42,7 +42,12 @@ export async function awardBountyAction(reportId: string, formData: FormData) {
   const { data: report } = await supabase.from('reports').select('id,program_id,researcher_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
   await companyOfProgram(report.program_id);
-  // Server-side: create award + credit wallet atomically via wallet update + txn
+  // Idempotency: never credit the same report twice (double-submit safe)
+  const { data: existing } = await supabase.from('bounty_awards').select('id,status').eq('report_id', reportId).single();
+  if (existing && (existing.status === 'approved' || existing.status === 'paid')) {
+    throw new Error('Bounty already awarded for this report');
+  }
+  // Server-side: create award + credit wallet via wallet update + txn
   const { data: award, error: aErr } = await supabase
     .from('bounty_awards')
     .upsert({ report_id: reportId, amount, status: 'approved', awarded_by: user.user.id }, { onConflict: 'report_id' })

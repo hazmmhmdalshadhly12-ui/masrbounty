@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 const perks: [LucideIcon, string][] = [
-  [Bug, 'بلّغ عن الثغرات المصرح بها فقط'],
-  [Wallet, 'اكسب مكافآت تُضاف لمحفظتك'],
-  [Trophy, 'ابنِ سمعتك وادخل قاعة المشاهير'],
+  [Bug, 'تقارير منهجية بأرقام تتبع فريدة'],
+  [Wallet, 'مكافآت تُقيّد في محفظتك بشفافية'],
+  [Trophy, 'سمعة مهنية مبنية على نتائج موثقة'],
 ];
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
+  const { error, ok } = await searchParams;
   return (
     <main className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
@@ -24,9 +25,9 @@ export default function LoginPage() {
               <ShieldCheck className="h-6 w-6" strokeWidth={2.5} />
             </span>
             <h1 className="mt-6 text-3xl font-black leading-snug">
-              أهلًا بعودتك يا بطل.
+              مرحبًا بعودتك.
               <br />
-              <span className="text-amber-400">الثغرات مستنياك.</span>
+              <span className="text-slate-400">عملك ينتظرك.</span>
             </h1>
             <ul className="mt-8 space-y-4">
               {perks.map(([Icon, text]) => (
@@ -50,6 +51,8 @@ export default function LoginPage() {
                 اعمل واحد مجانًا
               </Link>
             </p>
+            {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            {ok && <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{ok}</p>}
             <form action={loginAction} className="mt-6 space-y-4">
               <div>
                 <Label htmlFor="email">البريد الإلكتروني</Label>

@@ -1,22 +1,22 @@
 import Link from 'next/link';
-import { ShieldCheck, Bug, Trophy, Wallet, Building2, ArrowLeft, Lock } from 'lucide-react';
+import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { createServerClient } from '@/lib/supabase/server';
 
 const features = [
-  { icon: Bug, title: 'تقارير احترافية', desc: 'بلّغ عن الثغرات بتقارير مرقّمة MB-000001 وتتبع حالتها لحظة بلحظة' },
-  { icon: Wallet, title: 'مكافآت حقيقية', desc: 'محفظة بأرصدة ومعاملات وطلبات سحب بمراجعة إدارية' },
-  { icon: Trophy, title: 'سمعة وشارات', desc: 'نقاط سمعة ولوحة متصدّرين وقاعة مشاهير وشارات إنجاز' },
-  { icon: Building2, title: 'برامج شركات', desc: 'برامج عامة وخاصة بنطاق واضح وقواعد ونطاقات مكافآت' },
-  { icon: ShieldCheck, title: 'حماية كاملة', desc: 'صلاحيات على مستوى قاعدة البيانات وتدقيق لكل إجراء حساس' },
-  { icon: Lock, title: 'خصوصية', desc: 'مرفقات التقارير خاصة — لا يراها إلا أطراف التقرير' },
+  { icon: FileSearch, title: 'إدارة التقارير', desc: 'دورة بلاغ كاملة: مسودة، تقديم، فرز، تقييم، قبول وحل — بأرقام تتبع فريدة' },
+  { icon: Wallet, title: 'المكافآت والمدفوعات', desc: 'اعتماد المكافآت من الشركة، ومحفظة بشفافية كاملة وطلبات سحب بمراجعة' },
+  { icon: Trophy, title: 'السمعة والتميز', desc: 'نقاط سمعة مبنية على نتائج حقيقية، ولوحة متصدرين وقاعة مشاهير' },
+  { icon: Building2, title: 'برامج مرنة', desc: 'برامج عامة وخاصة، نطاق دقيق، قواعد واضحة، وسياسات مكافآت حسب الخطورة' },
+  { icon: Lock, title: 'سرية وخصوصية', desc: 'مرفقات التقارير خاصة، وصلاحيات الوصول مضمونة على مستوى قاعدة البيانات' },
+  { icon: ShieldCheck, title: 'حوكمة وعدالة', desc: 'نظام نزاعات بمراجعة محايدة، وسجل تدقيق لكل إجراء حساس' },
 ];
 
 const steps = [
-  ['1', 'اختر برنامجًا', 'تصفح البرامج النشطة واقرأ النطاق والقواعد جيدًا'],
-  ['2', 'اكتشف وبلّغ', 'ابحث داخل النطاق المصرح فقط وأرسل تقريرًا مفصلًا'],
-  ['3', 'اكسب المكافأة', 'بعد القبول تُضاف المكافأة لمحفظتك وتسحبها متى شئت'],
+  ['01', 'اختر البرنامج', 'راجع النطاق والقواعد ونطاقات المكافآت قبل أن تبدأ'],
+  ['02', 'وثّق الثغرة', 'أرسل تقريرًا منهجيًا: الأثر، خطوات الاستنساخ، والمقترح العلاجي'],
+  ['03', 'استلم مكافأتك', 'عند القبول تُقيّد المكافأة في محفظتك وتطلب سحبها متى شئت'],
 ];
 
 export default async function Home() {
@@ -37,97 +37,111 @@ export default async function Home() {
     /* render with zeros when DB is unreachable */
   }
 
-  const stats = [
-    [String(programs), 'برنامج نشط'],
-    [String(reports), 'تقرير مُرسل'],
-    [String(researchers), 'باحث مسجّل'],
-  ];
-
   return (
     <main>
       {/* HERO */}
-      <section className="relative overflow-hidden bg-[#0a1628] text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.15),transparent_60%)]" />
-        <div className="container relative py-20 text-center md:py-28">
-          <span className="inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-1 text-sm text-amber-300">
-            🇪🇬 أول منصة Bug Bounty مصرية
-          </span>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-black leading-tight md:text-6xl">
-            اكتشف الثغرات.
-            <br />
-            <span className="text-amber-400">اكسب المكافآت.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-300">
-            MasrBounty تربط نخبة الباحثين الأمنيين بالشركات المصرية عبر برامج اختبار مصرح بها — تقارير احترافية، مكافآت عادلة، وسمعة تستحقها.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/register">
-              <Button size="lg" className="bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
-                ابدأ كباحث <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/programs">
-              <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-white/10">
-                تصفح البرامج
-              </Button>
-            </Link>
-          </div>
-          <div className="mx-auto mt-12 grid max-w-2xl grid-cols-3 gap-4">
-            {stats.map(([n, label]) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <p className="text-2xl font-black text-amber-400 md:text-3xl">{n}</p>
-                <p className="mt-1 text-xs text-slate-300 md:text-sm">{label}</p>
-              </div>
-            ))}
+      <section className="relative overflow-hidden border-b bg-slate-950 text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.15]"
+          style={{
+            backgroundImage: 'linear-gradient(to left, rgb(148 163 184 / 0.25) 1px, transparent 1px), linear-gradient(to bottom, rgb(148 163 184 / 0.25) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+          }}
+        />
+        <div className="container relative py-20 md:py-28">
+          <div className="max-w-3xl">
+            <p className="flex items-center gap-3 text-sm font-medium text-amber-400">
+              <span className="inline-block h-px w-10 bg-amber-400" />
+              منصة مصرية لبرامج مكافآت الثغرات
+            </p>
+            <h1 className="mt-5 text-4xl font-black leading-[1.25] tracking-tight md:text-5xl">
+              اكتشاف مسؤول للثغرات.
+              <br />
+              <span className="text-slate-400">مكافآت عادلة. ثقة متبادلة.</span>
+            </h1>
+            <p className="mt-6 max-w-2xl leading-relaxed text-slate-300">
+              تربط MasrBounty الباحثين الأمنيين بالشركات عبر برامج اختبار مصرح بها بنطاق واضح —
+              تقارير منهجية، تقييم شفاف، ومستحقات تصل لأصحابها.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/register">
+                <Button size="lg" className="bg-amber-400 font-bold text-slate-950 hover:bg-amber-300">
+                  أنشئ حسابًا مجانيًا
+                </Button>
+              </Link>
+              <Link href="/programs">
+                <Button size="lg" variant="outline" className="border-slate-700 text-white hover:bg-white/10 hover:text-white">
+                  استعرض البرامج <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <dl className="mt-12 grid max-w-xl grid-cols-3 gap-6 border-t border-white/10 pt-8">
+              {[
+                [String(programs), 'برنامجًا نشطًا'],
+                [String(reports), 'تقريرًا مُقدّمًا'],
+                [String(researchers), 'باحثًا مسجلًا'],
+              ].map(([n, label]) => (
+                <div key={label}>
+                  <dt className="sr-only">{label}</dt>
+                  <dd className="text-3xl font-black tabular-nums">{n}</dd>
+                  <dd className="mt-1 text-sm text-slate-400">{label}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </div>
       </section>
 
       {/* FEATURES */}
-      <section className="container py-16">
-        <h2 className="text-center text-2xl font-black md:text-3xl">لماذا MasrBounty؟</h2>
-        <p className="mx-auto mt-2 max-w-xl text-center text-muted-foreground">كل ما تحتاجه دورة البلاغ الكاملة — من الاكتشاف حتى السحب</p>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="container py-16 md:py-20">
+        <div className="max-w-2xl">
+          <p className="text-sm font-bold text-amber-600">المنصة</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">بنية متكاملة لدورة البلاغ</h2>
+          <p className="mt-3 leading-relaxed text-muted-foreground">من الاكتشاف حتى صرف المستحقات — كل مرحلة موثقة وقابلة للتتبع.</p>
+        </div>
+        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f) => (
-            <Card key={f.title} className="transition-shadow hover:shadow-lg">
-              <CardContent className="p-6">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-400/15 text-amber-600">
-                  <f.icon className="h-5 w-5" />
-                </span>
-                <h3 className="mt-4 font-bold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
-              </CardContent>
-            </Card>
+            <div key={f.title} className="bg-card p-6">
+              <f.icon className="h-5 w-5 text-amber-600" strokeWidth={2} />
+              <h3 className="mt-4 font-bold">{f.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+            </div>
           ))}
         </div>
       </section>
 
       {/* STEPS */}
-      <section className="border-y bg-muted/50">
-        <div className="container py-16">
-          <h2 className="text-center text-2xl font-black md:text-3xl">كيف تبدأ في 3 خطوات؟</h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {steps.map(([n, title, desc]) => (
-              <Card key={n}>
-                <CardContent className="p-6 text-center">
-                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0a1628] text-xl font-black text-amber-400">{n}</span>
-                  <h3 className="mt-4 font-bold">{title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
-                </CardContent>
-              </Card>
-            ))}
+      <section className="border-y bg-muted/40">
+        <div className="container py-16 md:py-20">
+          <div className="max-w-2xl">
+            <p className="text-sm font-bold text-amber-600">آلية العمل</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">ثلاث خطوات للبدء</h2>
           </div>
+          <ol className="mt-10 grid gap-8 md:grid-cols-3">
+            {steps.map(([n, title, desc]) => (
+              <li key={n} className="border-t-2 border-slate-900 pt-5 dark:border-slate-100">
+                <p className="text-sm font-black tabular-nums text-muted-foreground">{n}</p>
+                <h3 className="mt-2 font-bold">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="container py-16 text-center">
-        <div className="rounded-2xl bg-[#0a1628] px-6 py-12 text-white">
-          <h2 className="text-2xl font-black md:text-3xl">عندك شركة؟ أمّنها قبل ما المخترقين يسبقوك</h2>
-          <p className="mx-auto mt-3 max-w-xl text-slate-300">انشر برنامج Bug Bounty واستقبل تقارير من باحثين موثّقين — بأسعار تناسب السوق المصري</p>
-          <Link href="/register" className="mt-6 inline-block">
-            <Button size="lg" className="bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
-              سجّل شركتك مجانًا
+      {/* COMPANY CTA */}
+      <section className="container py-16 md:py-20">
+        <div className="grid items-center gap-8 rounded-xl border bg-slate-950 p-8 text-white md:grid-cols-[1fr_auto] md:p-12">
+          <div>
+            <p className="text-sm font-bold text-amber-400">للشركات</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight">حوّل مجتمع الباحثين إلى خط دفاعك الأول</h2>
+            <p className="mt-3 max-w-xl leading-relaxed text-slate-300">
+              أنشئ برنامجك الخاص، حدد النطاق والقواعد، واستقبل تقارير موثقة من باحثين مؤهلين.
+            </p>
+          </div>
+          <Link href="/register" className="shrink-0">
+            <Button size="lg" className="bg-white font-bold text-slate-950 hover:bg-slate-200">
+              سجّل شركتك
             </Button>
           </Link>
         </div>

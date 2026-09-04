@@ -37,6 +37,8 @@ export async function approvePayoutAction(payoutId: string, approve: boolean) {
   if (!user.user) throw new Error('Unauthorized');
   const { data: payout } = await supabase.from('payout_requests').select('*').eq('id', payoutId).single();
   if (!payout) throw new Error('Not found');
+  // Idempotency: only pending requests can be decided (double-click safe)
+  if (payout.status !== 'pending') throw new Error(`Already decided: ${payout.status}`);
   if (approve) {
     const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', payout.researcher_id).single();
     if (!wallet || Number(wallet.balance) < Number(payout.amount)) throw new Error('Insufficient balance');

@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function RegisterPage() {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   return (
     <main className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
@@ -17,22 +18,22 @@ export default function RegisterPage() {
               <ShieldCheck className="h-6 w-6" strokeWidth={2.5} />
             </span>
             <h1 className="mt-6 text-3xl font-black leading-snug">
-              انضم لأول مجتمع
+              انضم إلى المنصة.
               <br />
-              <span className="text-amber-400">Bug Bounty مصري.</span>
+              <span className="text-slate-400">باحثًا كنت أو جهة.</span>
             </h1>
             <div className="mt-8 space-y-4">
               <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
-                <UserCheck className="h-5 w-5 shrink-0 text-amber-400" />
-                <p className="text-sm text-slate-200"><b>باحث؟</b> تقارير مرقمة ومكافآت وسمعة وشارات</p>
+                <UserCheck className="h-5 w-5 shrink-0 text-slate-300" />
+                <p className="text-sm text-slate-200"><b>للباحثين:</b> تقارير موثقة ومستحقات وسجل مهني</p>
               </div>
               <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
-                <Building2 className="h-5 w-5 shrink-0 text-amber-400" />
-                <p className="text-sm text-slate-200"><b>شركة؟</b> برامج عامة وخاصة وفريق تقييم كامل</p>
+                <Building2 className="h-5 w-5 shrink-0 text-slate-300" />
+                <p className="text-sm text-slate-200"><b>للشركات:</b> برامج مصممة حسب نطاق عملك وسياساتك</p>
               </div>
               <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
-                <Zap className="h-5 w-5 shrink-0 text-amber-400" />
-                <p className="text-sm text-slate-200"><b>مجاني تمامًا</b> للتسجيل والبدء اليوم</p>
+                <Zap className="h-5 w-5 shrink-0 text-slate-300" />
+                <p className="text-sm text-slate-200"><b>بدون تكلفة مسبقة</b> للتسجيل وبدء العمل</p>
               </div>
             </div>
           </div>
@@ -46,6 +47,7 @@ export default function RegisterPage() {
                 سجّل دخول
               </Link>
             </p>
+            {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             <form action={registerAction} className="mt-6 space-y-4">
               <div>
                 <Label htmlFor="username">اسم المستخدم</Label>
