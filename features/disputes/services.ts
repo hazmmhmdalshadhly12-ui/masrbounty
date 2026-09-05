@@ -36,21 +36,16 @@ export async function approvePayoutAction(payoutId: string, approve: boolean) {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
-  const { data: payout } = await supabase.from('payout_requests').select('*').eq('id', payoutId).single();
-  if (!payout) throw new Error('Not found');
-  // Idempotency: only pending requests can be decided (double-click safe)
-  if (payout.status !== 'pending') throw new Error(`Already decided: ${payout.status}`);
-  if (approve) {
-    const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', payout.researcher_id).single();
-    if (!wallet || Number(wallet.balance) < Number(payout.amount)) throw new Error('Insufficient balance');
-    const nb = Number(wallet.balance) - Number(payout.amount);
-    await supabase.from('wallets').update({ balance: nb }).eq('id', wallet.id);
-    await supabase.from('wallet_transactions').insert({ wallet_id: wallet.id, type: 'payout', amount: -Number(payout.amount), balance_after: nb, reference_id: payoutId, note: 'Payout approved' });
-    await supabase.from('payout_requests').update({ status: 'completed', reviewed_by: user.user.id }).eq('id', payoutId);
-    await logAudit('payout', 'payout_requests', payoutId, { decision: 'completed', amount: payout.amount }, user.user.id);
-  } else {
-    await supabase.from('payout_requests').update({ status: 'rejected', reviewed_by: user.user.id }).eq('id', payoutId);
-    await logAudit('payout', 'payout_requests', payoutId, { decision: 'rejected' }, user.user.id);
+  const { data: payout } = await supabase.from('payout_requests').select('id,researcher_id,amount,status').eq('id', payoutId).single();
+  if (!payout) throw new Error('غير موجود');
+  // Money moves inside the DB function (admin-only + pending-only enforced there)
+  const { error } = await supabase.rpc('settle_payout', { p_payout: payoutId, p_approve: approve });
+  if (error) {
+    const m = error.message ?? '';
+    if (/forbidden/i.test(m)) throw new Error('غير مصرّح لك بهذه العملية');
+    if (/already decided/i.test(m)) throw new Error('تم البت في هذا الطلب مسبقًا');
+    if (/insufficient/i.test(m)) throw new Error('رصيد الباحث غير كافٍ');
+    throw new Error('تعذّر تنفيذ العملية — حاول لاحقًا');
   }
   const { data: rp } = await supabase.from('researcher_profiles').select('user_id').eq('id', payout.researcher_id).single();
   if (rp) {

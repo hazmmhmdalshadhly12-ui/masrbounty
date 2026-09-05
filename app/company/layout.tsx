@@ -1,3 +1,4 @@
+import { requireSession } from '@/lib/auth/guard';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 const links = [
@@ -12,7 +13,8 @@ const links = [
   { href: '/company/settings', label: 'الإعدادات', icon: 'settings' },
 ];
 
-export default function CompanyLayout({ children }: { children: React.ReactNode }) {
+export default async function CompanyLayout({ children }: { children: React.ReactNode }) {
+  await requireSession({ next: '/company' });
   return (
     <DashboardShell title="لوحة الشركة" links={links}>
       {children}

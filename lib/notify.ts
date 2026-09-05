@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export type NotifyType =
   | 'report'
@@ -11,14 +12,21 @@ export type NotifyType =
   | 'dispute'
   | 'badge';
 
-/** Best-effort in-app notification. Never throws. */
+/**
+ * Best-effort in-app notification. Never throws.
+ * Authorization is enforced by CALLERS (they resolve recipients from data
+ * the caller is allowed to see). The insert itself uses the service role
+ * because RLS intentionally forbids users from writing to each other's
+ * inboxes — otherwise anyone could spam anyone.
+ */
 export async function notify(
-  db: SupabaseClient,
+  _db: SupabaseClient,
   userId: string,
   n: { type: NotifyType; title: string; body?: string; link?: string }
 ): Promise<void> {
   try {
     if (!userId) return;
+    const db = createAdminClient();
     await db.from('notifications').insert({
       user_id: userId,
       type: n.type,

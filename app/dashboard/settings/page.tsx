@@ -1,6 +1,10 @@
+import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { logAudit } from '@/services/audit';
+import { logoutAction } from '@/features/auth/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +48,61 @@ async function updateResearcher(formData: FormData) {
   revalidatePath('/dashboard/settings');
 }
 
+async function changePassword(formData: FormData) {
+  'use server';
+  const current = String(formData.get('current') ?? '');
+  const nextPw = String(formData.get('next') ?? '');
+  if (nextPw.length < 8) throw new Error('كلمة السر 8 أحرف على الأقل');
+  const supabase = await createServerClient();
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user?.email) throw new Error('Unauthorized');
+  // Re-authenticate with current password before allowing the change
+  const { error: reauth } = await supabase.auth.signInWithPassword({ email: user.user.email, password: current });
+  if (reauth) throw new Error('كلمة السر الحالية غير صحيحة');
+  const { error } = await supabase.auth.updateUser({ password: nextPw });
+  if (error) throw new Error('تعذر تغيير كلمة السر');
+  revalidatePath('/dashboard/settings');
+}
+
+async function savePrefs(formData: FormData) {
+  'use server';
+  const supabase = await createServerClient();
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Unauthorized');
+  await supabase.from('notification_preferences').upsert({
+    user_id: user.user.id,
+    email_reports: formData.get('email_reports') === 'on',
+    email_bounty: formData.get('email_bounty') === 'on',
+    email_messages: formData.get('email_messages') === 'on',
+    email_program: formData.get('email_program') === 'on',
+  }, { onConflict: 'user_id' });
+  revalidatePath('/dashboard/settings');
+}
+
+async function logoutEverywhere() {
+  'use server';
+  const supabase = await createServerClient();
+  await supabase.auth.signOut({ scope: 'global' });
+  redirect('/');
+}
+
+async function deleteAccount(formData: FormData) {
+  'use server';
+  const confirm = String(formData.get('confirm') ?? '').trim();
+  const supabase = await createServerClient();
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Unauthorized');
+  const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.user.id).single();
+  if (!profile || confirm !== profile.username) throw new Error('اكتب اسم المستخدم للتأكيد');
+  await logAudit('delete', 'profiles', user.user.id, { username: profile.username }, user.user.id);
+  const admin = createAdminClient();
+  await admin.from('profiles').delete().eq('id', user.user.id);
+  const { error } = await admin.auth.admin.deleteUser(user.user.id);
+  if (error) throw new Error(error.message);
+  await supabase.auth.signOut();
+  redirect('/?deleted=1');
+}
+
 async function addMethod(formData: FormData) {
   'use server';
   const supabase = await createServerClient();
@@ -68,6 +127,8 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.user.id).single();
   const { data: rp } = await supabase.from('researcher_profiles').select('*').eq('user_id', user.user.id).single();
   const { data: methods } = rp ? await supabase.from('payment_methods').select('*').eq('researcher_id', rp.id) : { data: [] };
+  const { data: prefs } = await supabase.from('notification_preferences').select('*').eq('user_id', user.user.id).single();
+  const ua = (await headers()).get('user-agent') ?? '—';
   return (
     <main className="container py-8 max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">الإعدادات</h1>
@@ -95,8 +156,52 @@ export default async function SettingsPage() {
           </form>
         </CardContent></Card>
       )}
+      <Card><CardHeader><CardTitle>الأمان</CardTitle></CardHeader><CardContent className="space-y-6">
+        <form action={changePassword} className="space-y-3">
+          <p className="text-sm font-bold">تغيير كلمة السر</p>
+          <div><Label>الحالية</Label><Input name="current" type="password" required dir="ltr" /></div>
+          <div><Label>الجديدة (8+ أحرف)</Label><Input name="next" type="password" required minLength={8} dir="ltr" /></div>
+          <Button type="submit" size="sm">تغيير</Button>
+        </form>
+        <div className="border-t pt-4 text-sm">
+          <p className="font-bold">الجلسة الحالية</p>
+          <p className="mt-1 text-muted-foreground" dir="ltr">{user.user.email}</p>
+          <p className="mt-1 break-all text-xs text-muted-foreground" dir="ltr">{ua}</p>
+          <p className="mt-1 text-xs text-muted-foreground">آخر دخول: {user.user.last_sign_in_at ? new Date(user.user.last_sign_in_at).toLocaleString('ar-EG') : '—'}</p>
+          <div className="mt-3 flex gap-2">
+            <form action={logoutAction}><Button size="sm" variant="outline" type="submit">تسجيل الخروج</Button></form>
+            <form action={logoutEverywhere}><Button size="sm" variant="outline" type="submit">الخروج من كل الأجهزة</Button></form>
+          </div>
+        </div>
+      </CardContent></Card>
       <Card><CardHeader><CardTitle>المصادقة الثنائية (2FA)</CardTitle></CardHeader><CardContent>
         <MfaPanel />
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle>تفضيلات الإشعارات</CardTitle></CardHeader><CardContent>
+        <form action={savePrefs} className="grid gap-2 text-sm sm:grid-cols-2">
+          {([
+            ['email_reports', 'تقاريري'],
+            ['email_bounty', 'المكافآت'],
+            ['email_messages', 'الرسائل'],
+            ['email_program', 'البرامج'],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 rounded-md border p-2">
+              <input type="checkbox" name={key} defaultChecked={prefs ? (prefs[key] as boolean) ?? true : true} className="h-4 w-4" />
+              إشعارات {label}
+            </label>
+          ))}
+          <div className="sm:col-span-2"><Button size="sm" type="submit">حفظ التفضيلات</Button></div>
+        </form>
+      </CardContent></Card>
+      <Card className="border-red-200"><CardHeader><CardTitle className="text-red-700">منطقة الخطر</CardTitle></CardHeader><CardContent>
+        <form action={deleteAccount} className="flex flex-wrap items-end gap-2">
+          <div className="flex-1 min-w-[200px]">
+            <Label>اكتب اسم المستخدم <b dir="ltr">{profile?.username}</b> للتأكيد النهائي</Label>
+            <Input name="confirm" required dir="ltr" placeholder={profile?.username ?? ''} className="mt-1" />
+          </div>
+          <Button type="submit" variant="destructive" size="sm">حذف الحساب نهائيًا</Button>
+        </form>
+        <p className="mt-2 text-xs text-muted-foreground">يحذف الحساب وملفك وجميع بياناتك المرتبطة. لا يمكن التراجع.</p>
       </CardContent></Card>
       <Card><CardHeader><CardTitle>Payment methods</CardTitle></CardHeader><CardContent className="space-y-3">
         {methods?.map((m) => <p key={m.id} className="text-sm border rounded p-2">{m.label} ({m.type})</p>)}

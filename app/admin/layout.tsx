@@ -1,3 +1,4 @@
+import { requireSession } from '@/lib/auth/guard';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 const links = [
@@ -15,7 +16,10 @@ const links = [
   { href: '/admin/settings', label: 'الإعدادات', icon: 'settings' },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Server-side: authenticated + active + admin/moderator, else redirect/403.
+  // No admin data is ever rendered without passing this gate.
+  await requireSession({ roles: ['admin', 'moderator'], next: '/admin' });
   return (
     <DashboardShell title="لوحة الإدارة" links={links}>
       {children}

@@ -104,47 +104,30 @@ export async function markDuplicateAction(reportId: string, formData: FormData) 
   revalidatePath(`/company/reports/${reportId}`);
 }
 
+function moneyError(e: unknown): Error {
+  const msg = e instanceof Error ? e.message : 'failed';
+  if (/unauthorized/i.test(msg)) return new Error('سجّل الدخول أولًا');
+  if (/forbidden/i.test(msg)) return new Error('غير مصرّح لك بهذه العملية');
+  if (/already awarded|already paid|already decided/i.test(msg)) return new Error('تم تنفيذ هذه العملية مسبقًا');
+  if (/insufficient balance/i.test(msg)) return new Error('الرصيد غير كافٍ');
+  if (/reference required/i.test(msg)) return new Error('مرجع الدفع مطلوب');
+  if (/invalid amount/i.test(msg)) return new Error('مبلغ غير صالح');
+  if (/not found/i.test(msg)) return new Error('غير موجود');
+  return new Error('تعذّر تنفيذ العملية — حاول لاحقًا');
+}
+
 export async function markPaidAction(awardId: string, formData: FormData) {
   const reference = String(formData.get('reference') ?? '').trim().slice(0, 120);
-  if (!reference) throw new Error('Payment reference required');
   const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  const { data: award } = await supabase
-    .from('bounty_awards')
-    .select('id,amount,status,report_id,reports!inner(program_id,researcher_id)')
-    .eq('id', awardId)
-    .single();
-  if (!award) throw new Error('Award not found');
-  const programId = (award as unknown as { reports: { program_id: string } }).reports.program_id;
-  await companyOfProgram(programId);
-  if (award.status === 'paid') throw new Error('Already paid');
-  await supabase.from('bounty_awards').update({ status: 'paid', decided_at: new Date().toISOString() }).eq('id', awardId);
-  await supabase.from('bounty_payments').insert({
-    award_id: awardId,
-    amount: award.amount,
-    status: 'completed',
-    reference,
-    processed_by: user.user.id,
-  });
-  // Move from pending to available balance
-  const researcherId = (award as unknown as { reports: { researcher_id: string } }).reports.researcher_id;
-  const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', researcherId).single();
-  if (wallet) {
-    const nb = Number(wallet.balance) + Number(award.amount);
-    await supabase.from('wallets').update({
-      balance: nb,
-      pending_balance: Math.max(0, Number(wallet.pending_balance) - Number(award.amount)),
-    }).eq('id', wallet.id);
-    await supabase.from('wallet_transactions').insert({
-      wallet_id: wallet.id, type: 'bounty', amount: Number(award.amount), balance_after: nb, reference_id: awardId, note: `Bounty paid (ref ${reference})`,
-    });
-  }
-  const parties = await reportParties(supabase, award.report_id);
+  const { data: award } = await supabase.from('bounty_awards').select('id,amount,report_id').eq('id', awardId).single();
+  // Money moves inside the DB function (membership + idempotency enforced there)
+  const { error } = await supabase.rpc('pay_award', { p_award: awardId, p_reference: reference || 'manual' });
+  if (error) throw moneyError(error);
+  const parties = award ? await reportParties(supabase, award.report_id) : { reporterUserId: null as string | null };
   if (parties.reporterUserId) {
     await notify(supabase, parties.reporterUserId, {
       type: 'payment',
-      title: `تم دفع مكافأة ${award.amount} — مرجع ${reference}`,
+      title: `تم دفع المكافأة — مرجع ${reference || 'manual'}`,
       link: '/dashboard/payments',
     });
   }
@@ -153,36 +136,10 @@ export async function markPaidAction(awardId: string, formData: FormData) {
 
 export async function awardBountyAction(reportId: string, formData: FormData) {
   const amount = Number(formData.get('amount'));
-  if (!amount || amount < 0) throw new Error('Invalid amount');
   const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  const { data: report } = await supabase.from('reports').select('id,program_id,researcher_id').eq('id', reportId).single();
-  if (!report) throw new Error('Not found');
-  await companyOfProgram(report.program_id);
-  // Idempotency: never credit the same report twice (double-submit safe)
-  const { data: existing } = await supabase.from('bounty_awards').select('id,status').eq('report_id', reportId).single();
-  if (existing && (existing.status === 'approved' || existing.status === 'paid')) {
-    throw new Error('Bounty already awarded for this report');
-  }
-  // Server-side: create award + credit wallet via wallet update + txn
-  const { data: award, error: aErr } = await supabase
-    .from('bounty_awards')
-    .upsert({ report_id: reportId, amount, status: 'approved', awarded_by: user.user.id }, { onConflict: 'report_id' })
-    .select('id')
-    .single();
-  if (aErr || !award) throw new Error(aErr?.message ?? 'Award failed');
-  const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', report.researcher_id).single();
-  if (!wallet) throw new Error('Wallet not found');
-  // Approved bounty lands in PENDING until the company marks it paid
-  const newPending = Number(wallet.pending_balance) + amount;
-  const newEarned = Number(wallet.total_earned) + amount;
-  await supabase.from('wallets').update({ pending_balance: newPending, total_earned: newEarned }).eq('id', wallet.id);
-  await supabase.from('wallet_transactions').insert({
-    wallet_id: wallet.id, type: 'bounty', amount, balance_after: Number(wallet.balance), reference_id: reportId, note: 'Bounty approved (pending payment)',
-  });
-  await supabase.from('reports').update({ status: 'accepted', bounty_amount: amount }).eq('id', reportId);
-  await logAudit('award', 'bounty_awards', award.id, { report_id: reportId, amount }, user.user.id);
+  // Money moves inside the DB function (membership + idempotency enforced there)
+  const { data: awardId, error } = await supabase.rpc('award_bounty', { p_report: reportId, p_amount: amount });
+  if (error || !awardId) throw moneyError(error);
   const parties = await reportParties(supabase, reportId);
   if (parties.reporterUserId) {
     await notify(supabase, parties.reporterUserId, {

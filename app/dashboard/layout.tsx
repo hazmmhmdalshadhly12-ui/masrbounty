@@ -1,3 +1,4 @@
+import { requireSession } from '@/lib/auth/guard';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 const links = [
@@ -14,7 +15,8 @@ const links = [
   { href: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  await requireSession({ next: '/dashboard' });
   return (
     <DashboardShell title="لوحة الباحث" links={links}>
       {children}

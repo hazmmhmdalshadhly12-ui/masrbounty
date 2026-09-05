@@ -1,9 +1,17 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ShieldCheck, UserCheck, Building2, Zap } from 'lucide-react';
+import { createServerClient } from '@/lib/supabase/server';
 import { RegisterForm } from '@/components/forms/register-form';
 import { Card, CardContent } from '@/components/ui/card';
+import { safeNext } from '@/lib/auth/redirect';
 
-export default function RegisterPage() {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
+  const supabase = await createServerClient();
+  const { data } = await supabase.auth.getUser();
+  if (data.user) redirect(safeNext(next));
+  const target = safeNext(next, '');
   return (
     <main className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
@@ -43,7 +51,7 @@ export default function RegisterPage() {
                 سجّل دخول
               </Link>
             </p>
-            <RegisterForm />
+            <RegisterForm next={target} />
           </CardContent>
         </Card>
       </div>

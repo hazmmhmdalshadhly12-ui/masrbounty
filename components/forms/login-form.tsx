@@ -6,12 +6,14 @@ import { createClient } from '@/lib/supabase/client';
 import { loginSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
+import { safeNext } from '@/lib/auth/redirect';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
-export function LoginForm() {
+export function LoginForm({ next = '' }: { next?: string }) {
   const router = useRouter();
+  const target = safeNext(next || null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function LoginForm() {
           role: (data.user.user_metadata?.role as string) ?? undefined,
         });
       }
-      router.push('/dashboard');
+      router.push(target);
       router.refresh();
     } catch {
       setError('تعذر تسجيل الدخول حاليًا — حاول لاحقًا');
@@ -56,7 +58,7 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-4">
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <div>
         <Label htmlFor="email">البريد الإلكتروني</Label>
         <Input

@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { cookieOptions } from '@/lib/supabase/cookies';
 
 function client() {
   const storePromise = cookies();
@@ -26,7 +27,8 @@ export async function GET(request: Request) {
       },
       setAll(toSet: { name: string; value: string; options: CookieOptions }[]) {
         try {
-          toSet.forEach(({ name, value, options }) => store.set(name, value, options));
+          const base = cookieOptions();
+          toSet.forEach(({ name, value, options }) => store.set(name, value, { ...base, ...options }));
         } catch {
           /* ignore */
         }

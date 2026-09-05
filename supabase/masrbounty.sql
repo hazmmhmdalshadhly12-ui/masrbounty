@@ -1076,6 +1076,136 @@ BEGIN
   ON CONFLICT (researcher_id, kind) DO UPDATE SET status = 'verified', verified_at = now(), updated_at = now();
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- ============================================================
+-- 13. HARDENED MONEY PATH + FLAG PROTECTION (idempotent)
+-- All financial mutations go through these SECURITY DEFINER functions.
+-- Direct table writes are locked down so client JWTs cannot move money.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.award_bounty(p_report UUID, p_amount NUMERIC)
+RETURNS UUID AS $$
+DECLARE v_program UUID; v_company UUID; v_researcher UUID; v_uid UUID;
+  v_wallet UUID; v_award UUID; v_existing TEXT;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  SELECT program_id, researcher_id INTO v_program, v_researcher FROM public.reports WHERE id = p_report;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not found'; END IF;
+  SELECT company_id INTO v_company FROM public.programs WHERE id = v_program;
+  IF NOT (public.is_company_member(v_company, v_uid) OR public.has_role('admin')) THEN RAISE EXCEPTION 'forbidden'; END IF;
+  IF p_amount IS NULL OR p_amount < 0 THEN RAISE EXCEPTION 'invalid amount'; END IF;
+  SELECT status INTO v_existing FROM public.bounty_awards WHERE report_id = p_report;
+  IF v_existing IN ('approved','paid') THEN RAISE EXCEPTION 'already awarded'; END IF;
+  INSERT INTO public.bounty_awards(report_id, amount, status, awarded_by)
+  VALUES (p_report, p_amount, 'approved', v_uid)
+  ON CONFLICT (report_id) DO UPDATE SET amount = p_amount, status = 'approved', awarded_by = v_uid
+  RETURNING id INTO v_award;
+  SELECT id INTO v_wallet FROM public.wallets WHERE researcher_id = v_researcher;
+  IF v_wallet IS NULL THEN RAISE EXCEPTION 'wallet missing'; END IF;
+  UPDATE public.wallets SET pending_balance = pending_balance + p_amount, total_earned = total_earned + p_amount, updated_at = now() WHERE id = v_wallet;
+  INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
+  SELECT v_wallet, 'bounty', p_amount, balance, p_report, 'Bounty approved (pending payment)', v_uid FROM public.wallets WHERE id = v_wallet;
+  UPDATE public.reports SET status = 'accepted', bounty_amount = p_amount, updated_at = now() WHERE id = p_report;
+  INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
+  VALUES (v_uid, 'award', 'bounty_awards', v_award, jsonb_build_object('report_id', p_report, 'amount', p_amount));
+  RETURN v_award;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.pay_award(p_award UUID, p_reference TEXT)
+RETURNS VOID AS $$
+DECLARE v_uid UUID; v_amount NUMERIC; v_status TEXT; v_report UUID;
+  v_researcher UUID; v_wallet UUID; v_program UUID; v_company UUID;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
+  SELECT amount, status, report_id INTO v_amount, v_status, v_report FROM public.bounty_awards WHERE id = p_award;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not found'; END IF;
+  SELECT program_id, researcher_id INTO v_program, v_researcher FROM public.reports WHERE id = v_report;
+  SELECT company_id INTO v_company FROM public.programs WHERE id = v_program;
+  IF NOT (public.is_company_member(v_company, v_uid) OR public.has_role('admin')) THEN RAISE EXCEPTION 'forbidden'; END IF;
+  IF v_status = 'paid' THEN RAISE EXCEPTION 'already paid'; END IF;
+  IF p_reference IS NULL OR char_length(trim(p_reference)) = 0 THEN RAISE EXCEPTION 'reference required'; END IF;
+  UPDATE public.bounty_awards SET status = 'paid', decided_at = now() WHERE id = p_award;
+  INSERT INTO public.bounty_payments(award_id, amount, status, reference, processed_by)
+  VALUES (p_award, v_amount, 'completed', trim(p_reference), v_uid);
+  SELECT id INTO v_wallet FROM public.wallets WHERE researcher_id = v_researcher;
+  IF v_wallet IS NOT NULL THEN
+    UPDATE public.wallets SET balance = balance + v_amount,
+      pending_balance = GREATEST(0, pending_balance - v_amount), updated_at = now() WHERE id = v_wallet;
+    INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
+    SELECT v_wallet, 'bounty', v_amount, balance, p_award, 'Bounty paid (ref ' || trim(p_reference) || ')', v_uid FROM public.wallets WHERE id = v_wallet;
+  END IF;
+  INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
+  VALUES (v_uid, 'payout', 'bounty_awards', p_award, jsonb_build_object('amount', v_amount, 'reference', trim(p_reference)));
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.settle_payout(p_payout UUID, p_approve BOOLEAN)
+RETURNS VOID AS $$
+DECLARE v_uid UUID; v_row RECORD; v_wallet UUID; v_nb NUMERIC;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL OR NOT public.has_role('admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  SELECT * INTO v_row FROM public.payout_requests WHERE id = p_payout;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not found'; END IF;
+  IF v_row.status <> 'pending' THEN RAISE EXCEPTION 'already decided'; END IF;
+  IF p_approve THEN
+    SELECT id, balance INTO v_wallet, v_nb FROM public.wallets WHERE researcher_id = v_row.researcher_id;
+    IF v_wallet IS NULL OR v_nb < v_row.amount THEN RAISE EXCEPTION 'insufficient balance'; END IF;
+    v_nb := v_nb - v_row.amount;
+    UPDATE public.wallets SET balance = v_nb, updated_at = now() WHERE id = v_wallet;
+    INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
+    VALUES (v_wallet, 'payout', -v_row.amount, v_nb, p_payout, 'Payout approved', v_uid);
+    UPDATE public.payout_requests SET status = 'completed', reviewed_by = v_uid, updated_at = now() WHERE id = p_payout;
+  ELSE
+    UPDATE public.payout_requests SET status = 'rejected', reviewed_by = v_uid, updated_at = now() WHERE id = p_payout;
+  END IF;
+  INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
+  VALUES (v_uid, 'payout', 'payout_requests', p_payout, jsonb_build_object('approved', p_approve, 'amount', v_row.amount));
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Report timeline events: participants may append (company/staff/reporter), never edit
+DROP POLICY IF EXISTS "re_insert" ON public.report_events;
+CREATE POLICY "re_insert" ON public.report_events FOR INSERT WITH CHECK (
+  EXISTS(
+    SELECT 1 FROM public.reports r
+    LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+    LEFT JOIN public.programs p ON p.id = r.program_id
+    LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+    WHERE r.id = report_id AND (rp.id IS NOT NULL OR cm.user_id IS NOT NULL)
+  ) OR public.has_role('admin') OR public.has_role('moderator'));
+
+-- Conversation invites: self-join or existing member (or admin). No arbitrary additions.
+CREATE OR REPLACE FUNCTION public.is_conversation_member(p_conv UUID, p_user UUID) RETURNS BOOLEAN AS $$
+BEGIN RETURN EXISTS(SELECT 1 FROM public.conversation_members WHERE conversation_id = p_conv AND user_id = p_user); END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+DROP POLICY IF EXISTS "cmem_insert" ON public.conversation_members;
+CREATE POLICY "cmem_insert" ON public.conversation_members FOR INSERT WITH CHECK (
+  user_id = auth.uid() OR public.has_role('admin') OR public.is_conversation_member(conversation_id, auth.uid()));
+
+-- Awards: admin-only direct writes (everyone else goes through award_bounty/pay_award)
+DROP POLICY IF EXISTS "ba_write" ON public.bounty_awards;
+CREATE POLICY "ba_write" ON public.bounty_awards FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+
+-- Privilege flags can only be flipped by admins (never by the row owner)
+CREATE OR REPLACE FUNCTION public.protect_profile_flags() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.is_active IS DISTINCT FROM OLD.is_active AND NOT public.has_role('admin') THEN
+    RAISE EXCEPTION 'forbidden: is_active is admin-only';
+  END IF;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+DROP TRIGGER IF EXISTS trg_protect_profile ON public.profiles;
+CREATE TRIGGER trg_protect_profile BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_profile_flags();
+
+CREATE OR REPLACE FUNCTION public.protect_company_verified() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.is_verified IS DISTINCT FROM OLD.is_verified AND NOT public.has_role('admin') THEN
+    RAISE EXCEPTION 'forbidden: verification is admin-only';
+  END IF;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+DROP TRIGGER IF EXISTS trg_protect_verified ON public.company_profiles;
+CREATE TRIGGER trg_protect_verified BEFORE UPDATE ON public.company_profiles FOR EACH ROW EXECUTE FUNCTION public.protect_company_verified();
+
 -- Trust badges seed
 INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
  ('verified-researcher','باحث موثق','Verified Researcher','Identity verified by review','shield-check'),

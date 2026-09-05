@@ -6,12 +6,14 @@ import { createClient } from '@/lib/supabase/client';
 import { registerSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
+import { safeNext } from '@/lib/auth/redirect';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
-export function RegisterForm() {
+export function RegisterForm({ next = '' }: { next?: string }) {
   const router = useRouter();
+  const target = safeNext(next || null);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -57,7 +59,7 @@ export function RegisterForm() {
         username: parsed.data.username,
         role: parsed.data.role,
       });
-      router.push('/dashboard');
+      router.push(target);
       router.refresh();
     } catch {
       setError('تعذر إنشاء الحساب حاليًا — حاول لاحقًا');
