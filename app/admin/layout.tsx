@@ -8,6 +8,7 @@ const links = [
   { href: '/admin/reports', label: 'التقارير', icon: 'reports' },
   { href: '/admin/payments', label: 'المدفوعات', icon: 'payments' },
   { href: '/admin/disputes', label: 'النزاعات', icon: 'disputes' },
+  { href: '/admin/verification', label: 'التحقق', icon: 'verification' },
   { href: '/admin/moderation', label: 'الإشراف', icon: 'moderation' },
   { href: '/admin/audit-logs', label: 'التدقيق', icon: 'audit' },
   { href: '/admin/support', label: 'الدعم', icon: 'support' },

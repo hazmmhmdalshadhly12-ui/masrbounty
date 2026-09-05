@@ -872,3 +872,213 @@ INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
  ('bug-hunter','صائد الثغرات','Bug Hunter','10 accepted reports','bug'),
  ('hall-of-fame','قاعة المشاهير','Hall of Fame','Recognized by company','award') ON CONFLICT (code) DO NOTHING;
 INSERT INTO public.report_labels(name,color) VALUES ('xss','#ef4444'),('sqli','#f97316'),('idor','#8b5cf6'),('rce','#dc2626'),('csrf','#06b6d4') ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================
+-- 12. VERIFICATION & TRUST EXTENSION (idempotent, re-runnable)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.researcher_verifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  researcher_id UUID NOT NULL REFERENCES public.researcher_profiles(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('email','phone','identity')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','verified','rejected')),
+  verified_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES public.profiles(id),
+  review_note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  UNIQUE(researcher_id, kind)
+);
+CREATE TABLE IF NOT EXISTS public.kyc_reviews (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  researcher_id UUID NOT NULL REFERENCES public.researcher_profiles(id) ON DELETE CASCADE,
+  document_path TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('not_required','required','pending','verified','rejected')),
+  reviewed_by UUID REFERENCES public.profiles(id),
+  review_note TEXT,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.domain_verifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company_id UUID NOT NULL REFERENCES public.company_profiles(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL CHECK (domain ~ '^[a-z0-9.-]+\.[a-z]{2,}$'),
+  token TEXT NOT NULL DEFAULT encode(gen_random_bytes(16),'hex'),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','verified','failed')),
+  verified_at TIMESTAMPTZ,
+  last_checked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  UNIQUE(company_id, domain)
+);
+CREATE TABLE IF NOT EXISTS public.suspicious_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL,
+  detail TEXT,
+  severity TEXT NOT NULL DEFAULT 'medium' CHECK (severity IN ('low','medium','high')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','reviewed','dismissed')),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.appeals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,
+  target_id UUID,
+  reason TEXT NOT NULL CHECK (char_length(reason) >= 10),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','accepted','rejected')),
+  reviewed_by UUID REFERENCES public.profiles(id),
+  resolution TEXT,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.program_updates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  program_id UUID NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_by UUID REFERENCES public.profiles(id),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.trust_snapshots (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  subject_type TEXT NOT NULL CHECK (subject_type IN ('researcher','company')),
+  subject_id UUID NOT NULL,
+  score INT NOT NULL CHECK (score >= 0 AND score <= 100),
+  factors JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- Live trust computation (no cron needed; always fresh)
+CREATE OR REPLACE FUNCTION public.researcher_trust(p_researcher UUID)
+RETURNS TABLE(score INT, factors JSONB) AS $$
+DECLARE
+  v_stats RECORD; v_age_days INT; v_verifs INT; v_viol INT;
+  v_accept_rate NUMERIC; v_score INT;
+BEGIN
+  SELECT * INTO v_stats FROM public.researcher_stats WHERE researcher_id = p_researcher;
+  SELECT COALESCE(EXTRACT(DAY FROM (now() - min(r.created_at)))::INT, 0) INTO v_age_days
+    FROM public.reports r WHERE r.researcher_id = p_researcher;
+  SELECT count(*) INTO v_verifs FROM public.researcher_verifications WHERE researcher_id = p_researcher AND status = 'verified';
+  SELECT count(*) INTO v_viol FROM public.moderation_actions
+    WHERE target_type = 'user' AND target_id IN (SELECT user_id FROM public.researcher_profiles WHERE id = p_researcher);
+  IF v_stats IS NULL OR COALESCE(v_stats.total_reports,0) = 0 THEN v_accept_rate := 0;
+  ELSE v_accept_rate := (COALESCE(v_stats.accepted_reports,0)::NUMERIC / v_stats.total_reports) * 100; END IF;
+  v_score := LEAST(40, COALESCE(v_stats.accepted_reports,0) * 2)
+    + LEAST(20, (v_accept_rate / 5)::INT)
+    + LEAST(15, (v_age_days / 30)::INT)
+    + LEAST(15, v_verifs * 5)
+    + LEAST(10, COALESCE(v_stats.resolved_reports,0))
+    - LEAST(30, v_viol * 10);
+  v_score := GREATEST(0, LEAST(100, v_score));
+  RETURN QUERY SELECT v_score, jsonb_build_object(
+    'accepted_reports', COALESCE(v_stats.accepted_reports,0),
+    'accept_rate', round(v_accept_rate,1),
+    'account_age_days', v_age_days,
+    'verifications', v_verifs,
+    'violations', v_viol);
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.company_trust(p_company UUID)
+RETURNS TABLE(score INT, factors JSONB) AS $$
+DECLARE v_verified BOOLEAN; v_programs INT; v_total INT; v_resolved INT;
+  v_avg_resp_h NUMERIC; v_score INT;
+BEGIN
+  SELECT is_verified INTO v_verified FROM public.company_profiles WHERE id = p_company;
+  SELECT count(*) INTO v_programs FROM public.programs WHERE company_id = p_company AND status = 'active';
+  SELECT count(*), count(*) FILTER (WHERE r.status IN ('resolved','closed')) INTO v_total, v_resolved
+    FROM public.reports r JOIN public.programs p ON p.id = r.program_id WHERE p.company_id = p_company;
+  SELECT AVG(EXTRACT(EPOCH FROM (e.created_at - r.submitted_at))/3600) INTO v_avg_resp_h
+    FROM public.report_events e JOIN public.reports r ON r.id = e.report_id
+    JOIN public.programs p ON p.id = r.program_id
+    WHERE p.company_id = p_company AND e.to_status = 'triaged' AND r.submitted_at IS NOT NULL;
+  v_score := (CASE WHEN v_verified THEN 25 ELSE 5 END)
+    + LEAST(20, v_programs * 5)
+    + CASE WHEN v_total > 0 THEN LEAST(30, ((v_resolved::NUMERIC / v_total) * 30)::INT) ELSE 10 END
+    + CASE WHEN v_avg_resp_h IS NULL THEN 5 WHEN v_avg_resp_h <= 24 THEN 15 WHEN v_avg_resp_h <= 72 THEN 10 ELSE 5 END;
+  v_score := GREATEST(0, LEAST(100, v_score));
+  RETURN QUERY SELECT v_score, jsonb_build_object(
+    'verified', COALESCE(v_verified,false), 'active_programs', v_programs,
+    'resolved_rate', CASE WHEN v_total>0 THEN round((v_resolved::NUMERIC/v_total)*100,1) ELSE 0 END,
+    'avg_response_hours', round(COALESCE(v_avg_resp_h,0),1));
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RLS for new tables
+ALTER TABLE public.researcher_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.kyc_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.domain_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.suspicious_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.appeals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.program_updates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trust_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "rv_read" ON public.researcher_verifications;
+CREATE POLICY "rv_read" ON public.researcher_verifications FOR SELECT USING (
+  EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+  OR public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "rv_write" ON public.researcher_verifications;
+CREATE POLICY "rv_write" ON public.researcher_verifications FOR ALL USING (
+  public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (true);
+DROP POLICY IF EXISTS "kyc_read" ON public.kyc_reviews;
+CREATE POLICY "kyc_read" ON public.kyc_reviews FOR SELECT USING (
+  EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+  OR public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "kyc_insert" ON public.kyc_reviews;
+CREATE POLICY "kyc_insert" ON public.kyc_reviews FOR INSERT WITH CHECK (
+  EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid()));
+DROP POLICY IF EXISTS "kyc_admin" ON public.kyc_reviews;
+CREATE POLICY "kyc_admin" ON public.kyc_reviews FOR UPDATE USING (
+  public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "dv_read" ON public.domain_verifications;
+CREATE POLICY "dv_read" ON public.domain_verifications FOR SELECT USING (
+  public.has_role('admin') OR public.has_role('moderator')
+  OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+  OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=domain_verifications.company_id AND user_id=auth.uid()));
+DROP POLICY IF EXISTS "dv_write" ON public.domain_verifications;
+CREATE POLICY "dv_write" ON public.domain_verifications FOR ALL USING (
+  public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+  OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=domain_verifications.company_id AND user_id=auth.uid()))
+  WITH CHECK (true);
+DROP POLICY IF EXISTS "se_admin" ON public.suspicious_events;
+CREATE POLICY "se_admin" ON public.suspicious_events FOR ALL USING (
+  public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (true);
+DROP POLICY IF EXISTS "ap_own" ON public.appeals;
+CREATE POLICY "ap_own" ON public.appeals FOR SELECT USING (user_id=auth.uid() OR public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "ap_insert" ON public.appeals;
+CREATE POLICY "ap_insert" ON public.appeals FOR INSERT WITH CHECK (user_id=auth.uid());
+DROP POLICY IF EXISTS "ap_review" ON public.appeals;
+CREATE POLICY "ap_review" ON public.appeals FOR UPDATE USING (public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "pu_read" ON public.program_updates;
+CREATE POLICY "pu_read" ON public.program_updates FOR SELECT USING (true);
+DROP POLICY IF EXISTS "pu_write" ON public.program_updates;
+CREATE POLICY "pu_write" ON public.program_updates FOR ALL USING (
+  EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))))
+  WITH CHECK (true);
+DROP POLICY IF EXISTS "ts_read" ON public.trust_snapshots;
+CREATE POLICY "ts_read" ON public.trust_snapshots FOR SELECT USING (true);
+
+-- Identity documents bucket (private; owner + staff only)
+INSERT INTO storage.buckets (id, name, public) VALUES ('identity-documents','identity-documents', false) ON CONFLICT (id) DO NOTHING;
+DROP POLICY IF EXISTS "iddoc_select" ON storage.objects;
+CREATE POLICY "iddoc_select" ON storage.objects FOR SELECT USING (bucket_id='identity-documents' AND auth.role()='authenticated');
+DROP POLICY IF EXISTS "iddoc_upload" ON storage.objects;
+CREATE POLICY "iddoc_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='identity-documents' AND auth.role()='authenticated');
+
+-- Self-asserted email mark: only succeeds when the caller's JWT is confirmed
+CREATE OR REPLACE FUNCTION public.mark_own_email_verified() RETURNS VOID AS $$
+DECLARE v_rp UUID; v_confirmed BOOLEAN;
+BEGIN
+  SELECT (auth.jwt() ->> 'email_confirmed_at') IS NOT NULL INTO v_confirmed;
+  IF NOT COALESCE(v_confirmed, false) THEN RETURN; END IF;
+  SELECT id INTO v_rp FROM public.researcher_profiles WHERE user_id = auth.uid();
+  IF v_rp IS NULL THEN RETURN; END IF;
+  INSERT INTO public.researcher_verifications(researcher_id, kind, status, verified_at)
+  VALUES (v_rp, 'email', 'verified', now())
+  ON CONFLICT (researcher_id, kind) DO UPDATE SET status = 'verified', verified_at = now(), updated_at = now();
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trust badges seed
+INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
+ ('verified-researcher','باحث موثق','Verified Researcher','Identity verified by review','shield-check'),
+ ('trusted-researcher','باحث جدير بالثقة','Trusted Researcher','High trust score sustained','star'),
+ ('verified-company','شركة موثقة','Verified Company','Business verification approved','building')
+ ON CONFLICT (code) DO NOTHING;

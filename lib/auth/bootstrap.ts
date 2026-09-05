@@ -39,6 +39,8 @@ export async function ensureUserBootstrap(
         // Wallet/reputation/stats rows are auto-created by DB trigger
         await sb.from('researcher_profiles').insert({ user_id: userId, display_name: username });
       }
+      // Marks email verified only when the JWT itself is confirmed
+      await sb.rpc('mark_own_email_verified');
     }
   } catch {
     /* bootstrap must never block auth */

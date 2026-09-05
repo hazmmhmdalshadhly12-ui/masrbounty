@@ -14,11 +14,14 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
   const { id: reportId } = await params;
   const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
   if (!report) return <main className="container py-12">Report not found.</main>;
-  const [{ data: comments }, { data: events }, { data: attachments }] = await Promise.all([
+  const [{ data: comments }, { data: events }, { data: attachments }, { data: award }, { data: payments }] = await Promise.all([
     supabase.from('report_comments').select('id,body,created_at').eq('report_id', reportId).order('created_at'),
-    supabase.from('report_events').select('id,from_status,to_status,created_at').eq('report_id', reportId).order('created_at'),
+    supabase.from('report_events').select('id,from_status,to_status,note,created_at').eq('report_id', reportId).order('created_at'),
     supabase.from('report_attachments').select('id,file_name,file_size,mime_type,created_at').eq('report_id', reportId).order('created_at'),
+    supabase.from('bounty_awards').select('id,amount,status,decided_at').eq('report_id', reportId).single(),
+    supabase.from('bounty_awards').select('id,bounty_payments(reference,status)').eq('report_id', reportId).single(),
   ]);
+  const paymentRef = (payments as unknown as { bounty_payments: { reference: string | null; status: string }[] } | null)?.bounty_payments?.[0]?.reference;
 
   return (
     <main className="py-2 max-w-3xl space-y-4">
@@ -34,6 +37,20 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
           {report.cvss_score != null && <span className="text-xs text-muted-foreground" dir="ltr">CVSS {Number(report.cvss_score).toFixed(1)}</span>}
         </div>
         <Card className="mt-4"><CardContent className="p-4"><ReportStepper status={report.status} /></CardContent></Card>
+        {award && (
+          <Card className="mt-4 border-amber-400/50">
+            <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
+              <div>
+                <p className="text-sm text-muted-foreground">المكافأة</p>
+                <p className="text-2xl font-black tabular-nums" dir="ltr">{Number(award.amount).toLocaleString()} EGP</p>
+              </div>
+              <div className="text-left">
+                <StatusPill value={award.status} />
+                {paymentRef && <p className="mt-1 font-mono text-xs text-muted-foreground" dir="ltr">ref: {paymentRef}</p>}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
       <Card><CardHeader><CardTitle className="text-sm">الملخص</CardTitle></CardHeader><CardContent><p className="text-sm leading-relaxed">{report.summary}</p></CardContent></Card>
       <Card><CardHeader><CardTitle className="text-sm">التفاصيل الفنية</CardTitle></CardHeader>
@@ -54,10 +71,15 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
         <CardContent>
           {!events?.length ? <p className="text-sm text-muted-foreground">لا توجد أحداث بعد.</p> : (
             <ol className="relative space-y-3 border-r pr-4">
-              {events.map((e) => (
+              {events.map((e: { id: string; from_status: string | null; to_status: string | null; note: string | null }) => (
                 <li key={e.id} className="relative text-sm">
                   <span className="absolute -right-[21px] top-1 h-2.5 w-2.5 rounded-full bg-slate-300" />
-                  <StatusPill value={e.from_status ?? 'draft'} /> <span className="text-muted-foreground">←</span> <StatusPill value={e.to_status ?? e.from_status ?? 'draft'} />
+                  {e.to_status ? (
+                    <><StatusPill value={e.from_status ?? 'draft'} /> <span className="text-muted-foreground">←</span> <StatusPill value={e.to_status} /></>
+                  ) : (
+                    <span className="text-muted-foreground">{e.note}</span>
+                  )}
+                  {e.to_status && e.note && <p className="mt-1 text-xs text-muted-foreground">{e.note}</p>}
                 </li>
               ))}
             </ol>

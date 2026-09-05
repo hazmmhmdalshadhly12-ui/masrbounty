@@ -40,8 +40,89 @@ export default async function CompanySettings() {
         </form>
       </CardContent></Card>
       {company && <VerificationCard companyId={company.id} />}
+      {company && <DomainCard companyId={company.id} />}
     </main>
   );
+}
+
+async function DomainCard({ companyId }: { companyId: string }) {
+  const supabase = await createServerClient();
+  const { data: domains } = await supabase
+    .from('domain_verifications')
+    .select('id,domain,token,status,verified_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false });
+
+  async function addDomain(formData: FormData) {
+    'use server';
+    const supabase = await createServerClient();
+    const domain = String(formData.get('domain') ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) throw new Error('Invalid domain');
+    await supabase.from('domain_verifications').upsert(
+      { company_id: String(formData.get('company_id')), domain, status: 'pending' },
+      { onConflict: 'company_id,domain' }
+    );
+    revalidatePath('/company/settings');
+  }
+
+  async function checkDomain(domainId: string) {
+    'use server';
+    const supabase = await createServerClient();
+    const { data: row } = await supabase.from('domain_verifications').select('company_id,domain,token').eq('id', domainId).single();
+    if (!row) throw new Error('Not found');
+    const expected = `masrbounty-verification=${row.token}`;
+    let ok = false;
+    try {
+      const res = await fetch(`https://dns.google/resolve?name=_masrbounty.${row.domain}&type=TXT`, { cache: 'no-store' });
+      const j = (await res.json()) as { Answer?: { data?: string }[] };
+      const txts = (j.Answer ?? []).map((a) => (a.data ?? '').replace(/^"|"$/g, ''));
+      ok = txts.some((t) => t.includes(expected));
+    } catch {
+      ok = false;
+    }
+    await supabase
+      .from('domain_verifications')
+      .update({ status: ok ? 'verified' : 'failed', verified_at: ok ? new Date().toISOString() : null, last_checked_at: new Date().toISOString() })
+      .eq('id', domainId);
+    await logAuditSafe('verify', 'domain_verifications', domainId, { ok });
+    revalidatePath('/company/settings');
+  }
+
+  return (
+    <Card><CardHeader><CardTitle>توثيق ملكية النطاق</CardTitle></CardHeader><CardContent className="space-y-3">
+      {(domains ?? []).map((d) => (
+        <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
+          <span dir="ltr" className="font-mono">{d.domain}</span>
+          {d.status === 'verified' ? (
+            <span className="text-xs font-bold text-green-700">موثق ✓</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              أضف سجل TXT على <b dir="ltr">_masrbounty.{d.domain}</b> بقيمة <code dir="ltr" className="rounded bg-muted px-1">masrbounty-verification={d.token}</code>
+            </span>
+          )}
+          {d.status !== 'verified' && (
+            <form action={checkDomain.bind(null, d.id)}><Button size="sm" type="submit">تحقق الآن</Button></form>
+          )}
+        </div>
+      ))}
+      <form action={addDomain} className="flex gap-2">
+        <input type="hidden" name="company_id" value={companyId} />
+        <Input name="domain" required placeholder="example.com" dir="ltr" />
+        <Button type="submit">إضافة نطاق</Button>
+      </form>
+    </CardContent></Card>
+  );
+}
+
+async function logAuditSafe(action: 'verify', entity: string, entityId: string, meta: Record<string, unknown>) {
+  try {
+    const { logAudit } = await import('@/services/audit');
+    const supabase = await createServerClient();
+    const { data: user } = await supabase.auth.getUser();
+    await logAudit(action, entity, entityId, meta, user.user?.id);
+  } catch {
+    /* ignore */
+  }
 }
 
 async function VerificationCard({ companyId }: { companyId: string }) {

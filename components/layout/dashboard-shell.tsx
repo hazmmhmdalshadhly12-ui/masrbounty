@@ -45,6 +45,7 @@ const icons: Record<string, LucideIcon> = {
   moderation: Gavel,
   audit: ScrollText,
   support: LifeBuoy,
+  verification: ShieldCheck,
 };
 
 export interface ShellLink {

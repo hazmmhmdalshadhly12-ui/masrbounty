@@ -43,8 +43,27 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
         </Card>
       )}
       {!!bounty?.length && (
-        <Card><CardHeader><CardTitle>Bounty ranges</CardTitle></CardHeader>
-          <CardContent>{bounty.map((b) => <p key={b.id} className="text-sm">{b.severity}: {b.min_amount} – {b.max_amount} EGP</p>)}</CardContent>
+        <Card><CardHeader><CardTitle>جدول المكافآت (EGP)</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
+                  <th className="px-4 py-2.5 font-medium">الخطورة</th>
+                  <th className="px-4 py-2.5 font-medium">من</th>
+                  <th className="px-4 py-2.5 font-medium">إلى</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bounty.map((b: { id: string; severity: string; min_amount: number; max_amount: number }) => (
+                  <tr key={b.id} className="border-b last:border-0">
+                    <td className="px-4 py-2.5 font-bold">{b.severity}</td>
+                    <td className="px-4 py-2.5 tabular-nums" dir="ltr">{Number(b.min_amount).toLocaleString()}</td>
+                    <td className="px-4 py-2.5 tabular-nums" dir="ltr">{Number(b.max_amount).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
         </Card>
       )}
       {!!activity?.length && (

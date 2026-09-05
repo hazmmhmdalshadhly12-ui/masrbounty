@@ -57,7 +57,22 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Segoe UI', Tahoma, 'Cairo', 'Noto Kufi Arabic', system-ui, sans-serif;
+    font-family: var(--font-cairo), var(--font-inter), 'Segoe UI', Tahoma, system-ui, sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+  code, pre, .font-mono {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
   ::selection {
     background: #fbbf24;

@@ -37,7 +37,7 @@ export function LoginForm() {
         const { data: profile } = await supabase.from('profiles').select('is_active').eq('id', data.user.id).single();
         if (profile && profile.is_active === false) {
           await supabase.auth.signOut();
-          setError('تم إيقاف حسابك — تواصل مع الإدارة عبر صفحة التواصل');
+          setError('تم إيقاف حسابك — يمكنك تقديم استئناف من صفحة الاستئناف');
           return;
         }
         await ensureUserBootstrap(supabase, data.user.id, {

@@ -127,6 +127,19 @@ export async function markPaidAction(awardId: string, formData: FormData) {
     reference,
     processed_by: user.user.id,
   });
+  // Move from pending to available balance
+  const researcherId = (award as unknown as { reports: { researcher_id: string } }).reports.researcher_id;
+  const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', researcherId).single();
+  if (wallet) {
+    const nb = Number(wallet.balance) + Number(award.amount);
+    await supabase.from('wallets').update({
+      balance: nb,
+      pending_balance: Math.max(0, Number(wallet.pending_balance) - Number(award.amount)),
+    }).eq('id', wallet.id);
+    await supabase.from('wallet_transactions').insert({
+      wallet_id: wallet.id, type: 'bounty', amount: Number(award.amount), balance_after: nb, reference_id: awardId, note: `Bounty paid (ref ${reference})`,
+    });
+  }
   const parties = await reportParties(supabase, award.report_id);
   if (parties.reporterUserId) {
     await notify(supabase, parties.reporterUserId, {
@@ -161,11 +174,12 @@ export async function awardBountyAction(reportId: string, formData: FormData) {
   if (aErr || !award) throw new Error(aErr?.message ?? 'Award failed');
   const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', report.researcher_id).single();
   if (!wallet) throw new Error('Wallet not found');
-  const newBalance = Number(wallet.balance) + amount;
+  // Approved bounty lands in PENDING until the company marks it paid
+  const newPending = Number(wallet.pending_balance) + amount;
   const newEarned = Number(wallet.total_earned) + amount;
-  await supabase.from('wallets').update({ balance: newBalance, total_earned: newEarned }).eq('id', wallet.id);
+  await supabase.from('wallets').update({ pending_balance: newPending, total_earned: newEarned }).eq('id', wallet.id);
   await supabase.from('wallet_transactions').insert({
-    wallet_id: wallet.id, type: 'bounty', amount, balance_after: newBalance, reference_id: reportId, note: 'Bounty awarded',
+    wallet_id: wallet.id, type: 'bounty', amount, balance_after: Number(wallet.balance), reference_id: reportId, note: 'Bounty approved (pending payment)',
   });
   await supabase.from('reports').update({ status: 'accepted', bounty_amount: amount }).eq('id', reportId);
   await logAudit('award', 'bounty_awards', award.id, { report_id: reportId, amount }, user.user.id);

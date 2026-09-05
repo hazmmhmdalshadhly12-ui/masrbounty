@@ -25,11 +25,17 @@ async function setActive(userId: string, active: boolean, formData: FormData) {
   revalidatePath('/admin/users');
 }
 
-export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q = '' } = await searchParams;
+export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string; role?: string }> }) {
+  const { q = '', role = '' } = await searchParams;
   const supabase = await createServerClient();
+  let ids: string[] | null = null;
+  if (role && ['researcher', 'company', 'moderator', 'admin'].includes(role)) {
+    const { data: rr } = await supabase.from('user_roles').select('user_id').eq('role', role).limit(500);
+    ids = (rr ?? []).map((r: { user_id: string }) => r.user_id);
+  }
   let query = supabase.from('profiles').select('id,username,full_name,is_active,created_at').order('created_at', { ascending: false }).limit(100);
   if (q.trim()) query = query.ilike('username', `%${q.trim()}%`);
+  if (ids) query = query.in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
   const { data: users } = await query;
   return (
     <div className="py-2">
@@ -37,6 +43,13 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
         <h1 className="text-xl font-black tracking-tight">المستخدمون ({users?.length ?? 0})</h1>
         <form className="flex gap-2">
           <Input name="q" defaultValue={q} placeholder="بحث بالاسم…" className="h-9 w-48" />
+          <select name="role" defaultValue={role} className="h-9 rounded-md border px-2 text-sm">
+            <option value="">كل الأدوار</option>
+            <option value="researcher">باحثون</option>
+            <option value="company">شركات</option>
+            <option value="moderator">مشرفون</option>
+            <option value="admin">مدراء</option>
+          </select>
           <Button size="sm" variant="outline" type="submit">بحث</Button>
         </form>
       </div>

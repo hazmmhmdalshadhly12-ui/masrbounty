@@ -14,7 +14,7 @@ const cols = [
   { title: 'المنصة', links: [['البرامج', '/programs'], ['الشركات', '/companies'], ['الباحثون', '/researchers'], ['المتصدرين', '/leaderboard']] },
   { title: 'الموارد', links: [['من نحن', '/about'], ['المدونة', '/blog'], ['المساعدة', '/help'], ['الأسئلة الشائعة', '/faq'], ['تواصل معنا', '/contact']] },
   { title: 'قانوني', links: [['الأمان', '/security'], ['شروط الخدمة', '/terms'], ['سياسة الخصوصية', '/privacy'], ['البحث', '/search']] },
-  { title: 'الحساب', links: [['تسجيل الدخول', '/login'], ['إنشاء حساب', '/register'], ['لوحة التحكم', '/dashboard'], ['قاعة المشاهير', '/hall-of-fame']] },
+  { title: 'الحساب', links: [['تسجيل الدخول', '/login'], ['إنشاء حساب', '/register'], ['لوحة التحكم', '/dashboard'], ['قاعة المشاهير', '/hall-of-fame'], ['الاستئناف', '/appeal']] },
 ];
 
 export function Footer() {

@@ -8,6 +8,7 @@ const links = [
   { href: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
   { href: '/dashboard/payments', label: 'المدفوعات', icon: 'payments' },
   { href: '/dashboard/badges', label: 'الشارات', icon: 'badges' },
+  { href: '/dashboard/verification', label: 'التحقق', icon: 'verification' },
   { href: '/dashboard/messages', label: 'الرسائل', icon: 'messages' },
   { href: '/dashboard/notifications', label: 'الإشعارات', icon: 'notifications' },
   { href: '/dashboard/settings', label: 'الإعدادات', icon: 'settings' },

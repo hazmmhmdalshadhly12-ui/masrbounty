@@ -4,6 +4,7 @@ const links = [
   { href: '/company', label: 'نظرة عامة', icon: 'dashboard' },
   { href: '/company/programs', label: 'البرامج', icon: 'programs' },
   { href: '/company/reports', label: 'التقارير', icon: 'reports' },
+  { href: '/company/researchers', label: 'الباحثون', icon: 'team' },
   { href: '/company/team', label: 'الفريق', icon: 'team' },
   { href: '/company/messages', label: 'الرسائل', icon: 'messages' },
   { href: '/company/analytics', label: 'التحليلات', icon: 'analytics' },
