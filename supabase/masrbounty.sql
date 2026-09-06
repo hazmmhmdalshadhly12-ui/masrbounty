@@ -769,7 +769,21 @@ DROP POLICY IF EXISTS "rep_update" ON public.reports; CREATE POLICY "rep_update"
   OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND public.is_company_member(p.company_id, auth.uid()))
   OR public.has_role('admin') OR public.has_role('moderator'));
 -- report_comments: participants
-DROP POLICY IF EXISTS "rc_select" ON public.report_comments; CREATE POLICY "rc_select" ON public.report_comments FOR SELECT USING (EXISTS(SELECT 1 FROM public.reports r WHERE r.id=report_id AND (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=r.researcher_id AND rp.user_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=r.program_id AND public.is_company_member(p.company_id, auth.uid())) OR public.has_role('admin') OR public.has_role('moderator'))));
+-- Internal notes are invisible to the reporter: reporters see public comments only,
+-- company team and staff see everything. (Prevents internal-discussion leakage.)
+DROP POLICY IF EXISTS "rc_select" ON public.report_comments;
+CREATE POLICY "rc_select" ON public.report_comments FOR SELECT USING (
+  EXISTS(
+    SELECT 1 FROM public.reports r
+    LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+    LEFT JOIN public.programs p ON p.id = r.program_id
+    LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+    WHERE r.id = report_id AND (
+      (rp.id IS NOT NULL AND (NOT is_internal OR cm.user_id IS NOT NULL))
+      OR cm.user_id IS NOT NULL
+    )
+  )
+  OR public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "rc_insert" ON public.report_comments; CREATE POLICY "rc_insert" ON public.report_comments FOR INSERT WITH CHECK (author_id = auth.uid());
 -- report_attachments: same as reports, uploader only insert
 DROP POLICY IF EXISTS "ra_select" ON public.report_attachments; CREATE POLICY "ra_select" ON public.report_attachments FOR SELECT USING (EXISTS(SELECT 1 FROM public.reports r WHERE r.id=report_id AND (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=r.researcher_id AND rp.user_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=r.program_id AND public.is_company_member(p.company_id, auth.uid())) OR public.has_role('admin'))));

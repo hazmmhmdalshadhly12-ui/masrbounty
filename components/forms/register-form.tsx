@@ -68,26 +68,6 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         username: parsed.data.username,
         role: parsed.data.role,
       });
-      // Verify the server sees the session before navigating.
-      setBusy(true);
-      const start = Date.now();
-      let seen = false;
-      while (Date.now() - start < 9000 && !seen) {
-        try {
-          const r = await fetch(`/api/diag?t=${Date.now()}`, { cache: 'no-store' });
-          if (r.ok) {
-            const j = (await r.json()) as { result?: string };
-            seen = j.result === 'AUTHENTICATED';
-          }
-        } catch {
-          /* retry */
-        }
-        if (!seen) await new Promise((res) => setTimeout(res, 600));
-      }
-      if (!seen) {
-        setError('تم إنشاء الحساب لكن الخادم لم يستلم الجلسة — سجّل الدخول من صفحة الدخول');
-        return;
-      }
       window.location.assign(target);
     } catch {
       setError('تعذر إنشاء الحساب حاليًا — حاول لاحقًا');

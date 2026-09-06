@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
+/**
+ * Production error boundary. Never renders error.message: Server Action
+ * failures can contain database internals (RLS violations, constraints).
+ * The digest lets admins correlate with server logs.
+ */
 export default function Err({
   error,
   reset,

@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/shared/page-header';
+import { isInternalLink } from '@/lib/links';
 
 export default async function CompanyNotifications() {
   const supabase = await createServerClient();
@@ -24,7 +25,7 @@ export default async function CompanyNotifications() {
         notifs.map((n) => (
           <Card key={n.id} className={`mb-2 ${n.is_read ? 'opacity-60' : ''}`}><CardContent className="p-3 flex justify-between items-center">
             <div><p className="font-semibold">{n.title}</p><p className="text-sm text-muted-foreground">{n.body}</p>
-              {n.link && <Link href={n.link} className="text-xs underline">فتح</Link>} <Badge className="ml-2">{n.type}</Badge></div>
+              {isInternalLink(n.link) && <Link href={n.link as string} className="text-xs underline">فتح</Link>} <Badge className="ml-2">{n.type}</Badge></div>
             {!n.is_read && <form action={markReadAction.bind(null, n.id)}><Button size="sm" variant="ghost" type="submit">تعيين كمقروء</Button></form>}
           </CardContent></Card>
         ))}

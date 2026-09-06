@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
+import { isInternalLink } from '@/lib/links';
 
 interface Item {
   id: string;
@@ -61,7 +62,7 @@ export function NotificationBell() {
               <p className="p-4 text-sm text-muted-foreground">لا إشعارات جديدة.</p>
             ) : (
               items.map((n) => (
-                <Link key={n.id} href={n.link ?? '/dashboard/notifications'} onClick={() => setOpen(false)} className="block border-b px-4 py-2.5 text-sm last:border-0 hover:bg-accent">
+                <Link key={n.id} href={isInternalLink(n.link) ? n.link : '/dashboard/notifications'} onClick={() => setOpen(false)} className="block border-b px-4 py-2.5 text-sm last:border-0 hover:bg-accent">
                   <span className={n.is_read ? 'text-muted-foreground' : 'font-bold'}>{n.title}</span>
                 </Link>
               ))

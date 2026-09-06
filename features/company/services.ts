@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
 import { logAudit } from '@/services/audit';
 import { notify, reportParties } from '@/lib/notify';
+import { enforceRate } from '@/lib/rate-limit';
 
 async function companyOfProgram(programId: string) {
   const supabase = await createServerClient();
@@ -28,6 +29,8 @@ export async function triageReportAction(reportId: string, status: string) {
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
   await companyOfProgram(report.program_id);
+  const { data: actor } = await supabase.auth.getUser();
+  if (actor.user) enforceRate(`triage:${actor.user.id}`, 60, 60_000);
   const { error } = await supabase.from('reports').update({ status }).eq('id', reportId);
   if (error) throw new Error(error.message);
   if (status === 'resolved') {
@@ -38,8 +41,7 @@ export async function triageReportAction(reportId: string, status: string) {
       await supabase.rpc('check_merit_badges', { p_researcher: rid });
     }
   }
-  const actor = (await supabase.auth.getUser()).data.user?.id;
-  await logAudit('update', 'reports', reportId, { status }, actor);
+  await logAudit('update', 'reports', reportId, { status }, actor.user?.id);
   const parties = await reportParties(supabase, reportId);
   if (parties.reporterUserId) {
     await notify(supabase, parties.reporterUserId, {

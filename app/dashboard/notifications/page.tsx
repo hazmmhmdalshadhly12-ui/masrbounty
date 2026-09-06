@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/utils/time';
+import { isInternalLink } from '@/lib/links';
 
 export default async function NotificationsPage() {
   const supabase = await createServerClient();
@@ -25,7 +26,7 @@ export default async function NotificationsPage() {
         notifs.map((n) => (
           <Card key={n.id} className={`mb-2 ${n.is_read ? 'opacity-60' : ''}`}><CardContent className="p-3 flex justify-between items-center">
             <div><p className="font-semibold">{n.title}</p><p className="text-sm text-muted-foreground">{n.body}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.created_at)} {n.link && <Link href={n.link} className="underline">فتح</Link>} <Badge className="ml-2">{n.type}</Badge></p></div>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.created_at)} {isInternalLink(n.link) && <Link href={n.link as string} className="underline">فتح</Link>} <Badge className="ml-2">{n.type}</Badge></p></div>
             {!n.is_read && <form action={markReadAction.bind(null, n.id)}><Button size="sm" variant="ghost" type="submit">تعيين كمقروء</Button></form>}
           </CardContent></Card>
         ))}

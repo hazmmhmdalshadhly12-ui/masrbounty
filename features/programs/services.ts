@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { programSchema } from '@/schemas/program';
 import { slugify } from '@/utils/slug';
+import { enforceRate } from '@/lib/rate-limit';
 
 export async function createProgramAction(formData: FormData) {
   const raw = {
@@ -20,6 +21,7 @@ export async function createProgramAction(formData: FormData) {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
+  enforceRate(`program:${user.user.id}`, 10, 3_600_000);
   const { data: company } = await supabase
     .from('company_profiles')
     .select('id')

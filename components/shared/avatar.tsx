@@ -31,12 +31,15 @@ export function Avatar({
   const initial = (name.trim().charAt(0) || '?').toUpperCase();
   if (src) {
     const dims = size === 'sm' ? 32 : size === 'lg' ? 56 : 40;
+    // unoptimized: avatars are tiny remote files; skipping the image
+    // optimizer removes an entire native-code attack surface (libvips).
     return (
       <Image
         src={src}
         alt={name}
         width={dims}
         height={dims}
+        unoptimized
         className={cn('rounded-full object-cover', sizes[size], className)}
       />
     );
