@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,11 +23,50 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
       .limit(10),
   ]);
 
+  const { data: user } = await supabase.auth.getUser();
+  const { data: rp } = user.user
+    ? await supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single()
+    : { data: null };
+  const researcherId = (rp as { id: string } | null)?.id ?? null;
+  const [{ data: savedRow }, { count: saves }] = await Promise.all([
+    researcherId ? await supabase.from('saved_programs').select('id').eq('researcher_id', researcherId).eq('program_id', program.id).single() : { data: null },
+    supabase.from('saved_programs').select('id', { count: 'exact', head: true }).eq('program_id', program.id),
+  ]);
+
+  async function toggleSave() {
+    'use server';
+    const supabase = await createServerClient();
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) redirect('/login');
+    const { data: mine } = await supabase.from('researcher_profiles').select('id').eq('user_id', u.user.id).single();
+    if (!mine) throw new Error('Researcher only');
+    const { data: ex } = await supabase.from('saved_programs').select('id').eq('researcher_id', mine.id).eq('program_id', program.id).single();
+    if (ex) {
+      await supabase.from('saved_programs').delete().eq('id', ex.id);
+    } else {
+      await supabase.from('saved_programs').insert({ researcher_id: mine.id, program_id: program.id });
+    }
+    const { revalidatePath } = await import('next/cache');
+    revalidatePath(`/programs/${program.slug}`);
+  }
+
   return (
     <main className="container py-8 max-w-4xl space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">{program.name}</h1>
-        <div className="flex gap-2 mt-2"><Badge>{program.status}</Badge><Badge variant="secondary">{program.visibility}</Badge></div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-3xl font-bold">{program.name}</h1>
+          {researcherId && (
+            <form action={toggleSave}>
+              <Button size="sm" variant={savedRow ? 'default' : 'outline'} type="submit">
+                {savedRow ? 'محفوظ ✓' : 'حفظ البرنامج'}
+              </Button>
+            </form>
+          )}
+        </div>
+        <div className="flex gap-2 mt-2">
+          <Badge>{program.status}</Badge><Badge variant="secondary">{program.visibility}</Badge>
+          <span className="text-xs text-muted-foreground">يحفظه {saves ?? 0} باحث</span>
+        </div>
         <p className="mt-4 text-muted-foreground">{program.description}</p>
       </div>
       <Card><CardHeader><CardTitle>Scope</CardTitle></CardHeader>

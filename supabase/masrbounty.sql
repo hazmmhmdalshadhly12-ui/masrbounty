@@ -1237,14 +1237,23 @@ BEGIN
   SELECT id INTO v_badge FROM public.badges WHERE code = 'first-blood';
   IF v_accepted >= 1 AND v_badge IS NOT NULL THEN
     INSERT INTO public.researcher_badges(researcher_id, badge_id) VALUES (p_researcher, v_badge) ON CONFLICT DO NOTHING;
+    INSERT INTO public.achievements(researcher_id, title, description, points)
+    SELECT p_researcher, 'First accepted report', 'Your first report was accepted', 10
+    WHERE NOT EXISTS (SELECT 1 FROM public.achievements WHERE researcher_id = p_researcher AND title = 'First accepted report');
   END IF;
   SELECT id INTO v_badge FROM public.badges WHERE code = 'bug-hunter';
   IF v_accepted >= 10 AND v_badge IS NOT NULL THEN
     INSERT INTO public.researcher_badges(researcher_id, badge_id) VALUES (p_researcher, v_badge) ON CONFLICT DO NOTHING;
+    INSERT INTO public.achievements(researcher_id, title, description, points)
+    SELECT p_researcher, '10 accepted reports', 'Double-digit accepted reports', 50
+    WHERE NOT EXISTS (SELECT 1 FROM public.achievements WHERE researcher_id = p_researcher AND title = '10 accepted reports');
   END IF;
   SELECT id INTO v_badge FROM public.badges WHERE code = 'critical-hunter';
   IF v_critical_resolved >= 1 AND v_badge IS NOT NULL THEN
     INSERT INTO public.researcher_badges(researcher_id, badge_id) VALUES (p_researcher, v_badge) ON CONFLICT DO NOTHING;
+    INSERT INTO public.achievements(researcher_id, title, description, points)
+    SELECT p_researcher, 'Critical resolved', 'A critical report you found was resolved', 60
+    WHERE NOT EXISTS (SELECT 1 FROM public.achievements WHERE researcher_id = p_researcher AND title = 'Critical resolved');
   END IF;
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 

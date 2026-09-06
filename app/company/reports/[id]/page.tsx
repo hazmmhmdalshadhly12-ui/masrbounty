@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
-import { triageReportAction, awardBountyAction, changeSeverityAction, markDuplicateAction } from '@/features/company/services';
+import { triageReportAction, awardBountyAction, changeSeverityAction, markDuplicateAction, assignReportAction, unassignReportAction, toggleLabelAction } from '@/features/company/services';
 import { addCommentAction } from '@/features/reports/services';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,8 +51,16 @@ async function contactResearcher(reportId: string) {
 export default async function CompanyReport({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerClient();
   const { id } = await params;
-  const { data: report } = await supabase.from('reports').select('*,programs(response_sla_hours)').eq('id', id).single();
+  const { data: report } = await supabase.from('reports').select('*,programs(company_id,response_sla_hours)').eq('id', id).single();
   if (!report) return <main className="container py-12">Not found.</main>;
+  const companyId = (report as unknown as { programs: { company_id: string } | null }).programs?.company_id ?? null;
+  const [{ data: assignees }, { data: members }, { data: labels }, { data: attached }] = await Promise.all([
+    supabase.from('report_assignees').select('user_id,profiles!inner(username)').eq('report_id', id),
+    companyId ? supabase.from('company_members').select('user_id,role,profiles!inner(username)').eq('company_id', companyId) : Promise.resolve({ data: [] }),
+    supabase.from('report_labels').select('id,name,color').order('name'),
+    supabase.from('report_label_links').select('label_id').eq('report_id', id),
+  ]);
+  const attachedIds = new Set(((attached ?? []) as { label_id: string }[]).map((l) => l.label_id));
   const slaHours = (report as unknown as { programs: { response_sla_hours: number } | null }).programs?.response_sla_hours ?? 72;
   const submittedAt = report.submitted_at ? new Date(report.submitted_at).getTime() : null;
   const elapsedH = submittedAt ? (Date.now() - submittedAt) / 3_600_000 : null;
@@ -110,6 +118,44 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
           </form>
         </CardContent>
       </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card><CardHeader><CardTitle>المكلفون</CardTitle></CardHeader><CardContent className="space-y-2">
+          {((assignees ?? []) as unknown as { user_id: string; profiles: { username: string } }[]).map((a) => (
+            <div key={a.user_id} className="flex items-center justify-between text-sm">
+              <span dir="ltr">@{a.profiles.username}</span>
+              <form action={unassignReportAction.bind(null, report.id, a.user_id)}>
+                <Button size="sm" variant="ghost" type="submit">إزالة</Button>
+              </form>
+            </div>
+          ))}
+          <form action={assignReportAction.bind(null, report.id)} className="flex gap-2 pt-1">
+            <select name="assignee_id" required defaultValue="" className="h-10 flex-1 rounded-md border px-2 text-sm">
+              <option value="" disabled>اختر من الفريق…</option>
+              {((members ?? []) as unknown as { user_id: string; role: string; profiles: { username: string } }[]).map((m) => (
+                <option key={m.user_id} value={m.user_id}>{m.profiles.username} ({m.role})</option>
+              ))}
+            </select>
+            <Button size="sm" type="submit">تكليف</Button>
+          </form>
+        </CardContent></Card>
+        <Card><CardHeader><CardTitle>الوسوم</CardTitle></CardHeader><CardContent>
+          <form action={toggleLabelAction.bind(null, report.id)} className="flex flex-wrap gap-2">
+            {(labels ?? []).map((l: { id: string; name: string; color: string }) => (
+              <button
+                key={l.id}
+                type="submit"
+                name="label_id"
+                value={l.id}
+                className={`rounded-full border px-3 py-1 text-xs font-bold ${attachedIds.has(l.id) ? 'text-white' : ''}`}
+                style={attachedIds.has(l.id) ? { backgroundColor: l.color, borderColor: l.color } : { borderColor: l.color, color: l.color }}
+              >
+                {l.name}
+              </button>
+            ))}
+          </form>
+          <p className="mt-2 text-xs text-muted-foreground">اضغط الوسم لإضافته أو إزالته.</p>
+        </CardContent></Card>
+      </div>
       <Card><CardHeader><CardTitle>Award bounty (server-side, credits wallet)</CardTitle></CardHeader>
         <CardContent>
           <form action={awardBountyAction.bind(null, report.id)} className="flex gap-2">

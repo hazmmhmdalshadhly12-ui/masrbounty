@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { MfaPanel } from '@/components/forms/mfa-panel';
+import { ApiKeysCard } from '@/components/settings/api-keys-card';
 
 async function updateProfile(formData: FormData) {
   'use server';
@@ -127,6 +128,7 @@ export default async function SettingsPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.user.id).single();
   const { data: rp } = await supabase.from('researcher_profiles').select('*').eq('user_id', user.user.id).single();
   const { data: methods } = rp ? await supabase.from('payment_methods').select('*').eq('researcher_id', rp.id) : { data: [] };
+  const { data: keys } = await supabase.from('api_keys').select('id,name,key_prefix,is_active,created_at').eq('user_id', user.user.id).order('created_at', { ascending: false });
   const { data: prefs } = await supabase.from('notification_preferences').select('*').eq('user_id', user.user.id).single();
   const ua = (await headers()).get('user-agent') ?? '—';
   return (
@@ -193,6 +195,7 @@ export default async function SettingsPage() {
           <div className="sm:col-span-2"><Button size="sm" type="submit">حفظ التفضيلات</Button></div>
         </form>
       </CardContent></Card>
+      <ApiKeysCard initial={(keys ?? []) as { id: string; name: string; key_prefix: string; is_active: boolean; created_at: string }[]} />
       <Card className="border-red-200"><CardHeader><CardTitle className="text-red-700">منطقة الخطر</CardTitle></CardHeader><CardContent>
         <form action={deleteAccount} className="flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[200px]">

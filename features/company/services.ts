@@ -112,6 +112,48 @@ export async function markDuplicateAction(reportId: string, formData: FormData) 
   revalidatePath(`/company/reports/${reportId}`);
 }
 
+export async function assignReportAction(reportId: string, formData: FormData) {
+  const assigneeId = String(formData.get('assignee_id') ?? '');
+  if (!assigneeId) throw new Error('اختر عضوًا');
+  const supabase = await createServerClient();
+  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  if (!report) throw new Error('Not found');
+  const { program } = await companyOfProgram(report.program_id);
+  const { data: member } = await supabase.from('company_members').select('user_id').eq('company_id', program.company_id).eq('user_id', assigneeId).single();
+  if (!member) throw new Error('Not a team member');
+  const { data: me } = await supabase.auth.getUser();
+  await supabase.from('report_assignees').upsert(
+    { report_id: reportId, user_id: assigneeId, assigned_by: me.user?.id ?? null },
+    { onConflict: 'report_id,user_id' }
+  );
+  revalidatePath(`/company/reports/${reportId}`);
+}
+
+export async function unassignReportAction(reportId: string, userId: string) {
+  const supabase = await createServerClient();
+  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  if (!report) throw new Error('Not found');
+  await companyOfProgram(report.program_id);
+  await supabase.from('report_assignees').delete().eq('report_id', reportId).eq('user_id', userId);
+  revalidatePath(`/company/reports/${reportId}`);
+}
+
+export async function toggleLabelAction(reportId: string, formData: FormData) {
+  const labelId = String(formData.get('label_id') ?? '');
+  if (!labelId) throw new Error('اختر وسمًا');
+  const supabase = await createServerClient();
+  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  if (!report) throw new Error('Not found');
+  await companyOfProgram(report.program_id);
+  const { data: existing } = await supabase.from('report_label_links').select('label_id').eq('report_id', reportId).eq('label_id', labelId).single();
+  if (existing) {
+    await supabase.from('report_label_links').delete().eq('report_id', reportId).eq('label_id', labelId);
+  } else {
+    await supabase.from('report_label_links').insert({ report_id: reportId, label_id: labelId });
+  }
+  revalidatePath(`/company/reports/${reportId}`);
+}
+
 function moneyError(e: unknown): Error {
   const msg = e instanceof Error ? e.message : 'failed';
   if (/unauthorized/i.test(msg)) return new Error('سجّل الدخول أولًا');
