@@ -9,6 +9,7 @@ export async function markReadAction(notificationId: string) {
   if (!user.user) throw new Error('Unauthorized');
   await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId).eq('user_id', user.user.id);
   revalidatePath('/dashboard/notifications');
+  revalidatePath('/company/notifications');
 }
 
 export async function markAllReadAction() {
@@ -17,4 +18,5 @@ export async function markAllReadAction() {
   if (!user.user) throw new Error('Unauthorized');
   await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.user.id).eq('is_read', false);
   revalidatePath('/dashboard/notifications');
+  revalidatePath('/company/notifications');
 }

@@ -1,8 +1,10 @@
+import { MessagesSquare } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { sendMessageAction } from '@/features/messaging/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const supabase = await createServerClient();
@@ -17,7 +19,9 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
     await supabase.from('conversation_members').update({ last_read_at: new Date().toISOString() }).eq('conversation_id', activeId).eq('user_id', user.user.id);
   }
   return (
-    <main className="container py-8 grid md:grid-cols-3 gap-4">
+    <div className="py-2">
+    <PageHeader icon={MessagesSquare} title="الرسائل" desc="محادثاتك مع فرق الشركات حول التقارير" />
+    <main className="grid md:grid-cols-3 gap-4">
       <Card><CardHeader><CardTitle>Conversations</CardTitle></CardHeader><CardContent>
         {!memberships?.length ? <p className="text-sm text-muted-foreground">None yet.</p> :
           ((memberships ?? []) as unknown as { conversation_id: string; conversations: { subject: string | null } | null }[]).map((m) => (
@@ -37,5 +41,6 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         )}
       </CardContent></Card>
     </main>
+    </div>
   );
 }
