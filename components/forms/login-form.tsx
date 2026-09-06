@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { PasswordField } from '@/components/forms/password-field';
+import { resetBrowserSession } from '@/lib/auth/browser-session';
 
 /** True when the browser actually persisted a Supabase session cookie. */
 function hasSessionCookie(): boolean {
@@ -37,6 +38,8 @@ export function LoginForm({ next = '' }: { next?: string }) {
     setBusy(true);
     try {
       const supabase = createClient();
+      // Clean slate: stale cookies from older accounts shadow new sessions
+      await resetBrowserSession(supabase);
       const { data, error: err } = await supabase.auth.signInWithPassword(parsed.data);
       if (err) {
         setError(friendlyAuthError(err.message));

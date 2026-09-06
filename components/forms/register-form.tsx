@@ -7,6 +7,7 @@ import { registerSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
 import { safeNext } from '@/lib/auth/redirect';
+import { resetBrowserSession } from '@/lib/auth/browser-session';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ export function RegisterForm({ next = '' }: { next?: string }) {
     setBusy(true);
     try {
       const supabase = createClient();
+      // Clean slate: stale cookies from older accounts shadow new sessions
+      await resetBrowserSession(supabase);
       const { data, error: err } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
