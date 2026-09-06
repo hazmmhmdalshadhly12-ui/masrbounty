@@ -7,7 +7,7 @@ import { Menu, X } from 'lucide-react';
 import { nav } from '@/config/nav';
 import { cn } from '@/lib/utils';
 
-export function MobileNav() {
+export function MobileNav({ authed = false }: { authed?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   return (
@@ -38,12 +38,25 @@ export function MobileNav() {
               </Link>
             ))}
             <div className="flex gap-2 border-t py-3">
-              <Link href="/login" onClick={() => setOpen(false)} className="flex-1 rounded-lg border px-3 py-2.5 text-center text-sm font-bold">
-                تسجيل الدخول
-              </Link>
-              <Link href="/register" onClick={() => setOpen(false)} className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-center text-sm font-bold text-white dark:bg-amber-400 dark:text-slate-950">
-                إنشاء حساب
-              </Link>
+              {authed ? (
+                <>
+                  <Link href="/dashboard" onClick={() => setOpen(false)} className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-center text-sm font-bold text-white dark:bg-amber-400 dark:text-slate-950">
+                    لوحتي
+                  </Link>
+                  <Link href="/profile" onClick={() => setOpen(false)} className="flex-1 rounded-lg border px-3 py-2.5 text-center text-sm font-bold">
+                    ملفي
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setOpen(false)} className="flex-1 rounded-lg border px-3 py-2.5 text-center text-sm font-bold">
+                    تسجيل الدخول
+                  </Link>
+                  <Link href="/register" onClick={() => setOpen(false)} className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-center text-sm font-bold text-white dark:bg-amber-400 dark:text-slate-950">
+                    إنشاء حساب
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </div>

@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
+import { createServerClient } from '@/lib/supabase/server';
 import { nav } from '@/config/nav';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { MobileNav } from '@/components/layout/mobile-nav';
+import { UserMenu } from '@/components/layout/user-menu';
 
 const resources = [
   { href: '/blog', ar: 'المدونة' },
@@ -11,12 +13,26 @@ const resources = [
   { href: '/about', ar: 'من نحن' },
 ];
 
-export function Header() {
+export async function Header() {
+  let username: string | null = null;
+  let email: string | undefined;
+  try {
+    const supabase = await createServerClient();
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      email = data.user.email ?? undefined;
+      const { data: profile } = await supabase.from('profiles').select('username').eq('id', data.user.id).single();
+      username = profile?.username ?? data.user.email?.split('@')[0] ?? null;
+    }
+  } catch {
+    username = null;
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <MobileNav />
+          <MobileNav authed={!!username} />
           <Link href="/" className="flex items-center gap-2.5" aria-label="MasrBounty الرئيسية">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950">
               <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />
@@ -45,15 +61,23 @@ export function Header() {
           </div>
         </nav>
         <div className="flex items-center gap-1.5">
-          <NotificationBell />
-          <Link href="/login" className="hidden sm:block">
-            <Button variant="ghost" size="sm">تسجيل الدخول</Button>
-          </Link>
-          <Link href="/register">
-            <Button size="sm" className="bg-slate-900 font-bold text-white hover:bg-slate-700 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300">
-              انضم الآن
-            </Button>
-          </Link>
+          {username ? (
+            <>
+              <NotificationBell />
+              <UserMenu username={username} email={email} />
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="hidden sm:block">
+                <Button variant="ghost" size="sm">تسجيل الدخول</Button>
+              </Link>
+              <Link href="/register">
+                <Button size="sm" className="bg-slate-900 font-bold text-white hover:bg-slate-700 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300">
+                  انضم الآن
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
