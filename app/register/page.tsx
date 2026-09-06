@@ -8,9 +8,15 @@ import { safeNext } from '@/lib/auth/redirect';
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  const supabase = await createServerClient();
-  const { data } = await supabase.auth.getUser();
-  if (data.user) redirect(safeNext(next));
+  let loggedIn = false;
+  try {
+    const supabase = await createServerClient();
+    const { data } = await supabase.auth.getUser();
+    loggedIn = !!data.user;
+  } catch {
+    loggedIn = false;
+  }
+  if (loggedIn) redirect(safeNext(next));
   const target = safeNext(next, '');
   return (
     <main className="bg-slate-100 dark:bg-slate-950">

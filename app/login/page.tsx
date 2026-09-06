@@ -19,10 +19,16 @@ export default async function LoginPage({
 }) {
   const { error, ok, next } = await searchParams;
   // Authenticated users never see the login form (no login→dashboard loop:
-  // we only redirect when a VALID session exists).
-  const supabase = await createServerClient();
-  const { data } = await supabase.auth.getUser();
-  if (data.user) redirect(safeNext(next));
+  // we only redirect when a VALID session exists; outages render the form).
+  let loggedIn = false;
+  try {
+    const supabase = await createServerClient();
+    const { data } = await supabase.auth.getUser();
+    loggedIn = !!data.user;
+  } catch {
+    loggedIn = false;
+  }
+  if (loggedIn) redirect(safeNext(next));
   const target = safeNext(next, '');
 
   return (
