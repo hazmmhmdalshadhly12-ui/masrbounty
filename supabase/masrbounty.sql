@@ -743,14 +743,14 @@ DROP POLICY IF EXISTS "cp_member_update" ON public.company_profiles; CREATE POLI
 DROP POLICY IF EXISTS "cm_read" ON public.company_members; CREATE POLICY "cm_read" ON public.company_members FOR SELECT USING (user_id = auth.uid() OR public.is_company_member(company_id, auth.uid()) OR public.has_role('admin'));
 DROP POLICY IF EXISTS "cm_manage" ON public.company_members; CREATE POLICY "cm_manage" ON public.company_members FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())) WITH CHECK (true);
 -- programs: public active read, company manage
-DROP POLICY IF EXISTS "prog_public_read" ON public.programs; CREATE POLICY "prog_public_read" ON public.programs FOR SELECT USING (status='active' AND visibility='public' OR public.is_company_member(company_id, auth.uid()) OR public.has_role('admin') OR public.has_role('moderator') OR created_by=auth.uid());
+DROP POLICY IF EXISTS "prog_public_read" ON public.programs; CREATE POLICY "prog_public_read" ON public.programs FOR SELECT USING (public.can_view_program(id, auth.uid()));
 DROP POLICY IF EXISTS "prog_company_write" ON public.programs; CREATE POLICY "prog_company_write" ON public.programs FOR ALL USING (public.is_company_member(company_id, auth.uid()) OR created_by=auth.uid() OR public.has_role('admin')) WITH CHECK (true);
 -- program_assets/rules/policies: same as program visibility
-DROP POLICY IF EXISTS "pa_read" ON public.program_assets; CREATE POLICY "pa_read" ON public.program_assets FOR SELECT USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (p.status='active' OR public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+DROP POLICY IF EXISTS "pa_read" ON public.program_assets; CREATE POLICY "pa_read" ON public.program_assets FOR SELECT USING (public.can_view_program(program_id, auth.uid()));
 DROP POLICY IF EXISTS "pa_write" ON public.program_assets; CREATE POLICY "pa_write" ON public.program_assets FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (true);
-DROP POLICY IF EXISTS "pr_rules_read" ON public.program_rules; CREATE POLICY "pr_rules_read" ON public.program_rules FOR SELECT USING (true);
+DROP POLICY IF EXISTS "pr_rules_read" ON public.program_rules; CREATE POLICY "pr_rules_read" ON public.program_rules FOR SELECT USING (public.can_view_program(program_id, auth.uid()));
 DROP POLICY IF EXISTS "pr_rules_write" ON public.program_rules; CREATE POLICY "pr_rules_write" ON public.program_rules FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (true);
-DROP POLICY IF EXISTS "bp_read" ON public.bounty_policies; CREATE POLICY "bp_read" ON public.bounty_policies FOR SELECT USING (true);
+DROP POLICY IF EXISTS "bp_read" ON public.bounty_policies; CREATE POLICY "bp_read" ON public.bounty_policies FOR SELECT USING (public.can_view_program(program_id, auth.uid()));
 DROP POLICY IF EXISTS "bp_write" ON public.bounty_policies; CREATE POLICY "bp_write" ON public.bounty_policies FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (true);
 -- reports: researcher own, company own programs, admin all
 DROP POLICY IF EXISTS "rep_select" ON public.reports; CREATE POLICY "rep_select" ON public.reports FOR SELECT USING (
@@ -1049,7 +1049,7 @@ CREATE POLICY "ap_insert" ON public.appeals FOR INSERT WITH CHECK (user_id=auth.
 DROP POLICY IF EXISTS "ap_review" ON public.appeals;
 CREATE POLICY "ap_review" ON public.appeals FOR UPDATE USING (public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "pu_read" ON public.program_updates;
-CREATE POLICY "pu_read" ON public.program_updates FOR SELECT USING (true);
+CREATE POLICY "pu_read" ON public.program_updates FOR SELECT USING (public.can_view_program(program_id, auth.uid()));
 DROP POLICY IF EXISTS "pu_write" ON public.program_updates;
 CREATE POLICY "pu_write" ON public.program_updates FOR ALL USING (
   EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))))
@@ -1175,6 +1175,25 @@ CREATE POLICY "re_insert" ON public.report_events FOR INSERT WITH CHECK (
   ) OR public.has_role('admin') OR public.has_role('moderator'));
 
 -- Conversation invites: self-join or existing member (or admin). No arbitrary additions.
+-- Single visibility rule for programs: public-active for all, private only for
+-- invited researchers, owning team, staff, or creator. Used by every policy.
+CREATE OR REPLACE FUNCTION public.can_view_program(p_program UUID, p_user UUID) RETURNS BOOLEAN AS $$
+DECLARE v_status TEXT; v_vis TEXT; v_company UUID; v_creator UUID;
+BEGIN
+  SELECT status::TEXT, visibility::TEXT, company_id, created_by
+    INTO v_status, v_vis, v_company, v_creator FROM public.programs WHERE id = p_program;
+  IF NOT FOUND THEN RETURN false; END IF;
+  IF v_status = 'active' AND v_vis = 'public' THEN RETURN true; END IF;
+  IF p_user IS NULL THEN RETURN false; END IF;
+  IF v_creator = p_user THEN RETURN true; END IF;
+  IF public.is_company_member(v_company, p_user) THEN RETURN true; END IF;
+  IF public.has_role('admin') OR public.has_role('moderator') THEN RETURN true; END IF;
+  RETURN EXISTS(
+    SELECT 1 FROM public.program_researchers pr
+    JOIN public.researcher_profiles rp ON rp.id = pr.researcher_id
+    WHERE pr.program_id = p_program AND rp.user_id = p_user);
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE OR REPLACE FUNCTION public.is_conversation_member(p_conv UUID, p_user UUID) RETURNS BOOLEAN AS $$
 BEGIN RETURN EXISTS(SELECT 1 FROM public.conversation_members WHERE conversation_id = p_conv AND user_id = p_user); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -11,7 +11,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const supabase = await createServerClient();
   let programs: { id: string; name: string; slug: string }[] = [];
   if (q) {
-    const { data } = await supabase.from('programs').select('id,name,slug').ilike('name', `%${q}%`).eq('status', 'active').limit(20);
+    const { data } = await supabase.from('programs').select('id,name,slug').ilike('name', `%${q}%`).eq('status', 'active').eq('visibility', 'public').limit(20);
     programs = data ?? [];
   }
   return (

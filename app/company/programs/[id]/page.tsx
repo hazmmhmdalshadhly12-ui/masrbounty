@@ -11,8 +11,11 @@ async function updateStatus(id: string, formData: FormData) {
   'use server';
   const supabase = await createServerClient();
   const status = String(formData.get('status'));
+  const visibility = String(formData.get('visibility'));
+  if (!['draft', 'pending_review', 'active', 'paused', 'closed'].includes(status)) throw new Error('Invalid status');
+  if (!['public', 'private'].includes(visibility)) throw new Error('Invalid visibility');
   const { data: program } = await supabase.from('programs').select('name').eq('id', id).single();
-  await supabase.from('programs').update({ status }).eq('id', id);
+  await supabase.from('programs').update({ status, visibility }).eq('id', id);
   // Notify researchers who saved this program
   const { data: savers } = await supabase
     .from('saved_programs')
@@ -105,6 +108,13 @@ async function inviteResearcher(programId: string, formData: FormData) {
   const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', profile.id).single();
   if (!rp) throw new Error('Not a researcher');
   await supabase.from('program_researchers').upsert({ program_id: programId, researcher_id: rp.id }, { onConflict: 'program_id,researcher_id' });
+  const { data: program } = await supabase.from('programs').select('name').eq('id', programId).single();
+  await notify(supabase, profile.id, {
+    type: 'program',
+    title: `دعوة لبرنامج خاص: ${program?.name ?? ''}`,
+    body: 'دعتك الشركة لبرنامج خاص لا يراه غير المدعوين — اقبله من برامجك',
+    link: '/dashboard/programs',
+  });
   revalidatePath(`/company/programs/${programId}`);
 }
 
@@ -122,12 +132,23 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
   ]);
   return (
     <main className="container py-8 max-w-3xl space-y-6">
-      <div><h1 className="text-2xl font-bold">{program.name}</h1><Badge className="mt-2">{program.status}</Badge>
-        <form action={updateStatus.bind(null, program.id)} className="flex gap-2 mt-3">
+      <div>
+        <h1 className="text-2xl font-bold">{program.name}</h1>
+        <div className="mt-2 flex gap-2">
+          <Badge>{program.status}</Badge>
+          <Badge variant={program.visibility === 'private' ? 'destructive' : 'secondary'}>
+            {program.visibility === 'private' ? 'خاص — للمدعوين فقط' : 'عام'}
+          </Badge>
+        </div>
+        <form action={updateStatus.bind(null, program.id)} className="mt-3 flex flex-wrap gap-2">
           <select name="status" defaultValue={program.status} className="h-10 border rounded-md px-3">
             <option value="draft">draft</option><option value="pending_review">pending_review</option><option value="active">active</option><option value="paused">paused</option><option value="closed">closed</option>
           </select>
-          <Button size="sm" type="submit">Update</Button>
+          <select name="visibility" defaultValue={program.visibility} className="h-10 border rounded-md px-3">
+            <option value="public">عام — يراه الجميع</option>
+            <option value="private">خاص — للمدعوين فقط</option>
+          </select>
+          <Button size="sm" type="submit">حفظ النشر</Button>
         </form>
       </div>
       <Card><CardHeader><CardTitle>الأصول ({assets?.length ?? 0})</CardTitle></CardHeader><CardContent>
