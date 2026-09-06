@@ -1,7 +1,12 @@
-import { createServerClient as ssr, type CookieOptions } from '@supabase/ssr';
+import { createServerClient as ssr } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { cookieOptions } from '@/lib/supabase/cookies';
 
+/**
+ * NOTE: installed @supabase/ssr is 0.1.0, whose server client ONLY speaks
+ * the singular cookie interface { get, set, remove }. Passing getAll/setAll
+ * is silently ignored and every server session reads as empty.
+ */
 export async function createServerClient() {
   const store = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,14 +15,21 @@ export async function createServerClient() {
   const base = cookieOptions();
   return ssr(url, anon, {
     cookies: {
-      getAll() {
-        return store.getAll();
+      get(name: string) {
+        return store.get(name)?.value;
       },
-      setAll(toSet: { name: string; value: string; options: CookieOptions }[]) {
+      set(name: string, value: string, options: object) {
         try {
-          toSet.forEach(({ name, value, options }) => store.set(name, value, { ...base, ...options }));
+          store.set(name, value, { ...base, ...(options as Record<string, unknown>) } as never);
         } catch {
           /* called from Server Component - ignore */
+        }
+      },
+      remove(name: string, options: object) {
+        try {
+          store.set(name, '', { ...base, ...(options as Record<string, unknown>), maxAge: 0 } as never);
+        } catch {
+          /* ignore */
         }
       },
     },
