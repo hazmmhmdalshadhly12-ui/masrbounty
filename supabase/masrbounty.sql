@@ -351,6 +351,12 @@ DO $$ BEGIN
     ALTER TABLE public.payout_requests ADD CONSTRAINT fk_payout_method FOREIGN KEY (payment_method_id) REFERENCES public.payment_methods(id) ON DELETE SET NULL;
   END IF;
 END $$;
+-- Program invitation status MUST exist before section 9 policies reference it
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_researchers' AND column_name = 'status') THEN
+    ALTER TABLE public.program_researchers ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined'));
+  END IF;
+END $$;
 -- 3.30 disputes
 CREATE TABLE IF NOT EXISTS public.disputes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -1290,13 +1296,6 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payment_methods_type_allowed') THEN
     ALTER TABLE public.payment_methods ADD CONSTRAINT payment_methods_type_allowed
     CHECK (type IN ('bank','wallet','vodafone_cash','instapay','other'));
-  END IF;
-END $$;
-
--- Program invitations: researcher must accept before access
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_researchers' AND column_name = 'status') THEN
-    ALTER TABLE public.program_researchers ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined'));
   END IF;
 END $$;
 

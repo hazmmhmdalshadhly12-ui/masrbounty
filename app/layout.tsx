@@ -17,6 +17,9 @@ const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mo
 export const metadata: Metadata = {
   title: { default: 'MasrBounty', template: '%s | MasrBounty' },
   description: 'Egyptian Bug Bounty Platform — Authorized security testing only',
+  icons: { icon: '/logo.svg', apple: '/logo.svg' },
+  manifest: '/manifest.json',
+  themeColor: '#0a1628',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

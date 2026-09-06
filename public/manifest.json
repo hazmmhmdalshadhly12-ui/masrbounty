@@ -1,6 +1,19 @@
 {
   "name": "MasrBounty",
   "short_name": "MasrBounty",
+  "description": "Egyptian Bug Bounty Platform",
   "start_url": "/",
-  "display": "standalone"
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "ar",
+  "theme_color": "#0a1628",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
