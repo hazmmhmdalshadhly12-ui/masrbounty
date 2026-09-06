@@ -43,9 +43,15 @@ export async function startConversationAction(formData: FormData) {
   if (!user.user) throw new Error('Unauthorized');
   const { data: conv, error } = await supabase.from('conversations').insert({ subject, created_by: user.user.id }).select('id').single();
   if (error || !conv) throw new Error(error?.message ?? 'Failed');
-  await supabase.from('conversation_members').insert([
-    { conversation_id: conv.id, user_id: user.user.id },
-    { conversation_id: conv.id, user_id: otherId },
-  ]);
+  // Self first: the invite policy lets members add others, so the creator
+  // must exist as a member before inviting in a separate statement.
+  const { error: selfErr } = await supabase
+    .from('conversation_members')
+    .insert({ conversation_id: conv.id, user_id: user.user.id });
+  if (selfErr) throw new Error(selfErr.message);
+  const { error: otherErr } = await supabase
+    .from('conversation_members')
+    .insert({ conversation_id: conv.id, user_id: otherId });
+  if (otherErr) throw new Error(otherErr.message);
   revalidatePath('/dashboard/messages');
 }

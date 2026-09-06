@@ -39,10 +39,14 @@ async function contactResearcher(reportId: string) {
       .single();
     if (error || !conv) throw new Error('Failed to start conversation');
     convId = conv.id;
-    await supabase.from('conversation_members').insert([
-      { conversation_id: convId, user_id: user.user.id },
-      { conversation_id: convId, user_id: otherId },
-    ]);
+    const { error: selfErr } = await supabase
+      .from('conversation_members')
+      .insert({ conversation_id: convId, user_id: user.user.id });
+    if (selfErr) throw new Error(selfErr.message);
+    const { error: otherErr } = await supabase
+      .from('conversation_members')
+      .insert({ conversation_id: convId, user_id: otherId });
+    if (otherErr) throw new Error(otherErr.message);
   }
   revalidatePath('/company/reports');
   redirect(`/company/messages?c=${convId}`);

@@ -32,6 +32,33 @@ export async function resolveDisputeAction(disputeId: string, formData: FormData
   revalidatePath('/admin/disputes');
 }
 
+export async function completePayoutAction(payoutId: string, formData: FormData) {
+  const reference = String(formData.get('reference') ?? '').trim().slice(0, 120);
+  const supabase = await createServerClient();
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Unauthorized');
+  const { error } = await supabase.rpc('complete_payout', { p_payout: payoutId, p_reference: reference || 'vodafone-cash' });
+  if (error) {
+    const m = error.message ?? '';
+    if (/forbidden/i.test(m)) throw new Error('غير مصرّح لك بهذه العملية');
+    if (/must approve/i.test(m)) throw new Error('اعتمد التمويل أولًا');
+    if (/reference required/i.test(m)) throw new Error('مرجع الدفع مطلوب');
+    throw new Error('تعذّر تنفيذ العملية — حاول لاحقًا');
+  }
+  const { data: payout } = await supabase.from('payout_requests').select('researcher_id,amount').eq('id', payoutId).single();
+  if (payout) {
+    const { data: rp } = await supabase.from('researcher_profiles').select('user_id').eq('id', (payout as { researcher_id: string }).researcher_id).single();
+    if (rp) {
+      await notify(supabase, (rp as { user_id: string }).user_id, {
+        type: 'payment',
+        title: `تم تحويل ${payout.amount} إلى محفظتك — مرجع ${reference || 'vodafone-cash'}`,
+        link: '/dashboard/payments',
+      });
+    }
+  }
+  revalidatePath('/admin/payments');
+}
+
 export async function approvePayoutAction(payoutId: string, approve: boolean) {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();

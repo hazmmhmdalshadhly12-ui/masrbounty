@@ -50,25 +50,38 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
     revalidatePath(`/programs/${program.slug}`);
   }
 
+  const maxBounty = (bounty ?? []).reduce((m: number, b: { max_amount: number }) => Math.max(m, Number(b.max_amount)), 0);
   return (
-    <main className="container py-8 max-w-4xl space-y-6">
-      <div>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-3xl font-bold">{program.name}</h1>
-          {researcherId && (
-            <form action={toggleSave}>
-              <Button size="sm" variant={savedRow ? 'default' : 'outline'} type="submit">
-                {savedRow ? 'محفوظ ✓' : 'حفظ البرنامج'}
-              </Button>
-            </form>
-          )}
+    <main>
+      <section className="border-b bg-muted/40">
+        <div className="container max-w-5xl py-8">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Link href="/programs" className="hover:underline">البرامج</Link>
+            <span>/</span>
+            <span className="text-foreground">{program.name}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight">{program.name}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge>{program.status}</Badge>
+                <Badge variant="secondary">{program.visibility === 'private' ? 'خاص' : 'عام'}</Badge>
+                <span className="text-xs text-muted-foreground">يحفظه {saves ?? 0} باحث</span>
+              </div>
+            </div>
+            {researcherId && (
+              <form action={toggleSave}>
+                <Button size="sm" variant={savedRow ? 'default' : 'outline'} type="submit">
+                  {savedRow ? 'محفوظ ✓' : 'حفظ البرنامج'}
+                </Button>
+              </form>
+            )}
+          </div>
+          <p className="mt-4 max-w-3xl leading-relaxed text-muted-foreground">{program.description}</p>
         </div>
-        <div className="flex gap-2 mt-2">
-          <Badge>{program.status}</Badge><Badge variant="secondary">{program.visibility}</Badge>
-          <span className="text-xs text-muted-foreground">يحفظه {saves ?? 0} باحث</span>
-        </div>
-        <p className="mt-4 text-muted-foreground">{program.description}</p>
-      </div>
+      </section>
+      <div className="container grid max-w-5xl gap-6 py-8 lg:grid-cols-[1fr_300px]">
+        <div className="min-w-0 space-y-6">
       <Card><CardHeader><CardTitle>Scope</CardTitle></CardHeader>
         <CardContent><p className="whitespace-pre-wrap">{program.scope}</p>
           {program.out_of_scope && <p className="mt-3 text-sm"><b>Out of scope:</b> {program.out_of_scope}</p>}
@@ -130,7 +143,22 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
           </CardContent>
         </Card>
       )}
-      <Link href="/dashboard/reports/new"><Button>Submit a report</Button></Link>
+        </div>
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <Card className="border-slate-900 dark:border-slate-100">
+            <CardContent className="space-y-3 p-5">
+              <div>
+                <p className="text-xs text-muted-foreground">أعلى مكافأة</p>
+                <p className="text-3xl font-black tabular-nums" dir="ltr">{maxBounty.toLocaleString()} <span className="text-sm font-bold">EGP</span></p>
+              </div>
+              <Link href="/dashboard/reports/new" className="block">
+                <Button className="w-full bg-slate-900 font-bold text-white hover:bg-slate-700">تقديم تقرير</Button>
+              </Link>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">اختبر فقط الأصول داخل النطاق. أي نشاط خارجه يعرض حسابك للإيقاف.</p>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
     </main>
   );
 }

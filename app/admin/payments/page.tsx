@@ -1,10 +1,11 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
-import { approvePayoutAction } from '@/features/disputes/services';
+import { approvePayoutAction, completePayoutAction } from '@/features/disputes/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StatusPill } from '@/components/shared/status-pill';
 
 async function setFee(formData: FormData) {
   'use server';
@@ -15,18 +16,30 @@ async function setFee(formData: FormData) {
   revalidatePath('/admin/payments');
 }
 
+const STEPS: Record<string, string> = {
+  pending: 'بانتظار تأكيد تمويل الشركة للمنصة',
+  approved: 'مموّل — بانتظار التحويل للباحث',
+  processing: 'قيد التنفيذ',
+  completed: 'مكتمل',
+  rejected: 'مرفوض',
+  failed: 'فاشل',
+};
+
 export default async function AdminPayments() {
   const supabase = await createServerClient();
-  const [{ data }, { data: revenue }, { data: feeRow }] = await Promise.all([
-    supabase.from('payout_requests').select('*').order('created_at', { ascending: false }).limit(100),
+  const [{ data }, { data: revenue }, { data: feeRow }, { data: vfRow }] = await Promise.all([
+    supabase.from('payout_requests').select('*,payment_methods!fk_payout_method(label,type)').order('created_at', { ascending: false }).limit(100),
     supabase.from('platform_revenue').select('gross_amount,fee_amount,net_amount'),
     supabase.from('platform_settings').select('value').eq('key', 'platform_fee').single(),
+    supabase.from('platform_settings').select('value').eq('key', 'vf_cash_number').single(),
   ]);
   const totals = ((revenue ?? []) as { gross_amount: number; fee_amount: number; net_amount: number }[]).reduce(
     (a, r) => ({ gross: a.gross + Number(r.gross_amount), fee: a.fee + Number(r.fee_amount), net: a.net + Number(r.net_amount) }),
     { gross: 0, fee: 0, net: 0 }
   );
   const feePct = Number((feeRow?.value as { percent?: number } | null)?.percent ?? 10);
+  const vfNumber = String((vfRow?.value as string | null) ?? '0112417443').replace(/"/g, '');
+
   return (
     <div className="py-2">
       <h1 className="mb-6 text-xl font-black tracking-tight">المدفوعات وإيراد المنصة</h1>
@@ -45,26 +58,41 @@ export default async function AdminPayments() {
         ))}
       </div>
       <Card className="mb-6">
-        <CardHeader><CardTitle>عمولة المنصة الحالية: {feePct}%</CardTitle></CardHeader>
+        <CardHeader><CardTitle>عمولة المنصة الحالية: {feePct}% — استقبال: <span dir="ltr" className="font-mono">{vfNumber}</span></CardTitle></CardHeader>
         <CardContent>
           <form action={setFee} className="flex gap-2">
             <Input name="percent" type="number" min={0} max={50} step={0.5} defaultValue={feePct} dir="ltr" className="w-32" />
             <Button size="sm" type="submit">حفظ (0–50%)</Button>
           </form>
-          <p className="mt-2 text-xs text-muted-foreground">تُخصم تلقائيًا من كل مكافأة جديدة وتُسجل في دفتر الإيراد. الباحث يرى الصافي فقط.</p>
         </CardContent>
       </Card>
-      <h2 className="mb-3 font-bold">طلبات السحب ({data?.length ?? 0})</h2>
-      {!data?.length ? <p className="text-sm text-muted-foreground">No payout requests.</p> : data.map((p) => (
-        <Card key={p.id} className="mb-2"><CardContent className="p-3 flex justify-between items-center">
-          <span className="text-sm">{p.amount} EGP — <Badge>{p.status}</Badge></span>
-          {p.status === 'pending' && (
-            <span className="flex gap-2">
-              <form action={approvePayoutAction.bind(null, p.id, true)}><Button size="sm" type="submit">Approve</Button></form>
-              <form action={approvePayoutAction.bind(null, p.id, false)}><Button size="sm" variant="outline" type="submit">Reject</Button></form>
+      <h2 className="mb-3 font-bold">طلبات السحب — ضمان بخطوتين</h2>
+      <p className="mb-3 text-xs text-muted-foreground">1) الشركة تحوّل لرقم المنصة فودافون كاش → الإدارة تعتمد التمويل. 2) الإدارة تحوّل للباحث وتسجل المرجع → مكتمل.</p>
+      {!data?.length ? <p className="text-sm text-muted-foreground">No payout requests.</p> : data.map((p: {
+        id: string; amount: number; status: string; researcher_id: string;
+        payment_methods: { label: string; type: string } | null;
+      }) => (
+        <Card key={p.id} className="mb-2">
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <span className="text-sm">
+              <b className="tabular-nums" dir="ltr">{p.amount} EGP</b> — <StatusPill value={p.status} />
+              <span className="ml-2 text-muted-foreground">{p.payment_methods?.label} ({p.payment_methods?.type})</span>
+              <span className="block text-xs text-muted-foreground">{STEPS[p.status] ?? p.status}</span>
             </span>
-          )}
-        </CardContent></Card>
+            {p.status === 'pending' && (
+              <span className="flex gap-2">
+                <form action={approvePayoutAction.bind(null, p.id, true)}><Button size="sm" type="submit">تأكيد تمويل الشركة ✓</Button></form>
+                <form action={approvePayoutAction.bind(null, p.id, false)}><Button size="sm" variant="outline" type="submit">رفض</Button></form>
+              </span>
+            )}
+            {p.status === 'approved' && (
+              <form action={completePayoutAction.bind(null, p.id)} className="flex gap-2">
+                <Input name="reference" required maxLength={120} placeholder="مرجع تحويل فودافون كاش" dir="ltr" className="h-9 w-48" />
+                <Button size="sm" type="submit">تم الدفع للباحث ✓</Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

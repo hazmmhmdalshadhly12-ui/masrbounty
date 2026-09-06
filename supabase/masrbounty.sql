@@ -340,7 +340,7 @@ CREATE TABLE IF NOT EXISTS public.payout_requests (
 CREATE TABLE IF NOT EXISTS public.payment_methods (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   researcher_id UUID NOT NULL REFERENCES public.researcher_profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('bank','wallet','other')),
+  type TEXT NOT NULL CHECK (type IN ('bank','wallet','vodafone_cash','instapay','other')),
   label TEXT NOT NULL,
   details JSONB DEFAULT '{}' NOT NULL,
   is_default BOOLEAN DEFAULT false NOT NULL,
@@ -825,6 +825,7 @@ DROP POLICY IF EXISTS "sp_all" ON public.saved_programs; CREATE POLICY "sp_all" 
 DROP POLICY IF EXISTS "rpa_read" ON public.researcher_program_activity; CREATE POLICY "rpa_read" ON public.researcher_program_activity FOR SELECT USING (true);
 DROP POLICY IF EXISTS "prg_res_read" ON public.program_researchers; CREATE POLICY "prg_res_read" ON public.program_researchers FOR SELECT USING (true);
 DROP POLICY IF EXISTS "prg_res_write" ON public.program_researchers; CREATE POLICY "prg_res_write" ON public.program_researchers FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (true);
+DROP POLICY IF EXISTS "prg_respond" ON public.program_researchers; CREATE POLICY "prg_respond" ON public.program_researchers FOR UPDATE USING (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())) WITH CHECK (status IN ('accepted','declined'));
 -- admin tables
 DROP POLICY IF EXISTS "audit_admin" ON public.audit_logs; CREATE POLICY "audit_admin" ON public.audit_logs FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "sec_admin" ON public.security_events; CREATE POLICY "sec_admin" ON public.security_events FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator'));
@@ -861,7 +862,7 @@ DROP POLICY IF EXISTS "attach_private" ON storage.objects; CREATE POLICY "attach
 DROP POLICY IF EXISTS "attach_upload" ON storage.objects; CREATE POLICY "attach_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='report-attachments' AND auth.role()='authenticated');
 
 -- 11. SEED (dev only, safe)
-INSERT INTO public.platform_settings(key, value) VALUES ('site_name','"MasrBounty"'), ('maintenance_mode','false'), ('min_payout','{"amount": 50}'), ('platform_fee','{"percent": 10}') ON CONFLICT (key) DO NOTHING;
+INSERT INTO public.platform_settings(key, value) VALUES ('site_name','"MasrBounty"'), ('maintenance_mode','false'), ('min_payout','{"amount": 50}'), ('platform_fee','{"percent": 10}'), ('vf_cash_number','"0112417443"') ON CONFLICT (key) DO NOTHING;
 INSERT INTO public.report_severity(code,label_ar,label_en,min_bounty,max_bounty,reputation_points) VALUES
  ('informational','معلوماتية','Informational',0,0,1), ('low','منخفضة','Low',25,100,5),
  ('medium','متوسطة','Medium',100,500,10), ('high','عالية','High',500,2000,25),
@@ -1215,7 +1216,7 @@ BEGIN
   RETURN EXISTS(
     SELECT 1 FROM public.program_researchers pr
     JOIN public.researcher_profiles rp ON rp.id = pr.researcher_id
-    WHERE pr.program_id = p_program AND rp.user_id = p_user);
+    WHERE pr.program_id = p_program AND rp.user_id = p_user AND pr.status = 'accepted');
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION public.is_conversation_member(p_conv UUID, p_user UUID) RETURNS BOOLEAN AS $$
@@ -1279,6 +1280,65 @@ BEGIN
     SELECT p_researcher, 'Critical resolved', 'A critical report you found was resolved', 60
     WHERE NOT EXISTS (SELECT 1 FROM public.achievements WHERE researcher_id = p_researcher AND title = 'Critical resolved');
   END IF;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Payment method types: allow mobile wallets on existing databases
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payment_methods_type_check') THEN
+    ALTER TABLE public.payment_methods DROP CONSTRAINT payment_methods_type_check;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payment_methods_type_allowed') THEN
+    ALTER TABLE public.payment_methods ADD CONSTRAINT payment_methods_type_allowed
+    CHECK (type IN ('bank','wallet','vodafone_cash','instapay','other'));
+  END IF;
+END $$;
+
+-- Program invitations: researcher must accept before access
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'program_researchers' AND column_name = 'status') THEN
+    ALTER TABLE public.program_researchers ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined'));
+  END IF;
+END $$;
+
+-- Escrow payout flow: pending → approved (company funded platform) → completed (researcher paid)
+CREATE OR REPLACE FUNCTION public.settle_payout(p_payout UUID, p_approve BOOLEAN)
+RETURNS VOID AS $$
+DECLARE v_uid UUID; v_row RECORD; v_wallet UUID; v_nb NUMERIC;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL OR NOT public.has_role('admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  SELECT * INTO v_row FROM public.payout_requests WHERE id = p_payout;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not found'; END IF;
+  IF p_approve THEN
+    IF v_row.status <> 'pending' THEN RAISE EXCEPTION 'already decided'; END IF;
+    SELECT id, balance INTO v_wallet, v_nb FROM public.wallets WHERE researcher_id = v_row.researcher_id;
+    IF v_wallet IS NULL OR v_nb < v_row.amount THEN RAISE EXCEPTION 'insufficient balance'; END IF;
+    v_nb := v_nb - v_row.amount;
+    UPDATE public.wallets SET balance = v_nb, updated_at = now() WHERE id = v_wallet;
+    INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
+    VALUES (v_wallet, 'payout', -v_row.amount, v_nb, p_payout, 'Payout approved: company funded platform, held in escrow', v_uid);
+    UPDATE public.payout_requests SET status = 'approved', reviewed_by = v_uid, updated_at = now() WHERE id = p_payout;
+  ELSE
+    IF v_row.status <> 'pending' THEN RAISE EXCEPTION 'already decided'; END IF;
+    UPDATE public.payout_requests SET status = 'rejected', reviewed_by = v_uid, updated_at = now() WHERE id = p_payout;
+  END IF;
+  INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
+  VALUES (v_uid, 'payout', 'payout_requests', p_payout, jsonb_build_object('approved', p_approve, 'amount', v_row.amount));
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.complete_payout(p_payout UUID, p_reference TEXT)
+RETURNS VOID AS $$
+DECLARE v_uid UUID; v_row RECORD;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL OR NOT public.has_role('admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  SELECT * INTO v_row FROM public.payout_requests WHERE id = p_payout;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not found'; END IF;
+  IF v_row.status <> 'approved' THEN RAISE EXCEPTION 'must approve funding first'; END IF;
+  IF p_reference IS NULL OR char_length(trim(p_reference)) = 0 THEN RAISE EXCEPTION 'reference required'; END IF;
+  UPDATE public.payout_requests SET status = 'completed', review_note = trim(p_reference), updated_at = now() WHERE id = p_payout;
+  INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
+  VALUES (v_uid, 'payout', 'payout_requests', p_payout, jsonb_build_object('completed', true, 'reference', trim(p_reference)));
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trust badges seed

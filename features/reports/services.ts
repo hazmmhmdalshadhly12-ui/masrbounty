@@ -52,8 +52,9 @@ export async function createReportAction(formData: FormData) {
       .select('id')
       .eq('program_id', program.id)
       .eq('researcher_id', researcherId)
+      .eq('status', 'accepted')
       .single();
-    if (!inv) throw new Error('Private program — invitation required');
+    if (!inv) throw new Error('برنامج خاص — يلزم قبول الدعوة أولًا');
   }
   // generate report number server-side via DB function
   const { data: num } = await supabase.rpc('generate_report_number');

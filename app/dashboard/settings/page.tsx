@@ -209,9 +209,9 @@ export default async function SettingsPage() {
       <Card><CardHeader><CardTitle>Payment methods</CardTitle></CardHeader><CardContent className="space-y-3">
         {methods?.map((m) => <p key={m.id} className="text-sm border rounded p-2">{m.label} ({m.type})</p>)}
         <form action={addMethod} className="flex gap-2">
-          <select name="type" className="h-10 border rounded-md px-2"><option value="bank">Bank</option><option value="wallet">Wallet</option><option value="other">Other</option></select>
-          <Input name="label" required placeholder="Label" />
-          <Input name="account" required placeholder="Account / IBAN" dir="ltr" />
+          <select name="type" className="h-10 border rounded-md px-2"><option value="vodafone_cash">فودافون كاش</option><option value="instapay">انستاباي</option><option value="bank">حساب بنكي</option><option value="other">أخرى</option></select>
+          <Input name="label" required placeholder="اسم مميز (مثال: رقمي الأساسي)" />
+          <Input name="account" required placeholder="رقم المحفظة / الحساب" dir="ltr" />
           <Button type="submit">Add</Button>
         </form>
       </CardContent></Card>
