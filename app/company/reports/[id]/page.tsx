@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReportStepper } from '@/components/reports/report-stepper';
+import { Avatar } from '@/components/shared/avatar';
+import { timeAgo } from '@/utils/time';
 
 async function contactResearcher(reportId: string) {
   'use server';
@@ -69,7 +71,7 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
   const submittedAt = report.submitted_at ? new Date(report.submitted_at).getTime() : null;
   const elapsedH = submittedAt ? (Date.now() - submittedAt) / 3_600_000 : null;
   const breached = elapsedH != null && elapsedH > slaHours && !['resolved', 'closed'].includes(report.status);
-  const { data: comments } = await supabase.from('report_comments').select('*').eq('report_id', id).order('created_at');
+  const { data: comments } = await supabase.from('report_comments').select('id,body,is_internal,created_at,profiles!inner(username)').eq('report_id', id).order('created_at');
   const { data: dups } = await supabase.from('report_duplicates').select('id,duplicate_of').eq('report_id', id);
 
   return (
@@ -168,13 +170,20 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
           </form>
         </CardContent>
       </Card>
-      <Card><CardHeader><CardTitle>Comments ({comments?.length ?? 0})</CardTitle></CardHeader>
-        <CardContent>
-          {comments?.map((c: { id: string; body: string; is_internal: boolean }) => (
-            <p key={c.id} className="mb-2 border rounded p-2 text-sm">
-              {c.is_internal && <span className="mb-1 block text-xs font-bold text-amber-600">ملاحظة داخلية (لا يراها الباحث)</span>}
-              {c.body}
-            </p>
+      <Card><CardHeader><CardTitle>التعليقات ({comments?.length ?? 0})</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {((comments ?? []) as unknown as { id: string; body: string; is_internal: boolean; created_at: string; profiles: { username: string } }[]).map((c) => (
+            <div key={c.id} className="flex gap-2.5 rounded-md border p-2.5">
+              <Avatar name={c.profiles.username} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+                  <span className="font-bold text-foreground" dir="ltr">@{c.profiles.username}</span>
+                  <span>{timeAgo(c.created_at)}</span>
+                  {c.is_internal && <span className="font-bold text-amber-600">· داخلية (لا يراها الباحث)</span>}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed">{c.body}</p>
+              </div>
+            </div>
           ))}
           <form action={addCommentAction.bind(null, report.id)} className="mt-3 space-y-2">
             <Textarea name="body" required placeholder="Write a comment…" />

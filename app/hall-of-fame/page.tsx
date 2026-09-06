@@ -1,7 +1,8 @@
-import { Award } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHero } from '@/components/layout/page-hero';
+import { Avatar } from '@/components/shared/avatar';
+import { timeAgo } from '@/utils/time';
 
 export default async function HallOfFamePage() {
   const supabase = await createServerClient();
@@ -14,12 +15,13 @@ export default async function HallOfFamePage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {data.map((h) => (
               <Card key={h.id} className="transition-shadow hover:shadow-lg">
-                <CardContent className="p-6">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/15 text-amber-600">
-                    <Award className="h-5 w-5" />
-                  </span>
-                  <p className="mt-4 font-black">{h.display_name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{h.achievement}</p>
+                <CardContent className="flex gap-4 p-6">
+                  <Avatar name={h.display_name} size="lg" />
+                  <div className="min-w-0">
+                    <p className="font-black">{h.display_name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{h.achievement}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{timeAgo(h.recognized_at)}</p>
+                  </div>
                 </CardContent>
               </Card>
             ))}

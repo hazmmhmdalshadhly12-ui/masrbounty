@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { timeAgo } from '@/utils/time';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,21 +84,34 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
       </section>
       <div className="container grid max-w-5xl gap-6 py-8 lg:grid-cols-[1fr_300px]">
         <div className="min-w-0 space-y-6">
-      <Card><CardHeader><CardTitle>Scope</CardTitle></CardHeader>
-        <CardContent><p className="whitespace-pre-wrap">{program.scope}</p>
-          {program.out_of_scope && <p className="mt-3 text-sm"><b>Out of scope:</b> {program.out_of_scope}</p>}
-          {program.safe_harbor && <p className="mt-2 text-sm"><b>Safe harbor:</b> {program.safe_harbor}</p>}
-        </CardContent>
-      </Card>
-      <Card><CardHeader><CardTitle>Assets ({assets?.length ?? 0})</CardTitle></CardHeader>
-        <CardContent>{!assets?.length ? <p className="text-sm text-muted-foreground">No assets listed.</p> : assets.map((a) => <p key={a.id} className="text-sm border-b py-2"><b>{a.type}</b> — <span dir="ltr">{a.value}</span></p>)}</CardContent>
-      </Card>
-      {!!rules?.length && (
-        <Card><CardHeader><CardTitle>Rules</CardTitle></CardHeader>
-          <CardContent>{rules.map((r) => <div key={r.id} className="mb-3"><p className="font-semibold">{r.title}</p><p className="text-sm">{r.content}</p></div>)}</CardContent>
-        </Card>
-      )}
-      {!!bounty?.length && (
+      <Tabs defaultValue="scope" dir="rtl">
+        <TabsList aria-label="أقسام البرنامج">
+          <TabsTrigger value="scope">النطاق</TabsTrigger>
+          <TabsTrigger value="rules">القواعد ({rules?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="rewards">المكافآت</TabsTrigger>
+          <TabsTrigger value="updates">التحديثات ({updates?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="activity">النشاط</TabsTrigger>
+        </TabsList>
+        <TabsContent value="scope" className="space-y-6">
+          <Card><CardHeader><CardTitle>Scope</CardTitle></CardHeader>
+            <CardContent><p className="whitespace-pre-wrap text-sm leading-relaxed">{program.scope}</p>
+              {program.out_of_scope && <p className="mt-3 text-sm"><b>Out of scope:</b> {program.out_of_scope}</p>}
+              {program.safe_harbor && <p className="mt-2 text-sm"><b>Safe harbor:</b> {program.safe_harbor}</p>}
+            </CardContent>
+          </Card>
+          <Card><CardHeader><CardTitle>Assets ({assets?.length ?? 0})</CardTitle></CardHeader>
+            <CardContent>{!assets?.length ? <p className="text-sm text-muted-foreground">No assets listed.</p> : assets.map((a) => <p key={a.id} className="text-sm border-b py-2"><b>{a.type}</b> — <span dir="ltr">{a.value}</span></p>)}</CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="rules">
+          {!rules?.length ? <p className="text-sm text-muted-foreground">لا قواعد منشورة.</p> : (
+            <Card><CardContent className="divide-y">
+              {rules.map((r) => <div key={r.id} className="py-3"><p className="font-semibold">{r.title}</p><p className="mt-1 text-sm text-muted-foreground">{r.content}</p></div>)}
+            </CardContent></Card>
+          )}
+        </TabsContent>
+        <TabsContent value="rewards">
+          {!bounty?.length ? <p className="text-sm text-muted-foreground">لا جدول مكافآت منشور.</p> : (
         <Card><CardHeader><CardTitle>جدول المكافآت (EGP)</CardTitle></CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm">
@@ -119,30 +134,36 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
             </table>
           </CardContent>
         </Card>
-      )}
-      {!!updates?.length && (
+          )}
+        </TabsContent>
+        <TabsContent value="updates">
+          {!updates?.length ? <p className="text-sm text-muted-foreground">لا تحديثات بعد.</p> : (
         <Card><CardHeader><CardTitle>تحديثات البرنامج</CardTitle></CardHeader>
           <CardContent>
             {(updates as { id: string; title: string; body: string; created_at: string }[]).map((u) => (
               <div key={u.id} className="mb-3 border-b pb-3 last:border-0">
-                <p className="text-sm font-bold">{u.title} <span className="font-normal text-muted-foreground">{new Date(u.created_at).toLocaleDateString('ar-EG')}</span></p>
+                <p className="text-sm font-bold">{u.title} <span className="font-normal text-muted-foreground">{timeAgo(u.created_at)}</span></p>
                 <p className="mt-1 text-sm text-muted-foreground">{u.body}</p>
               </div>
             ))}
           </CardContent>
         </Card>
-      )}
-      {!!activity?.length && (
+          )}
+        </TabsContent>
+        <TabsContent value="activity">
+          {!activity?.length ? <p className="text-sm text-muted-foreground">لا نشاط بعد.</p> : (
         <Card><CardHeader><CardTitle>النشاط الأخير</CardTitle></CardHeader>
           <CardContent>
             {activity.map((e: { id: string; from_status: string | null; to_status: string | null; created_at: string }) => (
-              <p key={e.id} className="border-b py-2 text-sm last:border-0" dir="ltr">
-                {e.from_status ?? '—'} → {e.to_status ?? '—'} <span className="text-muted-foreground">{new Date(e.created_at).toLocaleDateString('ar-EG')}</span>
+              <p key={e.id} className="border-b py-2 text-sm last:border-0">
+                <span dir="ltr">{e.from_status ?? '—'} → {e.to_status ?? '—'}</span> <span className="text-muted-foreground">{timeAgo(e.created_at)}</span>
               </p>
             ))}
           </CardContent>
         </Card>
-      )}
+          )}
+        </TabsContent>
+      </Tabs>
         </div>
         <aside className="lg:sticky lg:top-20 lg:self-start">
           <Card className="border-slate-900 dark:border-slate-100">

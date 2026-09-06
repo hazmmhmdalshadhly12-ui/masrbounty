@@ -10,6 +10,7 @@ import { safeNext } from '@/lib/auth/redirect';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { PasswordField } from '@/components/forms/password-field';
 
 export function RegisterForm({ next = '' }: { next?: string }) {
   const router = useRouter();
@@ -144,8 +145,7 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         <Input id="email" type="email" required dir="ltr" placeholder="you@example.com" className="mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <div>
-        <Label htmlFor="password">كلمة السر (8+ أحرف)</Label>
-        <Input id="password" type="password" required minLength={8} dir="ltr" placeholder="••••••••" className="mt-1" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordField id="password" label="كلمة السر (8+ أحرف)" value={password} onChange={setPassword} showStrength />
       </div>
       <div>
         <Label htmlFor="role">أنا…</Label>

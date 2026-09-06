@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { StatusPill } from '@/components/shared/status-pill';
 import { CopyButton } from '@/components/shared/copy-button';
 import { ReportStepper } from '@/components/reports/report-stepper';
+import { Avatar } from '@/components/shared/avatar';
+import { timeAgo } from '@/utils/time';
 
 export default async function ReportDetail({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerClient();
@@ -15,7 +17,7 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
   const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
   if (!report) return <main className="container py-12">Report not found.</main>;
   const [{ data: comments }, { data: events }, { data: attachments }, { data: award }, { data: payments }] = await Promise.all([
-    supabase.from('report_comments').select('id,body,created_at').eq('report_id', reportId).order('created_at'),
+    supabase.from('report_comments').select('id,body,created_at,profiles!inner(username)').eq('report_id', reportId).order('created_at'),
     supabase.from('report_events').select('id,from_status,to_status,note,created_at').eq('report_id', reportId).order('created_at'),
     supabase.from('report_attachments').select('id,file_name,file_size,mime_type,created_at').eq('report_id', reportId).order('created_at'),
     supabase.from('bounty_awards').select('id,amount,status,decided_at').eq('report_id', reportId).single(),
@@ -107,7 +109,18 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
       </Card>
       <Card><CardHeader><CardTitle className="text-sm">التعليقات</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          {comments?.map((c) => <div key={c.id} className="rounded-md border p-2.5 text-sm leading-relaxed">{c.body}</div>)}
+          {((comments ?? []) as unknown as { id: string; body: string; created_at: string; profiles: { username: string } }[]).map((c) => (
+            <div key={c.id} className="flex gap-2.5 rounded-md border p-2.5">
+              <Avatar name={c.profiles.username} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+                  <span className="font-bold text-foreground" dir="ltr">@{c.profiles.username}</span>
+                  <span>{timeAgo(c.created_at)}</span>
+                </p>
+                <p className="mt-1 text-sm leading-relaxed">{c.body}</p>
+              </div>
+            </div>
+          ))}
           <form action={addCommentAction.bind(null, report.id)} className="space-y-2">
             <Textarea name="body" required placeholder="اكتب تعليقًا…" />
             <Button type="submit" size="sm">إضافة التعليق</Button>

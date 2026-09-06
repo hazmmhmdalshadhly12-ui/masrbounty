@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft } from 'lucide-react';
+import { HeroVisual } from '@/components/home/hero-visual';
+import { HeroStats } from '@/components/home/hero-stats';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { createServerClient } from '@/lib/supabase/server';
@@ -66,46 +68,41 @@ export default async function Home() {
             backgroundSize: '44px 44px',
           }}
         />
-        <div className="container relative py-20 md:py-28">
+        <div className="container relative grid items-center gap-12 py-20 md:py-28 lg:grid-cols-2">
           <div className="max-w-3xl">
             <p className="flex items-center gap-3 text-sm font-medium text-amber-400">
               <span className="inline-block h-px w-10 bg-amber-400" />
               منصة مصرية لبرامج مكافآت الثغرات
             </p>
-            <h1 className="mt-5 text-4xl font-black leading-[1.25] tracking-tight md:text-5xl">
-              اكتشاف مسؤول للثغرات.
+            <h1 className="mt-5 text-4xl font-black leading-[1.3] tracking-tight md:text-5xl">
+              اكتشف الثغرات. احم الشركات.
               <br />
-              <span className="text-slate-400">مكافآت عادلة. ثقة متبادلة.</span>
+              <span className="text-slate-400">اكسب المكافآت.</span>
             </h1>
-            <p className="mt-6 max-w-2xl leading-relaxed text-slate-300">
-              تربط MasrBounty الباحثين الأمنيين بالشركات عبر برامج اختبار مصرح بها بنطاق واضح —
-              تقارير منهجية، تقييم شفاف، ومستحقات تصل لأصحابها.
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-300">
+              اختبارات أمنية مصرح بها فقط — تقارير منهجية، تقييم شفاف، ومستحقات تصل لأصحابها.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/register">
+              <Link href="/programs">
                 <Button size="lg" className="bg-amber-400 font-bold text-slate-950 hover:bg-amber-300">
-                  أنشئ حسابًا مجانيًا
+                  استكشف البرامج
                 </Button>
               </Link>
-              <Link href="/programs">
+              <Link href="/register">
                 <Button size="lg" variant="outline" className="border-slate-700 text-white hover:bg-white/10 hover:text-white">
-                  استعرض البرامج <ArrowLeft className="h-4 w-4" />
+                  ابدأ كباحث أمني <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
-            <dl className="mt-12 grid max-w-xl grid-cols-3 gap-6 border-t border-white/10 pt-8">
-              {[
-                [String(programs), 'برنامجًا نشطًا'],
-                [String(reports), 'تقريرًا مُقدّمًا'],
-                [String(researchers), 'باحثًا مسجلًا'],
-              ].map(([n, label]) => (
-                <div key={label}>
-                  <dt className="sr-only">{label}</dt>
-                  <dd className="text-3xl font-black tabular-nums">{n}</dd>
-                  <dd className="mt-1 text-sm text-slate-400">{label}</dd>
-                </div>
-              ))}
-            </dl>
+            <div className="mt-6">
+              <Link href="/register" className="text-sm text-slate-300 underline underline-offset-4 hover:text-white">
+                شركتك تحتاج حماية؟ أطلق برنامج Bug Bounty
+              </Link>
+            </div>
+            <HeroStats stats={[[String(programs), 'برنامجًا نشطًا'], [String(reports), 'تقريرًا مُقدّمًا'], [String(researchers), 'باحثًا مسجلًا']]} />
+          </div>
+          <div className="hidden lg:block">
+            <HeroVisual programs={programs} reports={reports} researchers={researchers} />
           </div>
         </div>
       </section>

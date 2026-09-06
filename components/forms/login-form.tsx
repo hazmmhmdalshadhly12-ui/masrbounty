@@ -9,6 +9,7 @@ import { safeNext } from '@/lib/auth/redirect';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { PasswordField } from '@/components/forms/password-field';
 
 /** True when the browser actually persisted a Supabase session cookie. */
 function hasSessionCookie(): boolean {
@@ -111,19 +112,7 @@ export function LoginForm({ next = '' }: { next?: string }) {
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
-      <div>
-        <Label htmlFor="password">كلمة السر</Label>
-        <Input
-          id="password"
-          type="password"
-          required
-          dir="ltr"
-          placeholder="••••••••"
-          className="mt-1"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
+      <PasswordField id="password" label="كلمة السر" value={password} onChange={setPassword} />
       <Button type="submit" disabled={busy} className="w-full bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
         {busy ? 'جارٍ الدخول…' : 'دخول'}
       </Button>

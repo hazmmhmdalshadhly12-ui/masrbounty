@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Trophy, Medal, Wallet, CheckCircle2 } from 'lucide-react';
+import { Avatar } from '@/components/shared/avatar';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHero } from '@/components/layout/page-hero';
@@ -89,6 +90,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0a1628] font-black text-amber-400">
                     {i < 3 ? <Medal className="h-5 w-5" /> : i + 1}
                   </span>
+                  <Avatar name={r.display_name} />
                   <span className="flex-1 font-bold">{r.display_name}</span>
                   <span className="text-sm tabular-nums text-muted-foreground">{metric(r)}</span>
                 </CardContent>

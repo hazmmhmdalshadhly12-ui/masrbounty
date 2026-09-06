@@ -4,6 +4,8 @@ import { sendMessageAction } from '@/features/messaging/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/shared/avatar';
+import { timeAgo } from '@/utils/time';
 import { PageHeader } from '@/components/shared/page-header';
 
 export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
@@ -13,7 +15,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const { data: memberships } = await supabase.from('conversation_members').select('conversation_id,conversations(id,subject)').eq('user_id', user.user.id);
   const activeId = (await searchParams).c ?? (memberships?.[0]?.conversation_id as string | undefined);
   const { data: messages } = activeId
-    ? await supabase.from('messages').select('id,body,sender_id,created_at').eq('conversation_id', activeId).order('created_at').limit(100)
+    ? await supabase.from('messages').select('id,body,sender_id,created_at,profiles!inner(username)').eq('conversation_id', activeId).order('created_at').limit(100)
     : { data: [] };
   if (activeId) {
     await supabase.from('conversation_members').update({ last_read_at: new Date().toISOString() }).eq('conversation_id', activeId).eq('user_id', user.user.id);
@@ -31,7 +33,15 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
       <Card className="md:col-span-2"><CardHeader><CardTitle>Messages</CardTitle></CardHeader><CardContent className="space-y-2">
         {!activeId ? <p className="text-sm text-muted-foreground">Select a conversation.</p> : (
           <>
-            {messages?.map((m) => <div key={m.id} className={`text-sm border rounded p-2 ${m.sender_id === user.user!.id ? 'bg-accent' : ''}`}>{m.body}</div>)}
+            {((messages ?? []) as unknown as { id: string; body: string; sender_id: string; created_at: string; profiles: { username: string } }[]).map((m) => (
+              <div key={m.id} className={`flex gap-2 rounded border p-2 ${m.sender_id === user.user!.id ? 'bg-accent' : ''}`}>
+                <Avatar name={m.profiles.username} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground"><span className="font-bold text-foreground" dir="ltr">@{m.profiles.username}</span> · {timeAgo(m.created_at)}</p>
+                  <p className="mt-0.5 text-sm">{m.body}</p>
+                </div>
+              </div>
+            ))}
             <form action={sendMessageAction} className="space-y-2 pt-2">
               <input type="hidden" name="conversation_id" value={activeId} />
               <Textarea name="body" required placeholder="Write a message…" />

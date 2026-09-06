@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { AppWindow, ArrowLeft, ShieldCheck, Search } from 'lucide-react';
+import { AppWindow, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ProgramSearch } from '@/components/programs/program-search';
 
 export default async function ProgramsPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }> }) {
   const { q = '', sort = 'new' } = await searchParams;
@@ -17,6 +17,21 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   if (q.trim()) query = query.ilike('name', `%${q.trim()}%`);
   query = query.order('created_at', { ascending: sort === 'old' }).limit(50);
   const { data: programs } = await query;
+  const ids = (programs ?? []).map((p) => p.id);
+  const [{ data: bounties }, { data: assetCounts }] = ids.length
+    ? await Promise.all([
+        supabase.from('bounty_policies').select('program_id,max_amount').in('program_id', ids),
+        supabase.from('program_assets').select('program_id').in('program_id', ids),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const maxByProgram = new Map<string, number>();
+  for (const b of (bounties ?? []) as { program_id: string; max_amount: number }[]) {
+    maxByProgram.set(b.program_id, Math.max(maxByProgram.get(b.program_id) ?? 0, Number(b.max_amount)));
+  }
+  const assetsByProgram = new Map<string, number>();
+  for (const a of (assetCounts ?? []) as { program_id: string }[]) {
+    assetsByProgram.set(a.program_id, (assetsByProgram.get(a.program_id) ?? 0) + 1);
+  }
 
   return (
     <main>
@@ -29,17 +44,17 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
           <p className="mt-2 max-w-2xl text-slate-300">
             اختر برنامجًا، اقرأ نطاقه وقواعده جيدًا، ثم ابدأ الصيد داخل الحدود المصرح بها فقط.
           </p>
-          <form className="mt-6 flex max-w-xl gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input name="q" defaultValue={q} placeholder="ابحث باسم البرنامج…" className="border-slate-700 bg-white/10 pr-9 text-white placeholder:text-slate-400" />
-            </div>
-            <select name="sort" defaultValue={sort} className="h-10 rounded-md border border-slate-700 bg-white/10 px-3 text-sm text-white">
-              <option value="new" className="text-black">الأحدث</option>
-              <option value="old" className="text-black">الأقدم</option>
-            </select>
-            <Button type="submit" className="bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">بحث</Button>
-          </form>
+          <div className="mt-6 flex max-w-xl flex-wrap gap-2">
+            <ProgramSearch initial={q} />
+            <form className="flex gap-2">
+              <input type="hidden" name="q" value={q} />
+              <select name="sort" defaultValue={sort} aria-label="الترتيب" className="h-10 rounded-md border border-slate-700 bg-white/10 px-3 text-sm text-white">
+                <option value="new" className="text-black">الأحدث</option>
+                <option value="old" className="text-black">الأقدم</option>
+              </select>
+              <Button type="submit" variant="outline" className="border-slate-600 text-white hover:bg-white/10">ترتيب</Button>
+            </form>
+          </div>
         </div>
       </section>
 
@@ -65,6 +80,11 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                   </div>
                   <h2 className="mt-4 text-lg font-bold">{p.name}</h2>
                   <p className="mt-2 line-clamp-2 flex-1 text-sm text-muted-foreground">{p.description}</p>
+                  <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>حتى <b className="tabular-nums text-foreground" dir="ltr">{(maxByProgram.get(p.id) ?? 0).toLocaleString()} EGP</b></span>
+                    <span>•</span>
+                    <span>{assetsByProgram.get(p.id) ?? 0} أصول</span>
+                  </div>
                   <Link href={`/programs/${p.slug}`} className="mt-5">
                     <Button variant="outline" className="w-full">
                       عرض التفاصيل <ArrowLeft className="h-4 w-4" />

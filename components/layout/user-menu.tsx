@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { logoutAction } from '@/features/auth/services';
+import { Avatar } from '@/components/shared/avatar';
 
 export function UserMenu({ username, email }: { username: string; email?: string }) {
   const [open, setOpen] = useState(false);
-  const initial = (username || email || '?').charAt(0).toUpperCase();
 
   return (
     <div className="relative">
@@ -15,9 +15,9 @@ export function UserMenu({ username, email }: { username: string; email?: string
         onClick={() => setOpen((o) => !o)}
         aria-label="قائمة المستخدم"
         aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-sm font-black text-amber-400 dark:bg-amber-400 dark:text-slate-950"
+        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {initial}
+        <Avatar name={username || email || '?'} size="sm" className="h-9 w-9" />
       </button>
       {open && (
         <>
