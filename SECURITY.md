@@ -153,7 +153,7 @@ const supabase = createServerClient() // يستخدم Service Role Key من env
 | تقارير الثغرات | security@masrbounty.com |
 | طوارئ أمنية | security@masrbounty.com (عنوان طوارئ) |
 | أسئلة أمان عامة | GitHub Discussions #security |
-| توثيق الأمان | [docs/security.md](docs/security.md) |
+| توثيق الأمان | صفحة `/security` داخل المنصة |
 
 ## 📄 التحديثات
 

@@ -221,79 +221,11 @@ npm run test:e2e
 
 ## 🗄 قاعدة البيانات
 
-ملف SQL واحد شامل: `supabase/masrbounty.sql`
+ملف SQL واحد شامل: `supabase/masrbounty.sql` — نفّذه في SQL Editor لينشئ المخطط كاملًا (جداول، فهارس، دوال، مشغلات، سياسات أمان).
 
-### الجداول الرئيسية (50+ جدول)
+### الأمان
 
-**المستخدمين والأدوار:**
-- `profiles` - الملفات الشخصية الموحدة
-- `user_roles` - أدوار المستخدمين (researcher, company, admin, moderator)
-- `researcher_profiles` - ملفات الباحثين الموسعة
-- `company_profiles` - ملفات الشركات
-- `company_members` - أعضاء فرق الشركات
-- `company_invitations` - دعوات الانضمام للفرق
-- `company_verifications` - توثيق الشركات
-
-**البرامج والأصول:**
-- `programs` - برامج Bug Bounty
-- `program_assets` - الأصول المشمولة (نطاق الاختبار)
-- `program_rules` - قواعد البرنامج
-- `program_researchers` - باحثون مدعوون للبرامج الخاصة
-- `saved_programs` - برامج محفوظة من قبل الباحثين
-- `researcher_program_activity` - نشاط الباحث في البرامج
-
-**التقارير:**
-- `reports` - تقارير الثغرات (MB-000001 format)
-- `report_events` - سجل أحداث التقرير (Timeline)
-- `report_comments` - التعليقات على التقارير
-- `report_attachments` - المرفقات (ملفات، لقطات شاشة)
-- `report_labels` - وسوم التصنيف
-- `report_label_links` - ربط الوسوم بالتقارير
-- `report_duplicates` - التقارير المكررة
-- `report_assignees` - المكلفون بالتقرير
-- `report_severity` - مستويات الخطورة
-
-**المكافآت والمدفوعات:**
-- `bounty_policies` - سياسات المكافآت لكل برنامج
-- `bounty_awards` - المكافآت الممنوحة
-- `bounty_payments` - سجل المدفوعات
-- `wallets` - محافظ الباحثين
-- `wallet_transactions` - معاملات المحفظة
-- `payout_requests` - طلبات السحب
-- `payment_methods` - طرق الدفع
-
-**التواصل والدعم:**
-- `conversations` - المحادثات
-- `conversation_members` - أعضاء المحادثة
-- `messages` - الرسائل
-- `notifications` - الإشعارات
-- `notification_preferences` - تفضيلات الإشعارات
-- `support_tickets` - تذاكر الدعم
-- `support_messages` - رسائل الدعم
-
-**السمعة والحوكمة:**
-- `researcher_reputation` - نقاط السمعة
-- `researcher_stats` - إحصائيات الباحث
-- `badges` - تعريف الشارات
-- `researcher_badges` - شارات الباحث المكتسبة
-- `achievements` - الإنجازات
-- `leaderboard_snapshots` - لقطات لوحة المتصدرين
-- `hall_of_fame` - قاعة المشاهير
-- `disputes` - النزاعات
-- `dispute_messages` - رسائل النزاعات
-- `moderation_actions` - إجراءات الإشراف
-- `audit_logs` - سجلات التدقيق
-- `security_events` - الأحداث الأمنية
-- `api_keys` - مفاتيح API
-- `platform_settings` - إعدادات المنصة
-
-### الأمان (RLS)
-
-جميع الجداول محمية بـ **Row Level Security** مع سياسات دقيقة:
-- الباحثون: يرون تقاريرهم فقط
-- الشركات: ترى تقارير برامجها فقط
-- أعضاء الفريق: حسب صلاحياتهم (owner, admin, triager, viewer)
-- المشرفون/المديرون: صلاحيات كاملة محددة
+الوصول للبيانات محمي على مستوى قاعدة البيانات نفسها (Row Level Security): كل دور يرى بياناته فقط، والعمليات المالية تتم داخل دوال آمنة خادمية. راجع `SECURITY.md` لسياسة الإفصاح المسؤول.
 
 ## 🌐 دعم اللغة والاتجاه
 
@@ -341,15 +273,6 @@ npm run test:coverage
 
 | الملف | الوصف |
 |--------|---------|
-| [ARCHITECTURE.md](docs/architecture.md) | معمارية النظام، أنماط التصميم |
-| [DATABASE.md](docs/database.md) | مخطط قاعدة البيانات، العلاقات |
-| [AUTHENTICATION.md](docs/authentication.md) | نظام المصادقة، الجلسة، MFA |
-| [AUTHORIZATION.md](docs/authorization.md) | RLS، الأدوار، الصلاحيات |
-| [REPORTS.md](docs/reports.md) | نظام التقارير، سير العمل |
-| [PROGRAMS.md](docs/programs.md) | إدارة البرامج، الأصول، القواعد |
-| [PAYMENTS.md](docs/payments.md) | المكافآت، المحافظ، السحب |
-| [WALLET.md](docs/wallet.md) | نظام المحفظة المالية |
-| [SECURITY.md](docs/security.md) | ممارسات الأمان، التهديدات |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | النشر على Vercel، الإنتاج |
 | [SUPABASE_SETUP.md](SUPABASE_SETUP.md) | إعداد Supabase خطوة بخطوة |
 | [GITHUB_SETUP.md](GITHUB_SETUP.md) | إعداد GitHub، Actions، Secrets |
