@@ -10,6 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
+/** True when the browser actually persisted a Supabase session cookie. */
+function hasSessionCookie(): boolean {
+  return document.cookie
+    .split(';')
+    .map((c) => c.trim())
+    .some((c) => c.startsWith('sb-') && c.includes('-auth-token') && !c.includes('code-verifier'));
+}
+
 /** Polls the server until it sees our session (or times out). */
 async function waitForServerSession(timeoutMs = 9000): Promise<'ok' | 'timeout' | 'error'> {
   const start = Date.now();
@@ -63,6 +71,10 @@ export function LoginForm({ next = '' }: { next?: string }) {
           username: (data.user.user_metadata?.username as string) ?? undefined,
           role: (data.user.user_metadata?.role as string) ?? undefined,
         });
+      }
+      if (!hasSessionCookie()) {
+        setError('المتصفح رفض حفظ جلسة الدخول — تأكد أن الرابط يبدأ بـ https (قفل الأمان) وعطّل مانع الإعلانات/التتبع ثم حاول مجددًا');
+        return;
       }
       setBusy(true);
       const seen = await waitForServerSession();

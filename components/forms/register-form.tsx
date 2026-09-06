@@ -55,6 +55,14 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         setPendingEmail(parsed.data.email);
         return;
       }
+      const persisted = document.cookie
+        .split(';')
+        .map((c) => c.trim())
+        .some((c) => c.startsWith('sb-') && c.includes('-auth-token') && !c.includes('code-verifier'));
+      if (!persisted) {
+        setError('المتصفح رفض حفظ الجلسة — تأكد من https وعطّل مانع الإعلانات ثم سجّل الدخول');
+        return;
+      }
       await ensureUserBootstrap(supabase, data.user.id, {
         username: parsed.data.username,
         role: parsed.data.role,
