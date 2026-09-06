@@ -69,6 +69,10 @@ export function middleware(req: NextRequest) {
   }
 
   if (authed && AUTH_PAGES.has(pathname)) {
+    // Loop-breaker: arriving with an ?error= means a server guard just
+    // rejected this session (expired/banned). Never bounce back to the
+    // dashboard in that case — render the form with its message instead.
+    if (searchParams.get('error')) return NextResponse.next();
     const url = req.nextUrl.clone();
     url.pathname = isSafeNext(searchParams.get('next')) ?? '/dashboard';
     url.search = '';
