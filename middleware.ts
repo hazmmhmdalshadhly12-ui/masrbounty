@@ -1,23 +1,11 @@
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-/**
- * Pure edge middleware — NO Supabase/Node imports (Cloudflare Workers compat).
- * Layer 1 (cheap): route gating on session-cookie PRESENCE.
- * Layer 2 (authoritative): layouts/pages re-validate the session server-side
- * and RLS enforces row ownership in the database.
- */
 
 const PROTECTED = [/^\/dashboard/, /^\/company/, /^\/admin/, /^\/profile$/, /^\/settings$/, /^\/programs\/create/];
 const AUTH_PAGES = new Set(['/login', '/register']);
 
-function hasSessionCookie(req: NextRequest): boolean {
-  return req.cookies
-    .getAll()
-    .some((c) => c.name.includes('-auth-token') && c.value.length > 8);
-}
-
-/** Internal paths only: /x, /x/y. Rejects //, \\, protocols, external. */
+/** Internal paths only: /x, /x/y. Rejects //, \, protocols, external, api. */
 export function isSafeNext(value: string | null): string | null {
   if (!value) return null;
   if (!value.startsWith('/')) return null;
@@ -46,40 +34,79 @@ function csrfBlocked(req: NextRequest): boolean {
   return !(same(origin) || same(referer));
 }
 
-export function middleware(req: NextRequest) {
+function copyCookies(from: NextResponse, to: NextResponse): void {
+  for (const c of from.cookies.getAll()) {
+    to.cookies.set(c.name, c.value, {
+      path: c.path,
+      sameSite: c.sameSite as 'lax' | 'strict' | 'none',
+      secure: c.secure,
+      maxAge: c.maxAge,
+      expires: c.expires,
+    });
+  }
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
   if (csrfBlocked(req)) {
     return NextResponse.json({ ok: false, error: 'CSRF: cross-origin write blocked' }, { status: 403 });
   }
 
+  const hasCookie = req.cookies
+    .getAll()
+    .some((c) => c.name.includes('-auth-token') && c.value.length > 8);
+
   // Lock API (except health) behind login at the edge; deep authZ stays in RLS
-  if (pathname.startsWith('/api/') && pathname !== '/api/health' && !hasSessionCookie(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (pathname.startsWith('/api/') && pathname !== '/api/health') {
+    if (!hasCookie) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return NextResponse.next();
   }
 
-  const authed = hasSessionCookie(req);
-
-  if (!authed && PROTECTED.some((rx) => rx.test(pathname))) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('next', pathname);
-    url.searchParams.set('error', 'سجّل الدخول أولًا للوصول لهذه الصفحة');
-    return NextResponse.redirect(url);
+  // Authoritative session refresh. Writes refreshed tokens (+ no-cache
+  // headers) onto the response so rotation is never silently dropped.
+  const res = NextResponse.next({ request: { headers: req.headers } });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let userId: string | null = null;
+  if (url && anon) {
+    const supabase = createServerClient(url, anon, {
+      cookies: {
+        getAll: () => req.cookies.getAll(),
+        setAll: (toSet, headers) => {
+          toSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
+          Object.entries(headers).forEach(([k, v]) => res.headers.set(k, v as string));
+        },
+      },
+    });
+    const { data } = await supabase.auth.getUser();
+    userId = data.user?.id ?? null;
+  } else {
+    userId = hasCookie ? 'unknown' : null;
   }
 
-  if (authed && AUTH_PAGES.has(pathname)) {
-    // Loop-breaker: arriving with an ?error= means a server guard just
-    // rejected this session (expired/banned). Never bounce back to the
-    // dashboard in that case — render the form with its message instead.
-    if (searchParams.get('error')) return NextResponse.next();
-    const url = req.nextUrl.clone();
-    url.pathname = isSafeNext(searchParams.get('next')) ?? '/dashboard';
-    url.search = '';
-    return NextResponse.redirect(url);
+  if (!userId && PROTECTED.some((rx) => rx.test(pathname))) {
+    const login = req.nextUrl.clone();
+    login.pathname = '/login';
+    login.searchParams.set('next', pathname);
+    login.searchParams.set('error', 'سجّل الدخول أولًا للوصول لهذه الصفحة');
+    const out = NextResponse.redirect(login);
+    copyCookies(res, out);
+    return out;
   }
 
-  return NextResponse.next();
+  if (userId && AUTH_PAGES.has(pathname)) {
+    // Loop-breaker: a guard rejection (?error=) always renders the form.
+    if (searchParams.get('error')) return res;
+    const url2 = req.nextUrl.clone();
+    url2.pathname = isSafeNext(searchParams.get('next')) ?? '/dashboard';
+    url2.search = '';
+    const out = NextResponse.redirect(url2);
+    copyCookies(res, out);
+    return out;
+  }
+
+  return res;
 }
 
 export const config = {

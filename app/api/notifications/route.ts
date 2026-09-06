@@ -3,24 +3,19 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { cookieOptions } from '@/lib/supabase/cookies';
 
 async function authed() {
   const store = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) return null;
-  const base = cookieOptions();
   const sb = createServerClient(url, anon, {
     cookies: {
-      get(name: string) {
-        return store.get(name)?.value;
+      getAll() {
+        return store.getAll();
       },
-      set(name: string, value: string, options: object) {
-        store.set(name, value, { ...base, ...(options as Record<string, unknown>) } as never);
-      },
-      remove(name: string, options: object) {
-        store.set(name, '', { ...base, ...(options as Record<string, unknown>), maxAge: 0 } as never);
+      setAll(toSet) {
+        toSet.forEach(({ name, value, options }) => store.set(name, value, options));
       },
     },
   });
