@@ -39,7 +39,7 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         password: parsed.data.password,
         options: {
           data: { username: parsed.data.username, role: parsed.data.role },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/welcome`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (err) {
