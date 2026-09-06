@@ -39,5 +39,5 @@ export async function GET() {
     steps.throwMessage = e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200);
   }
   steps.totalMs = Date.now() - t0;
-  return NextResponse.json(steps);
+  return NextResponse.json(steps, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 }

@@ -10,6 +10,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
+/** Polls the server until it sees our session (or times out). */
+async function waitForServerSession(timeoutMs = 9000): Promise<'ok' | 'timeout' | 'error'> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const r = await fetch(`/api/diag?t=${Date.now()}`, { cache: 'no-store' });
+      if (r.ok) {
+        const j = (await r.json()) as { result?: string };
+        if (j.result === 'AUTHENTICATED') return 'ok';
+        if (j.result === 'THREW') return 'error';
+      }
+    } catch {
+      /* retry */
+    }
+    await new Promise((res) => setTimeout(res, 600));
+  }
+  return 'timeout';
+}
+
 export function LoginForm({ next = '' }: { next?: string }) {
   const target = safeNext(next || null);
   const [email, setEmail] = useState('');
@@ -45,9 +64,18 @@ export function LoginForm({ next = '' }: { next?: string }) {
           role: (data.user.user_metadata?.role as string) ?? undefined,
         });
       }
-      // Hard navigation (not router.push): guarantees the freshly written
-      // session cookies travel with the very first dashboard request.
-      window.location.assign(target);
+      setBusy(true);
+      const seen = await waitForServerSession();
+      if (seen === 'ok') {
+        // Hard navigation: session verified server-side, dashboard will open.
+        window.location.assign(target);
+        return;
+      }
+      setError(
+        seen === 'timeout'
+          ? 'سجلنا دخولك لكن الخادم لم يستلم الجلسة (تُحقق من الإعدادات) — حدّث الصفحة وحاول مجددًا'
+          : 'تعذر التحقق من الجلسة على الخادم — حاول لاحقًا'
+      );
     } catch {
       setError('تعذر تسجيل الدخول حاليًا — حاول لاحقًا');
     } finally {
