@@ -9,10 +9,11 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('slug', slug).single();
   if (!program) return <main className="container py-12">Program not found.</main>;
-  const [{ data: assets }, { data: rules }, { data: bounty }, { data: activity }] = await Promise.all([
+  const [{ data: assets }, { data: rules }, { data: bounty }, { data: updates }, { data: activity }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', program.id),
     supabase.from('program_rules').select('*').eq('program_id', program.id).order('sort_order'),
     supabase.from('bounty_policies').select('*').eq('program_id', program.id),
+    supabase.from('program_updates').select('id,title,body,created_at').eq('program_id', program.id).order('created_at', { ascending: false }).limit(5),
     supabase
       .from('report_events')
       .select('id,from_status,to_status,created_at,reports!inner(program_id)')
@@ -63,6 +64,18 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
                 ))}
               </tbody>
             </table>
+          </CardContent>
+        </Card>
+      )}
+      {!!updates?.length && (
+        <Card><CardHeader><CardTitle>تحديثات البرنامج</CardTitle></CardHeader>
+          <CardContent>
+            {(updates as { id: string; title: string; body: string; created_at: string }[]).map((u) => (
+              <div key={u.id} className="mb-3 border-b pb-3 last:border-0">
+                <p className="text-sm font-bold">{u.title} <span className="font-normal text-muted-foreground">{new Date(u.created_at).toLocaleDateString('ar-EG')}</span></p>
+                <p className="mt-1 text-sm text-muted-foreground">{u.body}</p>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

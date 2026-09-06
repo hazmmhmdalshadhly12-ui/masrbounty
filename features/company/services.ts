@@ -30,6 +30,14 @@ export async function triageReportAction(reportId: string, status: string) {
   await companyOfProgram(report.program_id);
   const { error } = await supabase.from('reports').update({ status }).eq('id', reportId);
   if (error) throw new Error(error.message);
+  if (status === 'resolved') {
+    const { data: rr } = await supabase.from('reports').select('researcher_id').eq('id', reportId).single();
+    const rid = (rr as unknown as { researcher_id: string } | null)?.researcher_id;
+    if (rid) {
+      await supabase.rpc('refresh_researcher_stats', { p_researcher: rid });
+      await supabase.rpc('check_merit_badges', { p_researcher: rid });
+    }
+  }
   const actor = (await supabase.auth.getUser()).data.user?.id;
   await logAudit('update', 'reports', reportId, { status }, actor);
   const parties = await reportParties(supabase, reportId);
@@ -140,6 +148,32 @@ export async function awardBountyAction(reportId: string, formData: FormData) {
   // Money moves inside the DB function (membership + idempotency enforced there)
   const { data: awardId, error } = await supabase.rpc('award_bounty', { p_report: reportId, p_amount: amount });
   if (error || !awardId) throw moneyError(error);
+  // Merit badges + stats refresh happen in-DB; re-check badge eligibility
+  const { data: rep } = await supabase.from('reports').select('researcher_id').eq('id', reportId).single();
+  if (rep) {
+    const researcherId = (rep as unknown as { researcher_id: string }).researcher_id;
+    await supabase.rpc('refresh_researcher_stats', { p_researcher: researcherId });
+    await supabase.rpc('check_merit_badges', { p_researcher: researcherId });
+    const { data: fresh } = await supabase
+      .from('researcher_badges')
+      .select('badge_id,awarded_at,badges!inner(code)')
+      .eq('researcher_id', researcherId)
+      .order('awarded_at', { ascending: false })
+      .limit(1);
+    const latest = (fresh ?? [])[0] as unknown as { badge_id: string; awarded_at: string; badges: { code: string } } | undefined;
+    const justEarned = latest && Date.now() - new Date(latest.awarded_at).getTime() < 60_000;
+    if (justEarned && latest) {
+      const { data: rp } = await supabase.from('researcher_profiles').select('user_id').eq('id', researcherId).single();
+      const uid = (rp as unknown as { user_id: string } | null)?.user_id;
+      if (uid) {
+        await notify(supabase, uid, {
+          type: 'badge',
+          title: `شارة جديدة: ${latest.badges.code}`,
+          link: '/dashboard/badges',
+        });
+      }
+    }
+  }
   const parties = await reportParties(supabase, reportId);
   if (parties.reporterUserId) {
     await notify(supabase, parties.reporterUserId, {

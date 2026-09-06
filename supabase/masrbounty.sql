@@ -1206,6 +1206,28 @@ END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP TRIGGER IF EXISTS trg_protect_verified ON public.company_profiles;
 CREATE TRIGGER trg_protect_verified BEFORE UPDATE ON public.company_profiles FOR EACH ROW EXECUTE FUNCTION public.protect_company_verified();
 
+-- Auto-award merit badges from real achievements (idempotent)
+CREATE OR REPLACE FUNCTION public.check_merit_badges(p_researcher UUID)
+RETURNS VOID AS $$
+DECLARE v_accepted INT; v_critical_resolved INT; v_badge UUID;
+BEGIN
+  SELECT COALESCE(accepted_reports,0) INTO v_accepted FROM public.researcher_stats WHERE researcher_id = p_researcher;
+  SELECT count(*) INTO v_critical_resolved FROM public.reports
+  WHERE researcher_id = p_researcher AND severity = 'critical' AND status = 'resolved';
+  SELECT id INTO v_badge FROM public.badges WHERE code = 'first-blood';
+  IF v_accepted >= 1 AND v_badge IS NOT NULL THEN
+    INSERT INTO public.researcher_badges(researcher_id, badge_id) VALUES (p_researcher, v_badge) ON CONFLICT DO NOTHING;
+  END IF;
+  SELECT id INTO v_badge FROM public.badges WHERE code = 'bug-hunter';
+  IF v_accepted >= 10 AND v_badge IS NOT NULL THEN
+    INSERT INTO public.researcher_badges(researcher_id, badge_id) VALUES (p_researcher, v_badge) ON CONFLICT DO NOTHING;
+  END IF;
+  SELECT id INTO v_badge FROM public.badges WHERE code = 'critical-hunter';
+  IF v_critical_resolved >= 1 AND v_badge IS NOT NULL THEN
+    INSERT INTO public.researcher_badges(researcher_id, badge_id) VALUES (p_researcher, v_badge) ON CONFLICT DO NOTHING;
+  END IF;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Trust badges seed
 INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
  ('verified-researcher','باحث موثق','Verified Researcher','Identity verified by review','shield-check'),
