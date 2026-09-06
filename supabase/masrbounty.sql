@@ -861,7 +861,7 @@ DROP POLICY IF EXISTS "attach_private" ON storage.objects; CREATE POLICY "attach
 DROP POLICY IF EXISTS "attach_upload" ON storage.objects; CREATE POLICY "attach_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='report-attachments' AND auth.role()='authenticated');
 
 -- 11. SEED (dev only, safe)
-INSERT INTO public.platform_settings(key, value) VALUES ('site_name','"MasrBounty"'), ('maintenance_mode','false'), ('min_payout','{"amount": 50}') ON CONFLICT (key) DO NOTHING;
+INSERT INTO public.platform_settings(key, value) VALUES ('site_name','"MasrBounty"'), ('maintenance_mode','false'), ('min_payout','{"amount": 50}'), ('platform_fee','{"percent": 10}') ON CONFLICT (key) DO NOTHING;
 INSERT INTO public.report_severity(code,label_ar,label_en,min_bounty,max_bounty,reputation_points) VALUES
  ('informational','معلوماتية','Informational',0,0,1), ('low','منخفضة','Low',25,100,5),
  ('medium','متوسطة','Medium',100,500,10), ('high','عالية','High',500,2000,25),
@@ -940,6 +940,16 @@ CREATE TABLE IF NOT EXISTS public.program_updates (
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
+CREATE TABLE IF NOT EXISTS public.platform_revenue (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  award_id UUID NOT NULL REFERENCES public.bounty_awards(id) ON DELETE CASCADE,
+  gross_amount NUMERIC(12,2) NOT NULL CHECK (gross_amount >= 0),
+  fee_percent NUMERIC(5,2) NOT NULL CHECK (fee_percent >= 0 AND fee_percent <= 100),
+  fee_amount NUMERIC(12,2) NOT NULL CHECK (fee_amount >= 0),
+  net_amount NUMERIC(12,2) NOT NULL CHECK (net_amount >= 0),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  UNIQUE(award_id)
+);
 CREATE TABLE IF NOT EXISTS public.trust_snapshots (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   subject_type TEXT NOT NULL CHECK (subject_type IN ('researcher','company')),
@@ -1011,6 +1021,7 @@ ALTER TABLE public.suspicious_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appeals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.program_updates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trust_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.platform_revenue ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "rv_read" ON public.researcher_verifications;
 CREATE POLICY "rv_read" ON public.researcher_verifications FOR SELECT USING (
@@ -1056,6 +1067,8 @@ CREATE POLICY "pu_write" ON public.program_updates FOR ALL USING (
   WITH CHECK (true);
 DROP POLICY IF EXISTS "ts_read" ON public.trust_snapshots;
 CREATE POLICY "ts_read" ON public.trust_snapshots FOR SELECT USING (true);
+DROP POLICY IF EXISTS "rev_admin" ON public.platform_revenue;
+CREATE POLICY "rev_admin" ON public.platform_revenue FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 
 -- Identity documents bucket (private; owner + staff only)
 INSERT INTO storage.buckets (id, name, public) VALUES ('identity-documents','identity-documents', false) ON CONFLICT (id) DO NOTHING;
@@ -1086,6 +1099,7 @@ CREATE OR REPLACE FUNCTION public.award_bounty(p_report UUID, p_amount NUMERIC)
 RETURNS UUID AS $$
 DECLARE v_program UUID; v_company UUID; v_researcher UUID; v_uid UUID;
   v_wallet UUID; v_award UUID; v_existing TEXT;
+  v_fee_pct NUMERIC; v_fee NUMERIC; v_net NUMERIC;
 BEGIN
   v_uid := auth.uid();
   IF v_uid IS NULL THEN RAISE EXCEPTION 'unauthorized'; END IF;
@@ -1096,18 +1110,28 @@ BEGIN
   IF p_amount IS NULL OR p_amount < 0 THEN RAISE EXCEPTION 'invalid amount'; END IF;
   SELECT status INTO v_existing FROM public.bounty_awards WHERE report_id = p_report;
   IF v_existing IN ('approved','paid') THEN RAISE EXCEPTION 'already awarded'; END IF;
+  -- Platform commission (configurable, default 10%). Researcher receives the net.
+  SELECT COALESCE((value->>'percent')::NUMERIC, (value)::NUMERIC, 10) INTO v_fee_pct
+    FROM public.platform_settings WHERE key = 'platform_fee' LIMIT 1;
+  IF v_fee_pct IS NULL THEN v_fee_pct := 10; END IF;
+  v_fee_pct := GREATEST(0, LEAST(50, v_fee_pct));
+  v_fee := round(p_amount * v_fee_pct / 100, 2);
+  v_net := p_amount - v_fee;
   INSERT INTO public.bounty_awards(report_id, amount, status, awarded_by)
-  VALUES (p_report, p_amount, 'approved', v_uid)
-  ON CONFLICT (report_id) DO UPDATE SET amount = p_amount, status = 'approved', awarded_by = v_uid
+  VALUES (p_report, v_net, 'approved', v_uid)
+  ON CONFLICT (report_id) DO UPDATE SET amount = v_net, status = 'approved', awarded_by = v_uid
   RETURNING id INTO v_award;
+  INSERT INTO public.platform_revenue(award_id, gross_amount, fee_percent, fee_amount, net_amount)
+  VALUES (v_award, p_amount, v_fee_pct, v_fee, v_net)
+  ON CONFLICT (award_id) DO UPDATE SET gross_amount = p_amount, fee_percent = v_fee_pct, fee_amount = v_fee, net_amount = v_net;
   SELECT id INTO v_wallet FROM public.wallets WHERE researcher_id = v_researcher;
   IF v_wallet IS NULL THEN RAISE EXCEPTION 'wallet missing'; END IF;
-  UPDATE public.wallets SET pending_balance = pending_balance + p_amount, total_earned = total_earned + p_amount, updated_at = now() WHERE id = v_wallet;
+  UPDATE public.wallets SET pending_balance = pending_balance + v_net, total_earned = total_earned + v_net, updated_at = now() WHERE id = v_wallet;
   INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
-  SELECT v_wallet, 'bounty', p_amount, balance, p_report, 'Bounty approved (pending payment)', v_uid FROM public.wallets WHERE id = v_wallet;
-  UPDATE public.reports SET status = 'accepted', bounty_amount = p_amount, updated_at = now() WHERE id = p_report;
+  SELECT v_wallet, 'bounty', v_net, balance, p_report, 'Bounty approved net of ' || v_fee_pct || '% platform fee (pending payment)', v_uid FROM public.wallets WHERE id = v_wallet;
+  UPDATE public.reports SET status = 'accepted', bounty_amount = v_net, updated_at = now() WHERE id = p_report;
   INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
-  VALUES (v_uid, 'award', 'bounty_awards', v_award, jsonb_build_object('report_id', p_report, 'amount', p_amount));
+  VALUES (v_uid, 'award', 'bounty_awards', v_award, jsonb_build_object('report_id', p_report, 'gross', p_amount, 'fee', v_fee, 'net', v_net));
   RETURN v_award;
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
