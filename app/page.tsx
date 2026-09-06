@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,23 @@ const steps = [
 ];
 
 export default async function Home() {
+  // Logged-in users skip marketing and land on their own workspace
+  try {
+    const supabase = await createServerClient();
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', data.user.id);
+      const mine = new Set((roles ?? []).map((r: { role: string }) => r.role));
+      if (mine.has('admin') || mine.has('moderator')) redirect('/admin');
+      const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', data.user.id).limit(1);
+      const { data: member } = await supabase.from('company_members').select('id').eq('user_id', data.user.id).limit(1);
+      if ((owned ?? []).length || (member ?? []).length) redirect('/company');
+      redirect('/dashboard');
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('NEXT_REDIRECT')) throw e;
+    /* fall through to marketing */
+  }
   let programs = 0;
   let reports = 0;
   let researchers = 0;

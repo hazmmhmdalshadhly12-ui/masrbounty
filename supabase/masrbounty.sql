@@ -646,7 +646,8 @@ DROP TRIGGER IF EXISTS trg_touch_comments ON public.report_comments; CREATE TRIG
 DROP TRIGGER IF EXISTS trg_touch_conv ON public.conversations; CREATE TRIGGER trg_touch_conv BEFORE UPDATE ON public.conversations FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
 -- 7. VIEWS
-CREATE OR REPLACE VIEW public.researcher_leaderboard AS
+-- security_invoker: views respect the caller's RLS (otherwise they leak across companies)
+CREATE OR REPLACE VIEW public.researcher_leaderboard WITH (security_invoker = true) AS
 SELECT rp.id AS researcher_id, rp.display_name, p.avatar_url, COALESCE(rep.score,0) AS score,
   COALESCE(s.accepted_reports,0) AS accepted_reports, COALESCE(s.resolved_reports,0) AS resolved_reports,
   COALESCE(s.total_earned,0) AS total_earned,
@@ -655,14 +656,14 @@ FROM public.researcher_profiles rp JOIN public.profiles p ON p.id=rp.user_id
 LEFT JOIN public.researcher_reputation rep ON rep.researcher_id=rp.id
 LEFT JOIN public.researcher_stats s ON s.researcher_id=rp.id
 WHERE rp.is_public = true ORDER BY score DESC;
-CREATE OR REPLACE VIEW public.program_stats_view AS
+CREATE OR REPLACE VIEW public.program_stats_view WITH (security_invoker = true) AS
 SELECT pr.id AS program_id, pr.name, pr.slug, pr.status,
   count(r.id) AS total_reports,
   count(r.id) FILTER (WHERE r.status='submitted') AS new_reports,
   count(r.id) FILTER (WHERE r.status='resolved') AS resolved_reports,
   COALESCE(sum(r.bounty_amount),0) AS total_bounty
 FROM public.programs pr LEFT JOIN public.reports r ON r.program_id=pr.id GROUP BY pr.id, pr.name, pr.slug, pr.status;
-CREATE OR REPLACE VIEW public.report_overview AS
+CREATE OR REPLACE VIEW public.report_overview WITH (security_invoker = true) AS
 SELECT r.id, r.report_number, r.title, r.status, r.severity, r.bounty_amount, r.created_at,
   pr.name AS program_name, pr.slug AS program_slug, cp.name AS company_name,
   rp.display_name AS researcher_name

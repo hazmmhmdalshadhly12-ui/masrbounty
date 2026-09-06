@@ -39,6 +39,22 @@ export async function createReportAction(formData: FormData) {
   if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid report');
   const { supabase, researcherId } = await researcherIdOrThrow();
   enforceRate(`report:${researcherId}`, limits.reportCreate.max, limits.reportCreate.windowMs);
+  // Private programs require an invitation — enforced server-side, not just hidden in UI
+  const { data: program } = await supabase
+    .from('programs')
+    .select('id,visibility,status')
+    .eq('id', parsed.data.program_id)
+    .single();
+  if (!program || program.status !== 'active') throw new Error('Program not available');
+  if (program.visibility === 'private') {
+    const { data: inv } = await supabase
+      .from('program_researchers')
+      .select('id')
+      .eq('program_id', program.id)
+      .eq('researcher_id', researcherId)
+      .single();
+    if (!inv) throw new Error('Private program — invitation required');
+  }
   // generate report number server-side via DB function
   const { data: num } = await supabase.rpc('generate_report_number');
   const { data: report, error } = await supabase
