@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { loginSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
@@ -12,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 
 export function LoginForm({ next = '' }: { next?: string }) {
-  const router = useRouter();
   const target = safeNext(next || null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,8 +45,9 @@ export function LoginForm({ next = '' }: { next?: string }) {
           role: (data.user.user_metadata?.role as string) ?? undefined,
         });
       }
-      router.push(target);
-      router.refresh();
+      // Hard navigation (not router.push): guarantees the freshly written
+      // session cookies travel with the very first dashboard request.
+      window.location.assign(target);
     } catch {
       setError('تعذر تسجيل الدخول حاليًا — حاول لاحقًا');
     } finally {

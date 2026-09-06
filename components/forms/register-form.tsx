@@ -59,8 +59,8 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         username: parsed.data.username,
         role: parsed.data.role,
       });
-      router.push(target);
-      router.refresh();
+      // Hard navigation so session cookies are present on first load.
+      window.location.assign(target);
     } catch {
       setError('تعذر إنشاء الحساب حاليًا — حاول لاحقًا');
     } finally {
