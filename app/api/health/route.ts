@@ -2,25 +2,20 @@ export const runtime = 'edge';
 
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Minimal liveness probe. Deliberately reveals nothing about configuration:
+ * no env presence flags, no secret existence, no timestamps for correlation.
+ */
 export async function GET() {
-  const hasUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const hasAnon = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const hasService = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  let db: { ok: boolean; error?: string } = { ok: false, error: 'env missing' };
-  if (hasUrl && hasAnon) {
-    try {
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-      const { error } = await sb.from('profiles').select('id', { count: 'exact', head: true });
-      db = error ? { ok: false, error: error.message } : { ok: true };
-    } catch (e) {
-      db = { ok: false, error: e instanceof Error ? e.message : 'unknown' };
-    }
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anon) return Response.json({ healthy: false }, { status: 503 });
+    const sb = createClient(url, anon);
+    const { error } = await sb.from('profiles').select('id', { count: 'exact', head: true });
+    if (error) return Response.json({ healthy: false }, { status: 503 });
+    return Response.json({ healthy: true });
+  } catch {
+    return Response.json({ healthy: false }, { status: 503 });
   }
-
-  const healthy = hasUrl && hasAnon && db.ok;
-  return Response.json(
-    { healthy, env: { url: hasUrl, anon: hasAnon, service: hasService }, db, ts: new Date().toISOString() },
-    { status: healthy ? 200 : 503 }
-  );
 }

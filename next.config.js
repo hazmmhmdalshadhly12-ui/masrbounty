@@ -11,6 +11,9 @@ const csp = [
   `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://*.supabase.co'} wss://*.supabase.co https://cloudflareinsights.com`,
   "frame-ancestors 'self'",
   "form-action 'self'",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
   'upgrade-insecure-requests',
 ].join('; ');
 

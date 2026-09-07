@@ -792,7 +792,7 @@ DROP POLICY IF EXISTS "ra_insert" ON public.report_attachments; CREATE POLICY "r
 DROP POLICY IF EXISTS "re_select" ON public.report_events; CREATE POLICY "re_select" ON public.report_events FOR SELECT USING (EXISTS(SELECT 1 FROM public.reports r WHERE r.id=report_id AND (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=r.researcher_id AND rp.user_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=r.program_id AND public.is_company_member(p.company_id, auth.uid())) OR public.has_role('admin') OR public.has_role('moderator'))));
 -- labels: public read
 DROP POLICY IF EXISTS "rl_read" ON public.report_labels; CREATE POLICY "rl_read" ON public.report_labels FOR SELECT USING (true);
-DROP POLICY IF EXISTS "rl_admin_write" ON public.report_labels; CREATE POLICY "rl_admin_write" ON public.report_labels FOR ALL USING (public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (true);
+DROP POLICY IF EXISTS "rl_admin_write" ON public.report_labels; CREATE POLICY "rl_admin_write" ON public.report_labels FOR ALL USING (public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "rll_read" ON public.report_label_links; CREATE POLICY "rll_read" ON public.report_label_links FOR SELECT USING (true);
 DROP POLICY IF EXISTS "rll_write" ON public.report_label_links; CREATE POLICY "rll_write" ON public.report_label_links FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid()))) WITH CHECK (true);
 DROP POLICY IF EXISTS "rd_read" ON public.report_duplicates; CREATE POLICY "rd_read" ON public.report_duplicates FOR SELECT USING (true);
@@ -808,7 +808,7 @@ DROP POLICY IF EXISTS "wt_select" ON public.wallet_transactions; CREATE POLICY "
 DROP POLICY IF EXISTS "ba_select" ON public.bounty_awards; CREATE POLICY "ba_select" ON public.bounty_awards FOR SELECT USING (EXISTS(SELECT 1 FROM public.reports r WHERE r.id=report_id AND (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=r.researcher_id AND rp.user_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=r.program_id AND public.is_company_member(p.company_id, auth.uid())) OR public.has_role('admin'))));
 DROP POLICY IF EXISTS "ba_write" ON public.bounty_awards; CREATE POLICY "ba_write" ON public.bounty_awards FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid()))) WITH CHECK (true);
 DROP POLICY IF EXISTS "bpay_select" ON public.bounty_payments; CREATE POLICY "bpay_select" ON public.bounty_payments FOR SELECT USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.bounty_awards a JOIN public.reports r ON r.id=a.report_id JOIN public.programs p ON p.id=r.program_id WHERE a.id=award_id AND public.is_company_member(p.company_id, auth.uid())));
-DROP POLICY IF EXISTS "bpay_write" ON public.bounty_payments; CREATE POLICY "bpay_write" ON public.bounty_payments FOR ALL USING (public.has_role('admin')) WITH CHECK (true);
+DROP POLICY IF EXISTS "bpay_write" ON public.bounty_payments; CREATE POLICY "bpay_write" ON public.bounty_payments FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 -- payouts/methods: owner
 DROP POLICY IF EXISTS "pr_select" ON public.payout_requests; CREATE POLICY "pr_select" ON public.payout_requests FOR SELECT USING (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid()) OR public.has_role('admin'));
 DROP POLICY IF EXISTS "pr_insert" ON public.payout_requests; CREATE POLICY "pr_insert" ON public.payout_requests FOR INSERT WITH CHECK (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid()));
@@ -829,7 +829,7 @@ DROP POLICY IF EXISTS "rep_read" ON public.researcher_reputation; CREATE POLICY 
 DROP POLICY IF EXISTS "stats_read" ON public.researcher_stats; CREATE POLICY "stats_read" ON public.researcher_stats FOR SELECT USING (true);
 DROP POLICY IF EXISTS "badge_read" ON public.badges; CREATE POLICY "badge_read" ON public.badges FOR SELECT USING (true);
 DROP POLICY IF EXISTS "rb_read" ON public.researcher_badges; CREATE POLICY "rb_read" ON public.researcher_badges FOR SELECT USING (true);
-DROP POLICY IF EXISTS "rb_write" ON public.researcher_badges; CREATE POLICY "rb_write" ON public.researcher_badges FOR ALL USING (public.has_role('admin')) WITH CHECK (true);
+DROP POLICY IF EXISTS "rb_write" ON public.researcher_badges; CREATE POLICY "rb_write" ON public.researcher_badges FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
 DROP POLICY IF EXISTS "ach_read" ON public.achievements; CREATE POLICY "ach_read" ON public.achievements FOR SELECT USING (true);
 DROP POLICY IF EXISTS "lb_read" ON public.leaderboard_snapshots; CREATE POLICY "lb_read" ON public.leaderboard_snapshots FOR SELECT USING (true);
 DROP POLICY IF EXISTS "hof_read" ON public.hall_of_fame; CREATE POLICY "hof_read" ON public.hall_of_fame FOR SELECT USING (true);
@@ -844,7 +844,7 @@ DROP POLICY IF EXISTS "dmsg_insert" ON public.dispute_messages; CREATE POLICY "d
 DROP POLICY IF EXISTS "sp_all" ON public.saved_programs; CREATE POLICY "sp_all" ON public.saved_programs FOR ALL USING (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())) WITH CHECK (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid()));
 DROP POLICY IF EXISTS "rpa_read" ON public.researcher_program_activity; CREATE POLICY "rpa_read" ON public.researcher_program_activity FOR SELECT USING (true);
 DROP POLICY IF EXISTS "prg_res_read" ON public.program_researchers; CREATE POLICY "prg_res_read" ON public.program_researchers FOR SELECT USING (true);
-DROP POLICY IF EXISTS "prg_res_write" ON public.program_researchers; CREATE POLICY "prg_res_write" ON public.program_researchers FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (true);
+DROP POLICY IF EXISTS "prg_res_write" ON public.program_researchers; CREATE POLICY "prg_res_write" ON public.program_researchers FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
 DROP POLICY IF EXISTS "prg_respond" ON public.program_researchers; CREATE POLICY "prg_respond" ON public.program_researchers FOR UPDATE USING (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())) WITH CHECK (status IN ('accepted','declined'));
 -- admin tables
 DROP POLICY IF EXISTS "audit_admin" ON public.audit_logs; CREATE POLICY "audit_admin" ON public.audit_logs FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator'));
@@ -1050,7 +1050,8 @@ CREATE POLICY "rv_read" ON public.researcher_verifications FOR SELECT USING (
   OR public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "rv_write" ON public.researcher_verifications;
 CREATE POLICY "rv_write" ON public.researcher_verifications FOR ALL USING (
-  public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (true);
+  public.has_role('admin') OR public.has_role('moderator'))
+WITH CHECK (public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "kyc_read" ON public.kyc_reviews;
 CREATE POLICY "kyc_read" ON public.kyc_reviews FOR SELECT USING (
   EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
@@ -1073,7 +1074,8 @@ CREATE POLICY "dv_write" ON public.domain_verifications FOR ALL USING (
   WITH CHECK (true);
 DROP POLICY IF EXISTS "se_admin" ON public.suspicious_events;
 CREATE POLICY "se_admin" ON public.suspicious_events FOR ALL USING (
-  public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (true);
+  public.has_role('admin') OR public.has_role('moderator'))
+WITH CHECK (public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "ap_own" ON public.appeals;
 CREATE POLICY "ap_own" ON public.appeals FOR SELECT USING (user_id=auth.uid() OR public.has_role('admin') OR public.has_role('moderator'));
 DROP POLICY IF EXISTS "ap_insert" ON public.appeals;
@@ -1353,6 +1355,125 @@ BEGIN
   INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
   VALUES (v_uid, 'payout', 'payout_requests', p_payout, jsonb_build_object('completed', true, 'reference', trim(p_reference)));
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- 14. PENTEST REMEDIATION (idempotent)
+-- Root cause fixed: several FOR ALL policies used WITH CHECK (true).
+-- In Postgres, INSERT checks ONLY the WITH CHECK clause, so any
+-- authenticated user could INSERT rows the USING clause would forbid
+-- (platform_settings injection, fake awards, fake moderation, ...).
+-- Every WITH CHECK below now mirrors its USING clause.
+-- ============================================================
+
+-- 14.1 WITH CHECK hardening (mirror USING)
+DROP POLICY IF EXISTS "cm_manage" ON public.company_members;
+CREATE POLICY "cm_manage" ON public.company_members FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+
+DROP POLICY IF EXISTS "prog_company_write" ON public.programs;
+CREATE POLICY "prog_company_write" ON public.programs FOR ALL
+USING (public.is_company_member(company_id, auth.uid()) OR created_by=auth.uid() OR public.has_role('admin'))
+WITH CHECK (public.is_company_member(company_id, auth.uid()) OR created_by=auth.uid() OR public.has_role('admin'));
+
+DROP POLICY IF EXISTS "pa_write" ON public.program_assets;
+CREATE POLICY "pa_write" ON public.program_assets FOR ALL
+USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))))
+WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+
+DROP POLICY IF EXISTS "pr_rules_write" ON public.program_rules;
+CREATE POLICY "pr_rules_write" ON public.program_rules FOR ALL
+USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))))
+WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+
+DROP POLICY IF EXISTS "bp_write" ON public.bounty_policies;
+CREATE POLICY "bp_write" ON public.bounty_policies FOR ALL
+USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))))
+WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+
+DROP POLICY IF EXISTS "rll_write" ON public.report_label_links;
+CREATE POLICY "rll_write" ON public.report_label_links FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())));
+
+DROP POLICY IF EXISTS "rd_write" ON public.report_duplicates;
+CREATE POLICY "rd_write" ON public.report_duplicates FOR ALL
+USING (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())))
+WITH CHECK (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())));
+
+DROP POLICY IF EXISTS "ras_write" ON public.report_assignees;
+CREATE POLICY "ras_write" ON public.report_assignees FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())));
+
+DROP POLICY IF EXISTS "mod_admin" ON public.moderation_actions;
+CREATE POLICY "mod_admin" ON public.moderation_actions FOR ALL
+USING (public.has_role('admin') OR public.has_role('moderator'))
+WITH CHECK (public.has_role('admin') OR public.has_role('moderator'));
+
+DROP POLICY IF EXISTS "inv_write" ON public.company_invitations;
+CREATE POLICY "inv_write" ON public.company_invitations FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+
+DROP POLICY IF EXISTS "ver_write" ON public.company_verifications;
+CREATE POLICY "ver_write" ON public.company_verifications FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+
+DROP POLICY IF EXISTS "dv_write" ON public.domain_verifications;
+CREATE POLICY "dv_write" ON public.domain_verifications FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=domain_verifications.company_id AND user_id=auth.uid()))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=domain_verifications.company_id AND user_id=auth.uid()));
+
+DROP POLICY IF EXISTS "pu_write" ON public.program_updates;
+CREATE POLICY "pu_write" ON public.program_updates FOR ALL
+USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))))
+WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+
+DROP POLICY IF EXISTS "pset_write" ON public.platform_settings;
+CREATE POLICY "pset_write" ON public.platform_settings FOR ALL
+USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+
+DROP POLICY IF EXISTS "hof_write" ON public.hall_of_fame;
+CREATE POLICY "hof_write" ON public.hall_of_fame FOR ALL
+USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()))
+WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+
+DROP POLICY IF EXISTS "conv_insert" ON public.conversations;
+CREATE POLICY "conv_insert" ON public.conversations FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- 14.2 Profiles: authenticated users only (ends anonymous enumeration)
+DROP POLICY IF EXISTS "profiles_public_read" ON public.profiles;
+CREATE POLICY "profiles_public_read" ON public.profiles FOR SELECT USING (auth.role() = 'authenticated');
+
+-- 14.3 platform_settings: tiered reads (anon sees harmless keys only;
+-- members see operational keys; vf number restricted to staff + companies)
+DROP POLICY IF EXISTS "pset_read" ON public.platform_settings;
+CREATE POLICY "pset_read" ON public.platform_settings FOR SELECT USING (
+  key IN ('site_name','maintenance_mode')
+  OR public.has_role('admin') OR public.has_role('moderator')
+  OR (key <> 'vf_cash_number' AND auth.role() = 'authenticated')
+  OR (key = 'vf_cash_number' AND (
+    EXISTS(SELECT 1 FROM public.company_profiles WHERE owner_id = auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE user_id = auth.uid())
+  ))
+);
+
+-- 14.4 Leaderboard without profiles join (avatars render from initials;
+-- removes the last reason any public view touches the profiles table)
+CREATE OR REPLACE VIEW public.researcher_leaderboard WITH (security_invoker = true) AS
+SELECT rp.id AS researcher_id, rp.display_name, COALESCE(rep.score,0) AS score,
+  COALESCE(s.accepted_reports,0) AS accepted_reports, COALESCE(s.resolved_reports,0) AS resolved_reports,
+  COALESCE(s.total_earned,0) AS total_earned,
+  RANK() OVER (ORDER BY COALESCE(rep.score,0) DESC) AS rank
+FROM public.researcher_profiles rp
+LEFT JOIN public.researcher_reputation rep ON rep.researcher_id=rp.id
+LEFT JOIN public.researcher_stats s ON s.researcher_id=rp.id
+WHERE rp.is_public = true ORDER BY score DESC;
+
+-- 14.5 Attacker cleanup: remove the injected test row (verify fee/number intact)
+DELETE FROM public.platform_settings WHERE key = 'pentest_write';
 
 -- Trust badges seed
 INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
