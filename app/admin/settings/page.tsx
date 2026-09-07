@@ -7,12 +7,25 @@ import { Button } from '@/components/ui/button';
 async function save(formData: FormData) {
   'use server';
   const supabase = await createServerClient();
+  const { data: me } = await supabase.auth.getUser();
+  const { data: roles } = me.user
+    ? await supabase.from('user_roles').select('role').eq('user_id', me.user.id)
+    : { data: [] };
+  if (!me.user || !(roles ?? []).some((r: { role: string }) => r.role === 'admin')) throw new Error('للإدارة فقط');
   await supabase.from('platform_settings').upsert({ key: String(formData.get('key')), value: JSON.parse(String(formData.get('value') || '{}')) });
   revalidatePath('/admin/settings');
 }
 
 export default async function AdminSettings() {
   const supabase = await createServerClient();
+  const { data: me } = await supabase.auth.getUser();
+  const { data: roles } = me.user
+    ? await supabase.from('user_roles').select('role').eq('user_id', me.user.id)
+    : { data: [] };
+  if (!me.user || !(roles ?? []).some((r: { role: string }) => r.role === 'admin')) {
+    const { forbidden } = await import('next/navigation');
+    forbidden();
+  }
   const { data } = await supabase.from('platform_settings').select('*');
   return (
     <main className="container py-8 max-w-2xl space-y-4">

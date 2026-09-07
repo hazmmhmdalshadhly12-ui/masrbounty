@@ -5,27 +5,36 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { escapeLike } from '@/utils/search';
 
-async function setActive(userId: string, active: boolean, formData: FormData) {
-  'use server';
+async function requireAdminRole() {
   const supabase = await createServerClient();
   const { data: me } = await supabase.auth.getUser();
   if (!me.user) throw new Error('Unauthorized');
-  if (me.user.id === userId) throw new Error('Cannot change your own status');
+  const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', me.user.id);
+  if (!(roles ?? []).some((r: { role: string }) => r.role === 'admin')) throw new Error('للإدارة فقط');
+  return { supabase, me: me.user };
+}
+
+async function setActive(userId: string, active: boolean, formData: FormData) {
+  'use server';
+  const { supabase, me } = await requireAdminRole();
+  if (me.id === userId) throw new Error('Cannot change your own status');
   const reason = String(formData.get(`reason_${userId}`) ?? '');
   await supabase.from('profiles').update({ is_active: active }).eq('id', userId);
   await supabase.from('moderation_actions').insert({
-    moderator_id: me.user.id,
+    moderator_id: me.id,
     target_type: 'user',
     target_id: userId,
     action: active ? 'unban' : 'ban',
     reason: reason || null,
   });
-  await logAudit('moderate', 'profiles', userId, { active, reason }, me.user.id);
+  await logAudit('moderate', 'profiles', userId, { active, reason }, me.id);
   revalidatePath('/admin/users');
 }
 
 export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string; role?: string }> }) {
+  await requireAdminRole();
   const { q = '', role = '' } = await searchParams;
   const supabase = await createServerClient();
   let ids: string[] | null = null;
@@ -34,7 +43,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
     ids = (rr ?? []).map((r: { user_id: string }) => r.user_id);
   }
   let query = supabase.from('profiles').select('id,username,full_name,is_active,created_at').order('created_at', { ascending: false }).limit(100);
-  if (q.trim()) query = query.ilike('username', `%${q.trim()}%`);
+  if (q.trim()) query = query.ilike('username', `%${escapeLike(q.trim())}%`);
   if (ids) query = query.in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
   const { data: users } = await query;
   return (

@@ -6,6 +6,8 @@ import { logAudit } from '@/services/audit';
 import { notify, reportParties } from '@/lib/notify';
 import { enforceRate } from '@/lib/rate-limit';
 
+type MemberRole = 'owner' | 'admin' | 'triager' | 'viewer';
+
 async function companyOfProgram(programId: string) {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
@@ -19,7 +21,18 @@ async function companyOfProgram(programId: string) {
     .eq('user_id', user.user.id)
     .single();
   if (!member) throw new Error('Not a company member');
-  return { supabase, program };
+  return { supabase, program, role: (member as { role: MemberRole }).role };
+}
+
+/**
+ * Mutating company operations require owner/admin/triager.
+ * Viewers are strictly read-only (a viewer JWT must never change state,
+ * even if RLS would technically permit a member write).
+ */
+export async function requireCompanyRole(programId: string, allowed: MemberRole[] = ['owner', 'admin', 'triager']) {
+  const ctx = await companyOfProgram(programId);
+  if (!allowed.includes(ctx.role)) throw new Error('غير مصرّح لك بهذه العملية (دور المشاهد للقراءة فقط)');
+  return ctx;
 }
 
 export async function triageReportAction(reportId: string, status: string) {
@@ -28,7 +41,7 @@ export async function triageReportAction(reportId: string, status: string) {
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
-  await companyOfProgram(report.program_id);
+  await requireCompanyRole(report.program_id);
   const { data: actor } = await supabase.auth.getUser();
   if (actor.user) enforceRate(`triage:${actor.user.id}`, 60, 60_000);
   const { error } = await supabase.from('reports').update({ status }).eq('id', reportId);
@@ -63,7 +76,7 @@ export async function changeSeverityAction(reportId: string, formData: FormData)
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id,severity').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
-  await companyOfProgram(report.program_id);
+  await requireCompanyRole(report.program_id);
   const { error } = await supabase.from('reports').update({ severity }).eq('id', reportId);
   if (error) throw new Error(error.message);
   const actor = (await supabase.auth.getUser()).data.user?.id;
@@ -92,7 +105,7 @@ export async function markDuplicateAction(reportId: string, formData: FormData) 
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
-  await companyOfProgram(report.program_id);
+  await requireCompanyRole(report.program_id);
   // Accept either UUID or MB-000001 number for the original
   let originalId = duplicateOf;
   if (!/^[0-9a-f-]{36}$/i.test(duplicateOf)) {
@@ -120,7 +133,7 @@ export async function assignReportAction(reportId: string, formData: FormData) {
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
-  const { program } = await companyOfProgram(report.program_id);
+  const { program } = await requireCompanyRole(report.program_id);
   const { data: member } = await supabase.from('company_members').select('user_id').eq('company_id', program.company_id).eq('user_id', assigneeId).single();
   if (!member) throw new Error('Not a team member');
   const { data: me } = await supabase.auth.getUser();
@@ -135,7 +148,7 @@ export async function unassignReportAction(reportId: string, userId: string) {
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
-  await companyOfProgram(report.program_id);
+  await requireCompanyRole(report.program_id);
   await supabase.from('report_assignees').delete().eq('report_id', reportId).eq('user_id', userId);
   revalidatePath(`/company/reports/${reportId}`);
 }
@@ -146,7 +159,7 @@ export async function toggleLabelAction(reportId: string, formData: FormData) {
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
-  await companyOfProgram(report.program_id);
+  await requireCompanyRole(report.program_id);
   const { data: existing } = await supabase.from('report_label_links').select('label_id').eq('report_id', reportId).eq('label_id', labelId).single();
   if (existing) {
     await supabase.from('report_label_links').delete().eq('report_id', reportId).eq('label_id', labelId);
@@ -172,6 +185,10 @@ export async function markPaidAction(awardId: string, formData: FormData) {
   const reference = String(formData.get('reference') ?? '').trim().slice(0, 120);
   const supabase = await createServerClient();
   const { data: award } = await supabase.from('bounty_awards').select('id,amount,report_id').eq('id', awardId).single();
+  if (award) {
+    const { data: rep } = await supabase.from('reports').select('program_id').eq('id', award.report_id).single();
+    if (rep) await requireCompanyRole(rep.program_id);
+  }
   // Money moves inside the DB function (membership + idempotency enforced there)
   const { error } = await supabase.rpc('pay_award', { p_award: awardId, p_reference: reference || 'manual' });
   if (error) throw moneyError(error);
@@ -189,6 +206,8 @@ export async function markPaidAction(awardId: string, formData: FormData) {
 export async function awardBountyAction(reportId: string, formData: FormData) {
   const amount = Number(formData.get('amount'));
   const supabase = await createServerClient();
+  const { data: rep0 } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  if (rep0) await requireCompanyRole(rep0.program_id);
   // Money moves inside the DB function (membership + idempotency enforced there)
   const { data: awardId, error } = await supabase.rpc('award_bounty', { p_report: reportId, p_amount: amount });
   if (error || !awardId) throw moneyError(error);

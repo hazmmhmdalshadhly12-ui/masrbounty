@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
 import { notify } from '@/lib/notify';
+import { requireCompanyRole } from '@/features/company/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +15,7 @@ async function updateStatus(id: string, formData: FormData) {
   const visibility = String(formData.get('visibility'));
   if (!['draft', 'pending_review', 'active', 'paused', 'closed'].includes(status)) throw new Error('Invalid status');
   if (!['public', 'private'].includes(visibility)) throw new Error('Invalid visibility');
+  await requireCompanyRole(id);
   const { data: program } = await supabase.from('programs').select('name').eq('id', id).single();
   await supabase.from('programs').update({ status, visibility }).eq('id', id);
   // Notify researchers who saved this program
@@ -34,6 +36,7 @@ async function updateStatus(id: string, formData: FormData) {
 async function addAsset(id: string, formData: FormData) {
   'use server';
   const supabase = await createServerClient();
+  await requireCompanyRole(id);
   await supabase.from('program_assets').insert({ program_id: id, type: String(formData.get('type')), value: String(formData.get('value')) });
   revalidatePath(`/company/programs/${id}`);
 }
@@ -41,6 +44,7 @@ async function addAsset(id: string, formData: FormData) {
 async function addRule(id: string, formData: FormData) {
   'use server';
   const supabase = await createServerClient();
+  await requireCompanyRole(id);
   await supabase.from('program_rules').insert({ program_id: id, title: String(formData.get('title')), content: String(formData.get('content')) });
   revalidatePath(`/company/programs/${id}`);
 }
@@ -52,6 +56,7 @@ async function saveBounty(id: string, formData: FormData) {
   const min = Number(formData.get('min_amount'));
   const max = Number(formData.get('max_amount'));
   if (!severity || !(min >= 0) || !(max >= min)) throw new Error('Invalid bounty range');
+  await requireCompanyRole(id);
   await supabase
     .from('bounty_policies')
     .upsert({ program_id: id, severity, min_amount: min, max_amount: max }, { onConflict: 'program_id,severity' });
@@ -61,6 +66,7 @@ async function saveBounty(id: string, formData: FormData) {
 async function deleteRule(ruleId: string, programId: string) {
   'use server';
   const supabase = await createServerClient();
+  await requireCompanyRole(programId);
   await supabase.from('program_rules').delete().eq('id', ruleId);
   revalidatePath(`/company/programs/${programId}`);
 }
@@ -68,6 +74,7 @@ async function deleteRule(ruleId: string, programId: string) {
 async function deleteAsset(assetId: string, programId: string) {
   'use server';
   const supabase = await createServerClient();
+  await requireCompanyRole(programId);
   await supabase.from('program_assets').delete().eq('id', assetId);
   revalidatePath(`/company/programs/${programId}`);
 }
@@ -81,6 +88,7 @@ async function publishUpdate(programId: string, formData: FormData) {
   const title = String(formData.get('title') ?? '').trim().slice(0, 120);
   const body = String(formData.get('body') ?? '').trim();
   if (!title || !body) throw new Error('Title and body required');
+  await requireCompanyRole(programId);
   const { data: program } = await supabase.from('programs').select('name').eq('id', programId).single();
   await supabase.from('program_updates').insert({ program_id: programId, title, body, created_by: user.user.id });
   const { data: savers } = await supabase
@@ -103,6 +111,7 @@ async function inviteResearcher(programId: string, formData: FormData) {
   const supabase = await createServerClient();
   const username = String(formData.get('username') ?? '').trim().replace(/^@/, '');
   if (!username) throw new Error('Username required');
+  await requireCompanyRole(programId);
   const { data: profile } = await supabase.from('profiles').select('id').eq('username', username).single();
   if (!profile) throw new Error('User not found');
   const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', profile.id).single();

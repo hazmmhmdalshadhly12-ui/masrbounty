@@ -38,12 +38,17 @@ export async function createProgramAction(formData: FormData) {
   redirect(`/company/programs/${program.id}`);
 }
 
-export async function toggleSaveProgram(programId: string, researcherId: string, saved: boolean) {
+export async function toggleSaveProgram(programId: string, saved: boolean) {
   const supabase = await createServerClient();
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Unauthorized');
+  // Researcher identity always comes from the session, never arguments
+  const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single();
+  if (!rp) throw new Error('Researchers only');
   if (saved) {
-    await supabase.from('saved_programs').delete().eq('program_id', programId).eq('researcher_id', researcherId);
+    await supabase.from('saved_programs').delete().eq('program_id', programId).eq('researcher_id', rp.id);
   } else {
-    await supabase.from('saved_programs').insert({ program_id: programId, researcher_id: researcherId });
+    await supabase.from('saved_programs').insert({ program_id: programId, researcher_id: rp.id });
   }
   revalidatePath('/programs');
 }

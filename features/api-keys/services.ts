@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
+import { enforceRate } from '@/lib/rate-limit';
 
 function randomToken(bytes = 24): string {
   const buf = crypto.getRandomValues(new Uint8Array(bytes));
@@ -18,6 +19,7 @@ export async function generateApiKey(formData: FormData): Promise<string> {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
+  enforceRate(`apikey:${user.user.id}`, 5, 3_600_000);
   const token = `mb_live_${randomToken(20)}`;
   const hash = await sha256(token);
   await supabase.from('api_keys').insert({

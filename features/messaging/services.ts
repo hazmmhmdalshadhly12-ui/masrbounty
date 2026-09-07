@@ -15,6 +15,7 @@ export async function sendMessageAction(formData: FormData) {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
+  enforceRate(`conv:${user.user.id}`, 10, 3_600_000);
   enforceRate(`msg:${user.user.id}`, limits.message.max, limits.message.windowMs);
   const { data: member } = await supabase
     .from('conversation_members')
@@ -41,6 +42,7 @@ export async function startConversationAction(formData: FormData) {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
+  enforceRate(`conv:${user.user.id}`, 10, 3_600_000);
   const { data: conv, error } = await supabase.from('conversations').insert({ subject, created_by: user.user.id }).select('id').single();
   if (error || !conv) throw new Error(error?.message ?? 'Failed');
   // Self first: the invite policy lets members add others, so the creator

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ProgramSearch } from '@/components/programs/program-search';
+import { escapeLike } from '@/utils/search';
 
 export default async function ProgramsPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }> }) {
   const { q = '', sort = 'new' } = await searchParams;
@@ -14,7 +15,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
     .select('id,name,slug,description,status,visibility,created_at')
     .eq('status', 'active')
     .eq('visibility', 'public');
-  if (q.trim()) query = query.ilike('name', `%${q.trim()}%`);
+  if (q.trim()) query = query.ilike('name', `%${escapeLike(q.trim())}%`);
   query = query.order('created_at', { ascending: sort === 'old' }).limit(50);
   const { data: programs } = await query;
   const ids = (programs ?? []).map((p) => p.id);

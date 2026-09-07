@@ -99,6 +99,9 @@ export async function addCommentAction(reportId: string, formData: FormData) {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error('Unauthorized');
   enforceRate(`comment:${data.user.id}`, limits.comment.max, limits.comment.windowMs);
+  // Must be able to SEE the report at all (blocks commenting on strangers' reports by ID guessing)
+  const { data: access } = await supabase.from('reports').select('id').eq('id', reportId).single();
+  if (!access) throw new Error('غير موجود أو غير مصرّح');
   // Internal notes: only company members/admins may mark internal; everyone else posts public
   let isInternal = formData.get('is_internal') === 'on';
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();

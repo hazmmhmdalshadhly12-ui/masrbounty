@@ -7,11 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusPill } from '@/components/shared/status-pill';
 
+async function requireAdmin() {
+  const supabase = await createServerClient();
+  const { data: me } = await supabase.auth.getUser();
+  if (!me.user) throw new Error('Unauthorized');
+  const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', me.user.id);
+  if (!(roles ?? []).some((r: { role: string }) => r.role === 'admin')) throw new Error('للإدارة فقط');
+  return supabase;
+}
+
 async function setFee(formData: FormData) {
   'use server';
   const pct = Number(formData.get('percent'));
   if (!(pct >= 0 && pct <= 50)) throw new Error('Fee must be 0–50%');
-  const supabase = await createServerClient();
+  const supabase = await requireAdmin();
   await supabase.from('platform_settings').upsert({ key: 'platform_fee', value: { percent: pct } });
   revalidatePath('/admin/payments');
 }
@@ -26,7 +35,7 @@ const STEPS: Record<string, string> = {
 };
 
 export default async function AdminPayments() {
-  const supabase = await createServerClient();
+  const supabase = await requireAdmin();
   const [{ data }, { data: revenue }, { data: feeRow }, { data: vfRow }] = await Promise.all([
     supabase.from('payout_requests').select('*,payment_methods!fk_payout_method(label,type)').order('created_at', { ascending: false }).limit(100),
     supabase.from('platform_revenue').select('gross_amount,fee_amount,net_amount'),

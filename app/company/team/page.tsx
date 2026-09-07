@@ -7,11 +7,20 @@ import { Button } from '@/components/ui/button';
 async function invite(formData: FormData) {
   'use server';
   const supabase = await createServerClient();
-  await supabase.from('company_invitations').insert({
-    company_id: String(formData.get('company_id')),
-    email: String(formData.get('email')),
-    role: String(formData.get('role')),
-  });
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Unauthorized');
+  const companyId = String(formData.get('company_id'));
+  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const role = String(formData.get('role') ?? 'viewer');
+  if (!email.includes('@')) throw new Error('بريد غير صالح');
+  if (!['viewer', 'triager', 'admin'].includes(role)) throw new Error('دور غير صالح');
+  // Only owners and admins may invite (never triagers/viewers, never other companies)
+  const { data: company } = await supabase.from('company_profiles').select('owner_id').eq('id', companyId).single();
+  const { data: mine } = await supabase.from('company_members').select('role').eq('company_id', companyId).eq('user_id', user.user.id).single();
+  const myRole = company?.owner_id === user.user.id ? 'owner' : (mine as { role: string } | null)?.role;
+  if (myRole !== 'owner' && myRole !== 'admin') throw new Error('الدعوات للمؤسس والمدراء فقط');
+  const { error } = await supabase.from('company_invitations').insert({ company_id: companyId, email, role });
+  if (error) throw new Error('تعذر إرسال الدعوة');
   revalidatePath('/company/team');
 }
 

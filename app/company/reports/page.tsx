@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusPill } from '@/components/shared/status-pill';
+import { escapeLike } from '@/utils/search';
 
 const STATUSES = ['', 'submitted', 'triaged', 'accepted', 'resolved', 'duplicate', 'closed'];
 const SEVERITIES = ['', 'critical', 'high', 'medium', 'low', 'informational'];
@@ -12,10 +13,12 @@ const SEVERITIES = ['', 'critical', 'high', 'medium', 'low', 'informational'];
 export default async function CompanyReports({ searchParams }: { searchParams: Promise<{ status?: string; severity?: string; q?: string }> }) {
   const { status = '', severity = '', q = '' } = await searchParams;
   const supabase = await createServerClient();
+  const statusOk = STATUSES.includes(status) && status !== '';
+  const severityOk = SEVERITIES.includes(severity) && severity !== '';
   let query = supabase.from('report_overview').select('*').order('created_at', { ascending: false }).limit(100);
-  if (status) query = query.eq('status', status);
-  if (severity) query = query.eq('severity', severity);
-  if (q.trim()) query = query.ilike('title', `%${q.trim()}%`);
+  if (statusOk) query = query.eq('status', status);
+  if (severityOk) query = query.eq('severity', severity);
+  if (q.trim()) query = query.ilike('title', `%${escapeLike(q.trim())}%`);
   const { data: reports } = await query;
   return (
     <div className="py-2">
