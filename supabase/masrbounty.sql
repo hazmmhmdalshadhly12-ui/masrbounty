@@ -1461,8 +1461,10 @@ CREATE POLICY "pset_read" ON public.platform_settings FOR SELECT USING (
 );
 
 -- 14.4 Leaderboard without profiles join (avatars render from initials;
--- removes the last reason any public view touches the profiles table)
-CREATE OR REPLACE VIEW public.researcher_leaderboard WITH (security_invoker = true) AS
+-- removes the last reason any public view touches the profiles table).
+-- DROP first: OR REPLACE cannot drop the removed avatar_url column.
+DROP VIEW IF EXISTS public.researcher_leaderboard;
+CREATE VIEW public.researcher_leaderboard WITH (security_invoker = true) AS
 SELECT rp.id AS researcher_id, rp.display_name, COALESCE(rep.score,0) AS score,
   COALESCE(s.accepted_reports,0) AS accepted_reports, COALESCE(s.resolved_reports,0) AS resolved_reports,
   COALESCE(s.total_earned,0) AS total_earned,
