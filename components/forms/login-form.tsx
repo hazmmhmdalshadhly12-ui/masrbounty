@@ -76,23 +76,29 @@ export function LoginForm({ next = '' }: { next?: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4">
-      {error && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    <form onSubmit={onSubmit} className="max-w-md mx-auto space-y-4 p-6 bg-background/90 backdrop-blur rounded-xl border border-border">
+      {error && (
+        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
       <div>
-        <Label htmlFor="email">البريد الإلكتروني</Label>
+        <Label htmlFor="email" className="block mb-1 font-medium text-foreground">
+         البريد الإلكتروني
+        </Label>
         <Input
           id="email"
           type="email"
           required
           dir="ltr"
           placeholder="you@example.com"
-          className="mt-1"
+          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
       <PasswordField id="password" label="كلمة السر" value={password} onChange={setPassword} />
-      <Button type="submit" disabled={busy} className="w-full bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
+      <Button type="submit" disabled={busy} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
         {busy ? 'جارٍ الدخول…' : 'دخول'}
       </Button>
     </form>
