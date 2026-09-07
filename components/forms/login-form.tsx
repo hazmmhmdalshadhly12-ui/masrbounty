@@ -6,6 +6,7 @@ import { loginSchema } from '@/schemas/auth';
 import { friendlyAuthError } from '@/lib/auth/errors';
 import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
 import { safeNext } from '@/lib/auth/redirect';
+import { roleHome } from '@/lib/auth/home';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -61,8 +62,12 @@ export function LoginForm({ next = '' }: { next?: string }) {
         setError('المتصفح رفض حفظ جلسة الدخول — تأكد أن الرابط يبدأ بـ https (قفل الأمان) وعطّل مانع الإعلانات/التتبع ثم حاول مجددًا');
         return;
       }
-      // Hard navigation so the session cookie travels with the first request.
-      window.location.assign(target);
+      // Role-aware landing (?next= wins); hard navigation carries the cookies.
+      if (next) {
+        window.location.assign(target);
+        return;
+      }
+      window.location.assign(await roleHome(supabase, data.user.id));
     } catch {
       setError('تعذر تسجيل الدخول حاليًا — حاول لاحقًا');
     } finally {

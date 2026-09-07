@@ -31,6 +31,8 @@ export default async function Home() {
       const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', data.user.id);
       const mine = new Set((roles ?? []).map((r: { role: string }) => r.role));
       if (mine.has('admin') || mine.has('moderator')) redirect('/admin');
+      // Company role alone lands on company onboarding even before rows exist
+      if (mine.has('company')) redirect('/company');
       const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', data.user.id).limit(1);
       const { data: member } = await supabase.from('company_members').select('id').eq('user_id', data.user.id).limit(1);
       if ((owned ?? []).length || (member ?? []).length) redirect('/company');

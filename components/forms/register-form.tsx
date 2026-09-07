@@ -71,6 +71,11 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         username: parsed.data.username,
         role: parsed.data.role,
       });
+      // Companies start at company onboarding; explicit ?next= wins.
+      if (!next && parsed.data.role === 'company') {
+        window.location.assign('/company/settings');
+        return;
+      }
       window.location.assign(target);
     } catch {
       setError('تعذر إنشاء الحساب حاليًا — حاول لاحقًا');
