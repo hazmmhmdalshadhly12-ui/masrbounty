@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 export const payoutSchema = z.object({
-  amount: z.number().positive(),
+  amount: z.coerce.number().positive().max(1000000),
   payment_method_id: z.string().uuid(),
 });
 
 export const awardSchema = z.object({
   report_id: z.string().uuid(),
-  amount: z.number().nonnegative(),
+  amount: z.coerce.number().nonnegative().max(1000000),
 });
 
 export type PayoutInput = z.infer<typeof payoutSchema>;
