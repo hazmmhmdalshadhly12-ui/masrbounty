@@ -19,6 +19,9 @@ export function RegisterForm({ next = '' }: { next?: string }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'researcher' | 'company'>('researcher');
   const [error, setError] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -27,7 +30,15 @@ export function RegisterForm({ next = '' }: { next?: string }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const parsed = registerSchema.safeParse({ username, email, password, role });
+    const parsed = registerSchema.safeParse({
+      username,
+      email,
+      password,
+      confirmPassword,
+      full_name: fullName.trim() ? fullName.trim() : undefined,
+      phone: phone.trim() ? phone.trim() : undefined,
+      role,
+    });
     if (!parsed.success) {
       setError('بيانات التسجيل غير صالحة — راجع الحقول');
       return;
@@ -41,7 +52,12 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          data: { username: parsed.data.username, role: parsed.data.role },
+          data: {
+            username: parsed.data.username,
+            role: parsed.data.role,
+            full_name: parsed.data.full_name,
+            phone: parsed.data.phone,
+          },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
@@ -70,6 +86,8 @@ export function RegisterForm({ next = '' }: { next?: string }) {
       await ensureUserBootstrap(supabase, data.user.id, {
         username: parsed.data.username,
         role: parsed.data.role,
+        full_name: parsed.data.full_name,
+        phone: parsed.data.phone,
       });
       // Companies start at company onboarding; explicit ?next= wins.
       if (!next && parsed.data.role === 'company') {
@@ -159,12 +177,47 @@ export function RegisterForm({ next = '' }: { next?: string }) {
         />
       </div>
       <div>
+        <Label htmlFor="full_name" className="block mb-1 font-medium text-foreground">
+          الاسم الكامل <span className="font-normal text-muted-foreground">(اختياري)</span>
+        </Label>
+        <Input
+          id="full_name"
+          placeholder="أحمد محمد"
+          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label htmlFor="phone" className="block mb-1 font-medium text-foreground">
+          رقم الهاتف <span className="font-normal text-muted-foreground">(اختياري)</span>
+        </Label>
+        <Input
+          id="phone"
+          type="tel"
+          inputMode="numeric"
+          dir="ltr"
+          placeholder="01xxxxxxxxx"
+          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, '').slice(0, 11))}
+        />
+      </div>
+      <div>
         <PasswordField
           id="password"
           label="كلمة السر (8+ أحرف)"
           value={password}
           onChange={setPassword}
           showStrength
+        />
+      </div>
+      <div>
+        <PasswordField
+          id="confirmPassword"
+          label="تأكيد كلمة السر"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
         />
       </div>
       <div>

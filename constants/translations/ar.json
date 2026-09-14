@@ -1,16 +1,113 @@
 {
   "app": {
-    "name": "MasrBounty"
+    "name": "MasrBounty",
+    "tagline": "منصة مصر لمكافآت الثغرات",
+    "description": "منصة مصرية لمكافآت الثغرات — اختبار أمني مصرّح به فقط"
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "create": "إنشاء",
+    "search": "بحث",
+    "loading": "جارٍ التحميل…",
+    "error": "حدث خطأ",
+    "retry": "إعادة المحاولة",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "viewAll": "عرض الكل",
+    "close": "إغلاق",
+    "yes": "نعم",
+    "no": "لا"
   },
   "nav": {
+    "home": "الرئيسية",
     "programs": "البرامج",
-    "leaderboard": "المتصدرين"
+    "researchers": "الباحثون",
+    "companies": "الشركات",
+    "leaderboard": "المتصدرين",
+    "hallOfFame": "قاعة المشاهير",
+    "blog": "المدونة",
+    "help": "المساعدة",
+    "faq": "الأسئلة الشائعة",
+    "about": "من نحن",
+    "dashboard": "لوحة التحكم",
+    "company": "الشركة",
+    "admin": "الإدارة",
+    "profile": "الملف الشخصي",
+    "settings": "الإعدادات"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "username": "اسم المستخدم",
+    "loginFirst": "سجّل الدخول أولًا للوصول لهذه الصفحة",
+    "welcomeBack": "مرحبًا بعودتك",
+    "createAccount": "انضم الآن"
+  },
+  "programs": {
+    "title": "البرامج",
+    "create": "إنشاء برنامج",
+    "notFound": "البرنامج غير موجود.",
+    "scope": "النطاق",
+    "outOfScope": "خارج النطاق",
+    "rewards": "المكافآت",
+    "assets": "الأصول",
+    "rules": "القواعد"
   },
   "reports": {
     "title": "التقارير",
-    "create": "إنشاء تقرير"
+    "create": "إنشاء تقرير",
+    "notFound": "التقرير غير موجود.",
+    "status": {
+      "draft": "مسودة",
+      "submitted": "مُرسَل",
+      "triaged": "قيد الفرز",
+      "informative": "معلوماتي",
+      "duplicate": "مكرر",
+      "not_applicable": "غير منطبق",
+      "accepted": "مقبول",
+      "resolved": "تم حله",
+      "closed": "مغلق"
+    },
+    "severity": {
+      "informational": "معلوماتية",
+      "low": "منخفضة",
+      "medium": "متوسطة",
+      "high": "عالية",
+      "critical": "حرجة"
+    }
   },
   "wallet": {
-    "balance": "الرصيد"
+    "balance": "الرصيد",
+    "pending": "الرصيد المعلق",
+    "totalEarned": "إجمالي المكتسب",
+    "payout": "طلب سحب",
+    "transactions": "المعاملات"
+  },
+  "company": {
+    "title": "الشركة",
+    "team": "الفريق",
+    "settings": "الإعدادات",
+    "programs": "برامج الشركة",
+    "reports": "تقارير الشركة"
+  },
+  "admin": {
+    "title": "الإدارة",
+    "users": "المستخدمون",
+    "moderation": "الإشراف",
+    "payments": "المدفوعات",
+    "unauthorized": "غير مصرّح لك"
+  },
+  "errors": {
+    "unauthorized": "غير مصرّح",
+    "forbidden": "ممنوع",
+    "notFound": "غير موجود",
+    "unexpected": "خطأ غير متوقع"
   }
 }

@@ -1477,6 +1477,11 @@ WHERE rp.is_public = true ORDER BY score DESC;
 -- 14.5 Attacker cleanup: remove the injected test row (verify fee/number intact)
 DELETE FROM public.platform_settings WHERE key = 'pentest_write';
 
+-- ============================================================
+-- 15. PHASE 2: profile contact fields
+-- ============================================================
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+
 -- Trust badges seed
 INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
  ('verified-researcher','باحث موثق','Verified Researcher','Identity verified by review','shield-check'),

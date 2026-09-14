@@ -56,6 +56,8 @@ export function LoginForm({ next = '' }: { next?: string }) {
         await ensureUserBootstrap(supabase, data.user.id, {
           username: (data.user.user_metadata?.username as string) ?? undefined,
           role: (data.user.user_metadata?.role as string) ?? undefined,
+          full_name: (data.user.user_metadata?.full_name as string) ?? undefined,
+          phone: (data.user.user_metadata?.phone as string) ?? undefined,
         });
       }
       if (!hasSessionCookie()) {

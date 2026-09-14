@@ -1,16 +1,113 @@
 {
   "app": {
-    "name": "MasrBounty"
+    "name": "MasrBounty",
+    "tagline": "Egypt's Bug Bounty Platform",
+    "description": "Egyptian Bug Bounty Platform — Authorized security testing only"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "viewAll": "View all",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No"
   },
   "nav": {
+    "home": "Home",
     "programs": "Programs",
-    "leaderboard": "Leaderboard"
+    "researchers": "Researchers",
+    "companies": "Companies",
+    "leaderboard": "Leaderboard",
+    "hallOfFame": "Hall of Fame",
+    "blog": "Blog",
+    "help": "Help",
+    "faq": "FAQ",
+    "about": "About",
+    "dashboard": "Dashboard",
+    "company": "Company",
+    "admin": "Admin",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Sign up",
+    "logout": "Log out",
+    "email": "Email",
+    "password": "Password",
+    "username": "Username",
+    "loginFirst": "Please log in first to access this page",
+    "welcomeBack": "Welcome back",
+    "createAccount": "Join now"
+  },
+  "programs": {
+    "title": "Programs",
+    "create": "Create program",
+    "notFound": "Program not found.",
+    "scope": "Scope",
+    "outOfScope": "Out of scope",
+    "rewards": "Rewards",
+    "assets": "Assets",
+    "rules": "Rules"
   },
   "reports": {
     "title": "Reports",
-    "create": "Create report"
+    "create": "Create report",
+    "notFound": "Report not found.",
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "triaged": "Triaged",
+      "informative": "Informative",
+      "duplicate": "Duplicate",
+      "not_applicable": "N/A",
+      "accepted": "Accepted",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "severity": {
+      "informational": "Informational",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    }
   },
   "wallet": {
-    "balance": "Balance"
+    "balance": "Balance",
+    "pending": "Pending balance",
+    "totalEarned": "Total earned",
+    "payout": "Request payout",
+    "transactions": "Transactions"
+  },
+  "company": {
+    "title": "Company",
+    "team": "Team",
+    "settings": "Settings",
+    "programs": "Company programs",
+    "reports": "Company reports"
+  },
+  "admin": {
+    "title": "Admin",
+    "users": "Users",
+    "moderation": "Moderation",
+    "payments": "Payments",
+    "unauthorized": "Unauthorized"
+  },
+  "errors": {
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "notFound": "Not found",
+    "unexpected": "Unexpected error"
   }
 }

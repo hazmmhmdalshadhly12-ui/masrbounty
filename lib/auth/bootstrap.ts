@@ -10,7 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export async function ensureUserBootstrap(
   sb: SupabaseClient,
   userId: string,
-  meta?: { username?: string; role?: string }
+  meta?: { username?: string; role?: string; full_name?: string; phone?: string }
 ): Promise<void> {
   try {
     const username =
@@ -19,9 +19,14 @@ export async function ensureUserBootstrap(
         : 'user_' + userId.replace(/-/g, '').slice(0, 12);
     const role = meta?.role === 'company' ? 'company' : 'researcher';
 
+    const contact: { full_name?: string; phone?: string } = {};
+    if (meta?.full_name && meta.full_name.trim().length >= 2) contact.full_name = meta.full_name.trim();
+    if (meta?.phone && /^01[0-9]{9}$/.test(meta.phone)) contact.phone = meta.phone;
     const { data: profile } = await sb.from('profiles').select('id').eq('id', userId).maybeSingle();
     if (!profile) {
-      await sb.from('profiles').insert({ id: userId, username });
+      await sb.from('profiles').insert({ id: userId, username, ...contact });
+    } else if (Object.keys(contact).length > 0) {
+      await sb.from('profiles').update(contact).eq('id', userId);
     }
 
     const { data: roles } = await sb.from('user_roles').select('role').eq('user_id', userId).limit(1);
