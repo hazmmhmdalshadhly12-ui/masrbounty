@@ -25,6 +25,12 @@ function LanguageSwitcher({ locale, onChange, className, ...props }: LanguageSwi
     onChange?.(next);
     document.documentElement.lang = next;
     document.documentElement.dir = next === 'ar' ? 'rtl' : 'ltr';
+    try {
+      document.cookie = `mb-locale=${next}; path=/; max-age=31536000; samesite=lax`;
+      window.localStorage.setItem('mb-locale', next);
+    } catch {
+      // storage blocked
+    }
   };
 
   const nextLabel = current === 'ar' ? 'English' : 'العربية';
@@ -36,10 +42,10 @@ function LanguageSwitcher({ locale, onChange, className, ...props }: LanguageSwi
         variant="ghost"
         size="sm"
         onClick={toggle}
-        className="inline-flex items-center gap-1.5"
+        className="inline-flex items-center gap-1.5 focus-visible:ring-2"
         aria-label={`Switch language to ${nextLabel}`}
       >
-        <Globe className="h-4 w-4" />
+        <Globe className="h-4 w-4" aria-hidden="true" />
         {nextLabel}
       </Button>
     </div>

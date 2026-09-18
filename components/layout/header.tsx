@@ -33,7 +33,7 @@ export async function Header() {
       <div className="container flex h-16 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <MobileNav authed={!!username} />
-          <Link href="/" className="flex items-center gap-2.5" aria-label="MasrBounty الرئيسية">
+          <Link href="/" className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" aria-label="MasrBounty الرئيسية">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950">
               <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />
             </span>
@@ -41,18 +41,18 @@ export async function Header() {
           </Link>
         </div>
         <nav className="hidden items-center gap-6 md:flex" aria-label="التنقل الرئيسي">
-          <Link href="/programs" className="text-sm text-muted-foreground transition-colors hover:text-foreground">البرامج</Link>
-          <Link href="/researchers" className="text-sm text-muted-foreground transition-colors hover:text-foreground">الباحثون</Link>
-          <Link href="/companies" className="text-sm text-muted-foreground transition-colors hover:text-foreground">الشركات</Link>
-          <Link href="/leaderboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground">المتصدرين</Link>
+          <Link href="/programs" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">البرامج</Link>
+          <Link href="/researchers" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">الباحثون</Link>
+          <Link href="/companies" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">الشركات</Link>
+          <Link href="/leaderboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">المتصدرين</Link>
           <div className="group relative">
-            <button type="button" className="text-sm text-muted-foreground transition-colors hover:text-foreground" aria-haspopup="true">
+            <button type="button" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" aria-haspopup="true" aria-label="فتح قائمة الموارد">
               الموارد
             </button>
-            <div className="invisible absolute right-0 top-full z-50 w-44 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+            <div className="invisible absolute end-0 top-full z-50 w-44 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
               <div className="overflow-hidden rounded-xl border bg-popover shadow-xl">
                 {[...nav.filter((n) => !['/programs', '/researchers', '/companies', '/leaderboard'].includes(n.href)), ...resources].map((n) => (
-                  <Link key={n.href} href={n.href} className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <Link key={n.href} href={n.href} className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:bg-accent focus-visible:text-foreground">
                     {n.ar}
                   </Link>
                 ))}

@@ -40,10 +40,10 @@ export function Footer() {
                   href={s.href}
                   aria-label={s.label}
                   target={s.href.startsWith('http') ? '_blank' : undefined}
-                  rel="noreferrer"
-                  className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:text-foreground"
+                  rel={s.href.startsWith('http') ? 'noreferrer noopener' : undefined}
+                  className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                 </a>
               );
             })}
@@ -55,7 +55,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm">
               {c.links.map(([label, href]) => (
                 <li key={href + label}>
-                  <Link href={href} className="text-muted-foreground transition-colors hover:text-foreground">
+                  <Link href={href} className="text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1">
                     {label}
                   </Link>
                 </li>

@@ -107,7 +107,7 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
         <CardContent className="flex flex-wrap gap-2">
           {['triaged', 'accepted', 'resolved', 'duplicate', 'not_applicable', 'closed'].map((s) => (
             <form key={s} action={triageReportAction.bind(null, report.id, s)}>
-              <Button size="sm" variant="outline" type="submit">{s}</Button>
+              <Button size="sm" variant="outline" type="submit" aria-label={`تغيير الحالة إلى ${s}`} className="focus-visible:ring-2">{s}</Button>
             </form>
           ))}
         </CardContent>
@@ -115,12 +115,12 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
       <Card><CardHeader><CardTitle>تغيير الخطورة (مع السبب)</CardTitle></CardHeader>
         <CardContent>
           <form action={changeSeverityAction.bind(null, report.id)} className="flex flex-wrap gap-2">
-            <select name="severity" defaultValue={report.severity} className="h-10 border rounded-md px-3">
+            <select name="severity" defaultValue={report.severity} aria-label="اختر الخطورة الجديدة" className="h-10 border rounded-md px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <option value="informational">informational</option><option value="low">low</option>
               <option value="medium">medium</option><option value="high">high</option><option value="critical">critical</option>
             </select>
-            <Input name="reason" required minLength={5} placeholder="سبب التغيير (يُحفظ في السجل)" className="flex-1 min-w-[200px]" />
-            <Button size="sm" type="submit">حفظ</Button>
+            <Input name="reason" required minLength={5} placeholder="سبب التغيير (يُحفظ في السجل)" aria-label="سبب تغيير الخطورة" className="flex-1 min-w-[200px]" />
+            <Button size="sm" type="submit" aria-label="حفظ تغيير الخطورة">حفظ</Button>
           </form>
         </CardContent>
       </Card>
@@ -128,29 +128,29 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
         <CardContent>
           {dups?.map((d) => <p key={d.id} className="mb-2 text-sm">مكرر من: <span dir="ltr" className="font-mono">{d.duplicate_of}</span></p>)}
           <form action={markDuplicateAction.bind(null, report.id)} className="flex gap-2">
-            <Input name="duplicate_of" required placeholder="رقم الأصل MB-000001 أو UUID" dir="ltr" />
-            <Button size="sm" type="submit">تحديد</Button>
+            <Input name="duplicate_of" required placeholder="رقم الأصل MB-000001 أو UUID" dir="ltr" aria-label="رقم التقرير الأصلي للمكرر" />
+            <Button size="sm" type="submit" aria-label="تحديد التقرير كمكرر">تحديد</Button>
           </form>
         </CardContent>
       </Card>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         <Card><CardHeader><CardTitle>المكلفون — RBAC triager+</CardTitle></CardHeader><CardContent className="space-y-2">
           {((assignees ?? []) as unknown as { user_id: string; profiles: { username: string } }[]).map((a) => (
             <div key={a.user_id} className="flex items-center justify-between text-sm">
               <span dir="ltr">@{a.profiles.username}</span>
               <form action={async () => { 'use server'; await unassignReport(report.id, a.user_id); }}>
-                <Button size="sm" variant="ghost" type="submit">إزالة</Button>
+                <Button size="sm" variant="ghost" type="submit" aria-label={`إزالة تكليف ${a.profiles.username}`}>إزالة</Button>
               </form>
             </div>
           ))}
           <form action={async (fd: FormData) => { 'use server'; await assignReport(report.id, String(fd.get('assignee_id') ?? '')); }} className="flex gap-2 pt-1">
-            <select name="assignee_id" required defaultValue="" className="h-10 flex-1 rounded-md border px-2 text-sm">
+            <select name="assignee_id" required defaultValue="" aria-label="اختر عضو الفريق للتكليف" className="h-10 flex-1 rounded-md border px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <option value="" disabled>اختر من الفريق…</option>
               {((members ?? []) as unknown as { user_id: string; role: string; profiles: { username: string } }[]).map((m) => (
                 <option key={m.user_id} value={m.user_id}>{m.profiles.username} ({m.role})</option>
               ))}
             </select>
-            <Button size="sm" type="submit">تكليف</Button>
+            <Button size="sm" type="submit" aria-label="تكليف العضو المحدد">تكليف</Button>
           </form>
           <p className="text-xs text-muted-foreground">التكليف/إعادة التكليف/الإلغاء يتطلب دور triager فأعلى — يُتحقق عبر company_members و owner.</p>
         </CardContent></Card>
@@ -162,7 +162,9 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
                 type="submit"
                 name="label_id"
                 value={l.id}
-                className={`rounded-full border px-3 py-1 text-xs font-bold ${attachedIds.has(l.id) ? 'text-white' : ''}`}
+                aria-pressed={attachedIds.has(l.id)}
+                aria-label={`${attachedIds.has(l.id) ? 'إزالة' : 'إضافة'} الوسم ${l.name}`}
+                className={`rounded-full border px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${attachedIds.has(l.id) ? 'text-white' : ''}`}
                 style={attachedIds.has(l.id) ? { backgroundColor: l.color, borderColor: l.color } : { borderColor: l.color, color: l.color }}
               >
                 {l.name}
@@ -174,9 +176,9 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
       </div>
       <Card><CardHeader><CardTitle>Award bounty (server-side, credits wallet)</CardTitle></CardHeader>
         <CardContent>
-          <form action={awardBountyAction.bind(null, report.id)} className="flex gap-2">
-            <Input name="amount" type="number" min={0} required placeholder="Amount EGP" />
-            <Button type="submit">Award</Button>
+          <form action={awardBountyAction.bind(null, report.id)} className="flex flex-col gap-2 sm:flex-row">
+            <Input name="amount" type="number" min={0} required placeholder="Amount EGP" aria-label="مبلغ المكافأة بالجنيه" className="flex-1" />
+            <Button type="submit" aria-label="منح المكافأة">Award</Button>
           </form>
         </CardContent>
       </Card>

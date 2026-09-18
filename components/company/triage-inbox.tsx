@@ -3,10 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SearchX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/shared/empty-state';
 import { StatusPill } from '@/components/shared/status-pill';
 import { getSLAStatus, slaIcon, slaLabel, type SLAReport } from '@/lib/sla';
 import { assignReport, unassignReport } from '@/services/assignment';
@@ -69,8 +71,8 @@ function AssigneeCell({ reportId, assignees, members }: { reportId: string; assi
             }
           });
         }}
-        className="h-7 rounded-md border bg-background px-1 text-xs"
-        aria-label="المكلف"
+        className="h-7 rounded-md border bg-background px-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:opacity-50"
+        aria-label={`اختيار المكلف للتقرير ${reportId.slice(0, 8)}`}
       >
         <option value="">غير مكلف</option>
         {members.map((m) => (
@@ -169,56 +171,63 @@ export function TriageInbox({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 rounded-lg border bg-card p-3">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالعنوان أو الرقم أو الباحث…" className="h-9 min-w-[180px] flex-1" />
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
+      <div className="flex gap-2 rounded-lg border bg-card p-3 overflow-x-auto snap-x snap-proximity sm:flex-wrap">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالعنوان أو الرقم أو الباحث…" aria-label="بحث في صندوق الفرز" className="h-9 min-w-[180px] flex-1 snap-start focus-visible:ring-2" />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="فلتر الحالة" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل الحالات</option>
           {STATUSES.filter(Boolean).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
+        <select value={severity} onChange={(e) => setSeverity(e.target.value)} aria-label="فلتر الخطورة" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل الخطورة</option>
           {SEVERITIES.filter(Boolean).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={asset} onChange={(e) => setAsset(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
+        <select value={asset} onChange={(e) => setAsset(e.target.value)} aria-label="فلتر الأصل" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل الأصول</option>
           {assets.map((a) => <option key={a.id} value={a.id}>{a.value} ({a.type})</option>)}
         </select>
-        <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
+        <select value={assignee} onChange={(e) => setAssignee(e.target.value)} aria-label="فلتر المكلف" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل المكلفين</option>
           <option value="__unassigned">غير مكلف</option>
           {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.profiles.username}</option>)}
         </select>
-        <select value={sla} onChange={(e) => setSla(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
+        <select value={sla} onChange={(e) => setSla(e.target.value)} aria-label="فلتر SLA" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل SLA</option>
           {SLA_FILTERS.filter(Boolean).map((s) => <option key={s} value={s}>{slaLabel(s as never)} {slaIcon(s as never)}</option>)}
         </select>
-        <select value={sort} onChange={(e) => setSort(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm">
+        <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="الترتيب" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="newest">الأحدث</option>
           <option value="severity">الخطورة</option>
           <option value="sla">SLA (الأكثر تأخرًا أولًا)</option>
         </select>
-        <Button variant="outline" size="sm" onClick={() => { setQ(''); setStatus(''); setSeverity(''); setAsset(''); setAssignee(''); setSla(''); setSort('newest'); }}>مسح</Button>
+        <Button variant="outline" size="sm" aria-label="مسح كل الفلاتر" className="shrink-0 snap-start" onClick={() => { setQ(''); setStatus(''); setSeverity(''); setAsset(''); setAssignee(''); setSla(''); setSort('newest'); }}>مسح</Button>
       </div>
 
       <p className="text-sm text-muted-foreground">{filtered.length} تقريرًا — من أصل {reports.length}</p>
 
       {!filtered.length ? (
-        <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">لا نتائج مطابقة للفلاتر الحالية.</CardContent>
-        </Card>
+        <EmptyState
+          title="لا نتائج مطابقة"
+          hint="جرّب تغيير الفلاتر أو مسح البحث للعودة لكل التقارير."
+          icon={SearchX}
+          action={
+            <Button variant="outline" size="sm" onClick={() => { setQ(''); setStatus(''); setSeverity(''); setAsset(''); setAssignee(''); setSla(''); setSort('newest'); }}>
+              مسح الفلاتر
+            </Button>
+          }
+        />
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain -mx-px" tabIndex={0} aria-label="جدول صندوق الفرز — اسحب أفقيًا على الجوال">
             <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
-                  <th className="px-3 py-2 text-right font-medium">الرقم</th>
-                  <th className="px-3 py-2 text-right font-medium">العنوان</th>
-                  <th className="px-3 py-2 text-right font-medium">الباحث</th>
-                  <th className="px-3 py-2 text-right font-medium">الحالة</th>
-                  <th className="px-3 py-2 text-right font-medium">الخطورة</th>
-                  <th className="px-3 py-2 text-right font-medium">SLA</th>
-                  <th className="px-3 py-2 text-right font-medium">المكلف</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">الرقم</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">العنوان</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">الباحث</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">الحالة</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">الخطورة</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">SLA</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">المكلف</th>
                 </tr>
               </thead>
               <tbody>
@@ -228,14 +237,14 @@ export function TriageInbox({
                     <tr key={r.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
                       <td className="whitespace-nowrap px-3 py-2 font-mono text-xs" dir="ltr">{r.report_number}</td>
                       <td className="px-3 py-2">
-                        <Link href={`/company/reports/${r.id}`} className="font-medium hover:underline">{r.title}</Link>
+                        <Link href={`/company/reports/${r.id}`} className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1">{r.title}</Link>
                         <span className="ms-2 text-xs text-muted-foreground" dir="ltr">{r.program_name}</span>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{r.researcher_name}</td>
                       <td className="px-3 py-2"><StatusPill value={r.status} /></td>
                       <td className="px-3 py-2"><StatusPill value={r.severity} kind="severity" /></td>
                       <td className="px-3 py-2">
-                        <Badge variant={slaStatus === 'overdue' ? 'destructive' : slaStatus === 'at_risk' ? 'outline' : 'secondary'} className={slaStatus === 'at_risk' ? 'border-amber-500 text-amber-700' : ''}>
+                        <Badge variant={slaStatus === 'overdue' ? 'destructive' : slaStatus === 'at_risk' ? 'outline' : 'secondary'} className={slaStatus === 'at_risk' ? 'border-amber-500 text-amber-700 dark:border-amber-800 dark:text-amber-300' : ''}>
                           <span className="me-1">{slaIcon(slaStatus)}</span>{slaLabel(slaStatus)}
                         </Badge>
                       </td>

@@ -7,8 +7,8 @@ import type { WizardData, Severity } from '../types';
 
 const SEVERITY_META: Record<Severity, { label: string; color: string }> = {
   critical: { label: 'حرجة', color: 'bg-red-600 text-white' },
-  high: { label: 'عالية', color: 'bg-orange-500 text-white' },
-  medium: { label: 'متوسطة', color: 'bg-amber-500 text-white' },
+  high: { label: 'عالية', color: 'bg-orange-600 text-white' },
+  medium: { label: 'متوسطة', color: 'bg-amber-500 text-slate-900' },
   low: { label: 'منخفضة', color: 'bg-emerald-600 text-white' },
 };
 
@@ -43,11 +43,13 @@ export function StepRewards({
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             onClick={() => onChange({ bountyType: 'range' })}
-            className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${data.bountyType === 'range' ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'}`}
+            aria-pressed={data.bountyType === 'range'}
+            aria-label="اختيار نطاق سعري للمكافآت"
+            className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${data.bountyType === 'range' ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'}`}
           >
             نطاق سعري (Range)
           </button>
@@ -58,7 +60,9 @@ export function StepRewards({
               const fixed = data.policies.map((p) => ({ ...p, max_amount: p.min_amount }));
               onChange({ bountyType: 'fixed', policies: fixed });
             }}
-            className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${data.bountyType === 'fixed' ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'}`}
+            aria-pressed={data.bountyType === 'fixed'}
+            aria-label="اختيار مبلغ ثابت للمكافآت"
+            className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${data.bountyType === 'fixed' ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'}`}
           >
             مبلغ ثابت (Fixed)
           </button>
@@ -75,13 +79,15 @@ export function StepRewards({
                     {pol.severity}
                   </span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>الحد الأدنى (USD)</Label>
+                    <Label htmlFor={`min-${pol.severity}`}>الحد الأدنى (USD)</Label>
                     <Input
+                      id={`min-${pol.severity}`}
                       type="number"
                       min={0}
                       dir="ltr"
+                      aria-label={`الحد الأدنى لخطورة ${pol.severity}`}
                       value={pol.min_amount}
                       onChange={(e) => {
                         const v = Number(e.target.value);
@@ -91,11 +97,13 @@ export function StepRewards({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>الحد الأقصى (USD)</Label>
+                    <Label htmlFor={`max-${pol.severity}`}>الحد الأقصى (USD)</Label>
                     <Input
+                      id={`max-${pol.severity}`}
                       type="number"
                       min={0}
                       dir="ltr"
+                      aria-label={`الحد الأقصى لخطورة ${pol.severity}`}
                       value={pol.max_amount}
                       disabled={data.bountyType === 'fixed'}
                       onChange={(e) => updatePolicy(pol.severity, { max_amount: Number(e.target.value) })}

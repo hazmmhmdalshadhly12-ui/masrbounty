@@ -16,21 +16,22 @@ const items = [
 export function MobileBottomNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="التنقل السريع" className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur md:hidden">
+    <nav aria-label="التنقل السريع" className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden pb-[env(safe-area-inset-bottom)]">
       <div className="grid grid-cols-5">
         {items.map(({ href, label, Icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href !== '/' && pathname.startsWith(href));
           return (
             <Link
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
+              aria-label={label}
               className={cn(
-                'flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px]',
+                'flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                 active ? 'font-bold text-foreground' : 'text-muted-foreground'
               )}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-5 w-5" aria-hidden="true" />
               {label}
             </Link>
           );

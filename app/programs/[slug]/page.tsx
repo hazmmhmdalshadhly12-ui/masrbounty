@@ -82,10 +82,10 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
           <p className="mt-4 max-w-3xl leading-relaxed text-muted-foreground">{program.description}</p>
         </div>
       </section>
-      <div className="container grid max-w-5xl gap-6 py-8 lg:grid-cols-[1fr_300px]">
+      <div className="container grid max-w-5xl gap-6 py-8 grid-cols-1 lg:grid-cols-[1fr_300px]">
         <div className="min-w-0 space-y-6">
-      <Tabs defaultValue="scope" dir="rtl">
-        <TabsList aria-label="أقسام البرنامج">
+      <Tabs defaultValue="scope">
+        <TabsList aria-label="أقسام البرنامج" className="flex overflow-x-auto">
           <TabsTrigger value="scope">النطاق</TabsTrigger>
           <TabsTrigger value="rules">القواعد ({rules?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="rewards">المكافآت</TabsTrigger>
@@ -116,10 +116,10 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
-                  <th className="px-4 py-2.5 font-medium">الخطورة</th>
-                  <th className="px-4 py-2.5 font-medium">من</th>
-                  <th className="px-4 py-2.5 font-medium">إلى</th>
+                <tr className="border-b bg-muted/50 text-start text-xs text-muted-foreground">
+                  <th scope="col" className="px-4 py-2.5 font-medium text-start">الخطورة</th>
+                  <th scope="col" className="px-4 py-2.5 font-medium text-start">من</th>
+                  <th scope="col" className="px-4 py-2.5 font-medium text-start">إلى</th>
                 </tr>
               </thead>
               <tbody>

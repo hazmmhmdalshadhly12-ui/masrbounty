@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { escapeLike } from '@/utils/search';
 
 export async function GET(req: Request) {
   try {
@@ -9,14 +10,16 @@ export async function GET(req: Request) {
     if (q.length < 2) {
       return NextResponse.json({ ok: false, error: 'query must be at least 2 characters' }, { status: 400 });
     }
-    const like = `%${q.replace(/[%_]/g, '').slice(0, 100)}%`;
+    // Escape LIKE wildcards literally; slice to 100 to bound pattern length.
+    const like = `%${escapeLike(q).slice(0, 100)}%`;
 
     const sb = await createServerClient();
     const [{ data: programs, error: pError }, { data: researchers, error: rError }] = await Promise.all([
       sb
         .from('programs')
-        .select('id,name,slug,description,logo_url,status')
+        .select('id,name,slug,description,logo_url,status,visibility')
         .eq('status', 'active')
+        .eq('visibility', 'public')
         .or(`name.ilike.${like},slug.ilike.${like},description.ilike.${like}`)
         .limit(10),
       sb

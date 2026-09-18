@@ -55,11 +55,12 @@ export function useThemeLocale(userId?: string) {
     }
   }, [prefs.data]);
 
-  // طبّق اللغة على <html> واحفظ محليًا
+  // طبّق اللغة على <html> واحفظ محليًا + cookie للـ SSR
   useEffect(() => {
     try {
       window.localStorage.setItem('mb-theme', theme);
       window.localStorage.setItem('mb-locale', locale);
+      document.cookie = `mb-locale=${locale}; path=/; max-age=31536000; samesite=lax`;
     } catch {
       // تجاهل
     }

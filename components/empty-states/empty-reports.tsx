@@ -23,9 +23,7 @@ export function EmptyReports({
       icon={Inbox}
       action={
         <Link href={actionHref}>
-          <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
-            {actionLabel}
-          </Button>
+          <Button size="sm">{actionLabel}</Button>
         </Link>
       }
     />

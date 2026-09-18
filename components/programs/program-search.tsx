@@ -24,22 +24,23 @@ export function ProgramSearch({ initial }: { initial: string }) {
 
   return (
     <div className="relative max-w-xl flex-1">
-      <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+      <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="ابحث باسم البرنامج…"
         aria-label="البحث في البرامج"
-        className="border-slate-700 bg-white/10 pr-9 text-white placeholder:text-slate-400"
+        dir="auto"
+        className="border-slate-700 bg-white/10 ps-9 pe-9 text-start text-white placeholder:text-slate-400 focus-visible:ring-amber-400"
       />
       {q && (
         <button
           type="button"
           onClick={() => setQ('')}
           aria-label="مسح البحث"
-          className="absolute left-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-white"
+          className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-0"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
     </div>

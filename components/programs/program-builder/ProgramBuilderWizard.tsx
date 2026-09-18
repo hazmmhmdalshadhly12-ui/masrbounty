@@ -38,15 +38,15 @@ function getStepSlice(step: number, data: WizardData): unknown {
 
 function Stepper({ current }: { current: number }): React.JSX.Element {
   return (
-    <div dir="rtl" className="mb-6">
-      <ol className="flex items-center justify-between gap-1 overflow-x-auto pb-2">
+    <div className="mb-6">
+      <ol className="flex items-center justify-between gap-1 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin">
         {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => {
           const meta = STEP_LABELS_AR[n];
           if (!meta) return null;
           const status: 'done' | 'current' | 'pending' = n < current ? 'done' : n === current ? 'current' : 'pending';
           return (
             <React.Fragment key={n}>
-              <li className="flex flex-1 min-w-[72px] flex-col items-center gap-1 text-center">
+              <li className="flex flex-1 min-w-[72px] flex-col items-center gap-1 text-center snap-start">
                 <span
                   className={[
                     'flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-black transition-colors shrink-0',
@@ -55,15 +55,16 @@ function Stepper({ current }: { current: number }): React.JSX.Element {
                     status === 'pending' ? 'border-muted bg-muted text-muted-foreground' : '',
                   ].join(' ')}
                   aria-current={status === 'current' ? 'step' : undefined}
+                  aria-label={`الخطوة ${n}: ${meta.title}${status === 'current' ? ' — الحالية' : status === 'done' ? ' — مكتملة' : ''}`}
                 >
-                  {status === 'done' ? <Check className="h-4 w-4" /> : n}
+                  {status === 'done' ? <Check className="h-4 w-4" aria-hidden="true" /> : n}
                 </span>
                 <span className={['text-[11px] font-bold leading-tight line-clamp-1', status === 'current' ? 'text-foreground' : 'text-muted-foreground'].join(' ')}>
                   {meta.title}
                 </span>
                 <span className="hidden sm:block text-[10px] text-muted-foreground line-clamp-1">{meta.desc}</span>
               </li>
-              {n < TOTAL_STEPS && <span className={['hidden h-0.5 flex-1 rounded sm:block', n < current ? 'bg-emerald-600' : 'bg-muted'].join(' ')} aria-hidden />}
+              {n < TOTAL_STEPS && <span className={['hidden h-0.5 flex-1 rounded sm:block', n < current ? 'bg-emerald-600' : 'bg-muted'].join(' ')} aria-hidden="true" />}
             </React.Fragment>
           );
         })}
@@ -134,12 +135,12 @@ export function ProgramBuilderWizard(): React.JSX.Element {
   const isLast = step === TOTAL_STEPS;
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div className="space-y-6">
       <Stepper current={step} />
 
       {/* Stepper clickable pills for quick jump – visible on desktop */}
       <Card className="p-2">
-        <div className="flex flex-wrap gap-1 justify-center">
+        <div className="flex flex-wrap gap-1 justify-center max-sm:overflow-x-auto max-sm:flex-nowrap max-sm:justify-start max-sm:pb-1">
           {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => {
             const active = n === step;
             return (
@@ -148,10 +149,11 @@ export function ProgramBuilderWizard(): React.JSX.Element {
                 type="button"
                 onClick={() => handleStepClick(n)}
                 className={[
-                  'rounded-full px-3 py-1 text-xs font-medium transition-colors border',
+                  'rounded-full px-3 py-1 text-xs font-medium transition-colors border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   active ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent border-input',
                 ].join(' ')}
                 aria-current={active ? 'step' : undefined}
+                aria-label={`الانتقال إلى الخطوة ${n}: ${STEP_LABELS_AR[n]?.title ?? ''}`}
               >
                 {n}. {STEP_LABELS_AR[n]?.title}
               </button>
@@ -171,22 +173,22 @@ export function ProgramBuilderWizard(): React.JSX.Element {
         {step === 8 && <StepPublish data={data} onCreated={setCreatedProgramId} />}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <Button type="button" variant="outline" onClick={handleBack} disabled={isFirst} className="gap-2">
-          <ChevronRight className="h-4 w-4" />
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Button type="button" variant="outline" onClick={handleBack} disabled={isFirst} className="gap-2 w-full sm:w-auto" aria-label="الرجوع للخطوة السابقة">
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
           رجوع
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-end">
           {createdProgramId && step === 8 && (
-            <a href={`/company/programs/${createdProgramId}`} className="text-xs text-primary hover:underline hidden sm:inline">
+            <a href={`/company/programs/${createdProgramId}`} className="text-xs text-primary hover:underline hidden sm:inline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               عرض البرنامج
             </a>
           )}
           {!isLast ? (
-            <Button type="button" onClick={handleNext} className="gap-2">
+            <Button type="button" onClick={handleNext} className="gap-2 w-full sm:w-auto" aria-label="الانتقال للخطوة التالية">
               التالي
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground">استخدم أزرار النشر داخل الخطوة ٨</span>

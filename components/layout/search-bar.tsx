@@ -28,17 +28,18 @@ function SearchBar({ placeholder = 'Search programs, reports…', defaultValue =
       {...props}
     >
       <div className="relative flex-1">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
-          className="pl-9"
-          aria-label="Search"
+          className="ps-9 text-start placeholder:text-muted-foreground"
+          dir="auto"
+          aria-label={placeholder}
         />
       </div>
-      <Button type="submit" size="sm">
+      <Button type="submit" size="sm" aria-label={placeholder}>
         Search
       </Button>
     </form>

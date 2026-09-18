@@ -49,9 +49,9 @@ function Stepper({ current }: { current: number }) {
               <li className="flex flex-1 flex-col items-center gap-2 text-center">
                 <span
                   className={[
-                    'flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-black transition-colors',
+                    'flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-black transition-colors duration-150 shadow-sm',
                     status === 'done' ? 'border-emerald-600 bg-emerald-600 text-white' : '',
-                    status === 'current' ? 'border-slate-900 bg-slate-900 text-white dark:bg-white dark:text-slate-900' : '',
+                    status === 'current' ? 'border-primary bg-primary text-primary-foreground' : '',
                     status === 'pending' ? 'border-muted bg-muted text-muted-foreground' : '',
                   ].join(' ')}
                   aria-current={status === 'current' ? 'step' : undefined}
@@ -74,7 +74,7 @@ function Stepper({ current }: { current: number }) {
       </ol>
       {/* progress bar */}
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
-        <div className="h-full bg-slate-900 transition-all dark:bg-white" style={{ width: `${(current / 4) * 100}%` }} />
+        <div className="h-full bg-primary transition-all duration-150" style={{ width: `${(current / 4) * 100}%` }} />
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">الخطوة {current} من 4</p>
     </div>
@@ -324,13 +324,13 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified }: 
                 ))}
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link href="/company/programs/new" className="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-6 text-sm font-bold text-white hover:bg-slate-800">
+              <Link href="/company/programs/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-bold text-primary-foreground shadow-sm transition-colors duration-150 hover:bg-primary/90">
                 إنشاء برنامج +
               </Link>
-              <Link href="/company/settings" className="inline-flex h-10 items-center justify-center rounded-md border bg-white px-6 text-sm font-bold hover:bg-muted">
+              <Link href="/company/settings" className="inline-flex h-10 items-center justify-center rounded-md border bg-background px-6 text-sm font-bold shadow-sm transition-colors duration-150 hover:bg-accent hover:text-accent-foreground">
                 الإعدادات
               </Link>
-              <Link href="/company" className="inline-flex h-10 items-center justify-center rounded-md border px-6 text-sm hover:bg-muted">
+              <Link href="/company" className="inline-flex h-10 items-center justify-center rounded-md border bg-background px-6 text-sm transition-colors duration-150 hover:bg-accent hover:text-accent-foreground">
                 لوحة التحكم
               </Link>
             </div>

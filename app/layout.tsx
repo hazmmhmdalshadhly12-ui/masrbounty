@@ -1,5 +1,8 @@
 import './globals.css';
 import { Cairo, Inter, JetBrains_Mono } from 'next/font/google';
+import { cookies } from 'next/headers';
+import { getDirection } from '@/lib/i18n';
+import type { Locale } from '@/types/index';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from '@/components/ui/toaster';
@@ -22,11 +25,15 @@ export const metadata: Metadata = {
   themeColor: '#0a1628',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const rawLocale = cookieStore.get('mb-locale')?.value;
+  const locale: Locale = rawLocale === 'en' ? 'en' : 'ar';
+  const dir = getDirection(locale);
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <body className={`${cairo.variable} ${inter.variable} ${mono.variable}`}>
-        <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-amber-400 focus:px-4 focus:py-2 focus:text-slate-950">
+        <a href="#content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-amber-400 focus:px-4 focus:py-2 focus:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           تخطَّ إلى المحتوى
         </a>
         <ThemeProvider>

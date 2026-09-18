@@ -1,14 +1,32 @@
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getCompanyAnalytics } from '@/services/analytics';
-import { ReportsPerMonthChart, SeverityDistChart, BountySpendingChart, AvgResolutionChart } from '@/components/company/analytics-charts';
+
+const ReportsPerMonthChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.ReportsPerMonthChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
+const SeverityDistChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.SeverityDistChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
+const BountySpendingChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.BountySpendingChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
+const AvgResolutionChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.AvgResolutionChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
 
 export default async function AnalyticsPage() {
   const { data: analytics, error } = await getCompanyAnalytics();
 
   if (error || !analytics) {
     return (
-      <main className="container py-8" dir="rtl">
+      <main className="container py-8">
         <h1 className="text-2xl font-bold mb-2">التحليلات</h1>
         <p className="text-sm text-muted-foreground mb-6">لوحة تحليلات الشركة — التقارير، الخطورة، الإنفاق، زمن الحل، وأفضل الباحثين</p>
         <Card className="dark:border-slate-700"><CardContent className="p-6 text-sm text-destructive">تعذر تحميل التحليلات: {error ?? 'غير معروف'}</CardContent></Card>
@@ -19,14 +37,14 @@ export default async function AnalyticsPage() {
   const { reportsPerMonth, severityDistribution, bountySpending, avgResolutionTime, topResearchers, totals } = analytics;
 
   return (
-    <main className="container py-8" dir="rtl">
+    <main className="container py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">التحليلات</h1>
         <p className="mt-1 text-sm text-muted-foreground">لوحة تحليلات الشركة — عبر services/analytics.ts (RLS-aware) — آمنة للوضع الداكن</p>
       </div>
 
       {/* Totals */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">إجمالي التقارير</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{totals.reports}</CardContent></Card>
         <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">تقارير محلولة</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{totals.resolved}</CardContent></Card>
         <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">إجمالي المكافآت</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{Number(totals.totalBounty).toLocaleString()} EGP</CardContent></Card>
@@ -34,7 +52,7 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Row 1: Reports/Month + Severity */}
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-4">
         <Card className="dark:border-slate-700">
           <CardHeader><CardTitle className="text-sm">التقارير حسب الشهر</CardTitle><CardDescription>Reports / Month</CardDescription></CardHeader>
           <CardContent><ReportsPerMonthChart data={reportsPerMonth} /></CardContent>
@@ -46,7 +64,7 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Row 2: Bounty Spending + Avg Resolution */}
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-4">
         <Card className="dark:border-slate-700">
           <CardHeader><CardTitle className="text-sm">إنفاق المكافآت حسب الشهر</CardTitle><CardDescription>Bounty Spending (EGP)</CardDescription></CardHeader>
           <CardContent><BountySpendingChart data={bountySpending} /></CardContent>
@@ -64,14 +82,14 @@ export default async function AnalyticsPage() {
           {!topResearchers.length ? (
             <p className="text-sm text-muted-foreground text-center py-6">لا يوجد باحثون بعد</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto overscroll-x-contain rounded-lg border" tabIndex={0} aria-label="جدول أفضل الباحثين — اسحب أفقيًا على الجوال">
+              <table className="w-full min-w-[520px] text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
-                  <tr className="text-right">
-                    <th className="px-3 py-2 font-medium">#</th>
-                    <th className="px-3 py-2 font-medium">الباحث</th>
-                    <th className="px-3 py-2 font-medium">التقارير</th>
-                    <th className="px-3 py-2 font-medium">إجمالي المكافآت</th>
+                  <tr className="text-start">
+                    <th scope="col" className="px-3 py-2 font-medium text-start">#</th>
+                    <th scope="col" className="px-3 py-2 font-medium text-start">الباحث</th>
+                    <th scope="col" className="px-3 py-2 font-medium text-start">التقارير</th>
+                    <th scope="col" className="px-3 py-2 font-medium text-start">إجمالي المكافآت</th>
                   </tr>
                 </thead>
                 <tbody>

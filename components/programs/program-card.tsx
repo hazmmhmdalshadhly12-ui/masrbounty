@@ -24,7 +24,7 @@ function ProgramCard({ program, title, className, ...props }: ProgramCardProps) 
   const heading = title ?? program.name;
   const href = program.href ?? `/programs/${program.id}`;
   return (
-    <Card className={cn('overflow-hidden transition-colors hover:border-slate-400', className)} {...props}>
+    <Card className={cn('overflow-hidden transition-colors hover:border-slate-400 focus-within:ring-2 focus-within:ring-ring', className)} {...props}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -33,7 +33,7 @@ function ProgramCard({ program, title, className, ...props }: ProgramCardProps) 
             </span>
             <div className="min-w-0">
               <CardTitle className="truncate text-base leading-snug">
-                <Link href={href} className="hover:underline">
+                <Link href={href} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1" aria-label={`عرض برنامج ${heading}`}>
                   {heading}
                 </Link>
               </CardTitle>
@@ -61,9 +61,10 @@ function ProgramCard({ program, title, className, ...props }: ProgramCardProps) 
         </p>
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-xs font-medium text-foreground hover:underline"
+          aria-label={`عرض برنامج ${heading}`}
+          className="inline-flex items-center gap-1 text-xs font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
-          View program <ArrowUpRight className="h-3.5 w-3.5" />
+          View program <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       </CardContent>
     </Card>
