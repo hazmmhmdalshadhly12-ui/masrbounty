@@ -1595,7 +1595,7 @@ DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='analyst' AND enumtypid='company_member_role'::regtype) THEN
         ALTER TYPE company_member_role ADD VALUE 'analyst';
       END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL WHEN others THEN NULL; END;
+    EXCEPTION WHEN others THEN NULL; END;
   END IF;
 END $$;
 DO $$ BEGIN
@@ -1604,7 +1604,7 @@ DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='finance' AND enumtypid='company_member_role'::regtype) THEN
         ALTER TYPE company_member_role ADD VALUE 'finance';
       END IF;
-    EXCEPTION WHEN duplicate_object THEN NULL WHEN others THEN NULL; END;
+    EXCEPTION WHEN others THEN NULL; END;
   END IF;
 END $$;
 DO $$ DECLARE r RECORD; BEGIN
