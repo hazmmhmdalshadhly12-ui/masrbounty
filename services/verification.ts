@@ -193,3 +193,111 @@ export async function listVerifications(companyId: string, client?: Db): Promise
     return { data: null, error: err(e) };
   }
 }
+
+// ──────────────────────────────────────────────────────────
+// New company_domains table (keep legacy domain_verifications working)
+// ──────────────────────────────────────────────────────────
+
+export interface CompanyDomain {
+  id: string;
+  company_id: string;
+  domain: string;
+  token: string;
+  status: VerificationStatus;
+  verified_at: string | null;
+  last_checked_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Create (or refresh) a pending company domain with a fresh secure token.
+ * Mirrors requestVerification but writes to company_domains.
+ */
+export async function requestCompanyDomain(
+  companyId: string,
+  domain: string,
+  client?: Db
+): Promise<ServiceResult<CompanyDomain>> {
+  try {
+    const db = await getDb(client);
+    const clean = normalizeDomain(domain);
+    if (!clean) return { data: null, error: 'النطاق غير صالح' };
+    const actorId = await requireCompanyAccess(db, companyId);
+    const token = randomBytes(16).toString('hex');
+    const { data, error } = await db
+      .from('company_domains')
+      .upsert(
+        { company_id: companyId, domain: clean, token, status: 'pending', verified_at: null },
+        { onConflict: 'company_id,domain' }
+      )
+      .select('*')
+      .single();
+    if (error || !data) return { data: null, error: error?.message ?? 'فشل الطلب' };
+    await logAudit('verify', 'company_domains', (data as CompanyDomain).id, { companyId, domain: clean }, actorId);
+    try {
+      revalidatePath('/company/settings');
+    } catch {
+      /* ignore */
+    }
+    return { data: data as CompanyDomain, error: null };
+  } catch (e) {
+    return { data: null, error: err(e) };
+  }
+}
+
+/**
+ * Server-only DNS TXT check for company_domains.
+ * Uses node:dns/promises resolveTxt — must not run on client.
+ */
+export async function verifyCompanyDomain(id: string, client?: Db): Promise<ServiceResult<CompanyDomain>> {
+  try {
+    if (typeof window !== 'undefined') {
+      return { data: null, error: 'التحقق متاح على الخادم فقط' };
+    }
+    const db = await getDb(client);
+    const { data: row, error: fetchError } = await db.from('company_domains').select('*').eq('id', id).single();
+    if (fetchError || !row) return { data: null, error: fetchError?.message ?? 'النطاق غير موجود' };
+    const v = row as CompanyDomain;
+    const actorId = await requireCompanyAccess(db, v.company_id);
+    const found = await lookupToken(v.domain, v.token);
+    const patch = found
+      ? { status: 'verified' as const, verified_at: new Date().toISOString(), last_checked_at: new Date().toISOString() }
+      : { status: 'failed' as const, last_checked_at: new Date().toISOString() };
+    const { data: updated, error: updateError } = await db
+      .from('company_domains')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (updateError || !updated) return { data: null, error: updateError?.message ?? 'فشل التحديث' };
+    await logAudit('verify', 'company_domains', id, { domain: v.domain, verified: found }, actorId);
+    try {
+      revalidatePath('/company/settings');
+    } catch {
+      /* ignore */
+    }
+    if (!found) return { data: updated as CompanyDomain, error: 'لم يتم العثور على الرمز في سجلات DNS TXT' };
+    return { data: updated as CompanyDomain, error: null };
+  } catch (e) {
+    return { data: null, error: err(e) };
+  }
+}
+
+export async function listCompanyDomains(
+  companyId: string,
+  client?: Db
+): Promise<ServiceResult<CompanyDomain[]>> {
+  try {
+    const db = await getDb(client);
+    await requireCompanyAccess(db, companyId);
+    const { data, error } = await db
+      .from('company_domains')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+    if (error) return { data: null, error: error.message };
+    return { data: (data ?? []) as CompanyDomain[], error: null };
+  } catch (e) {
+    return { data: null, error: err(e) };
+  }
+}

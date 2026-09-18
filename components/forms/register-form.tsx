@@ -24,22 +24,30 @@ export function RegisterForm({ next = '' }: { next?: string }) {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'researcher' | 'company'>('researcher');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     const parsed = registerSchema.safeParse({
-      username,
-      email,
+      username: username.trim(),
+      email: email.trim(),
       password,
       confirmPassword,
-      full_name: fullName.trim() ? fullName.trim() : undefined,
-      phone: phone.trim() ? phone.trim() : undefined,
+      full_name: fullName.trim(),
+      phone: phone.trim(),
       role,
     });
     if (!parsed.success) {
+      const flat = parsed.error.flatten();
+      const nextFieldErrors: Record<string, string> = {};
+      for (const [k, v] of Object.entries(flat.fieldErrors)) {
+        if (v && v[0]) nextFieldErrors[k] = v[0];
+      }
+      setFieldErrors(nextFieldErrors);
       setError('بيانات التسجيل غير صالحة — راجع الحقول');
       return;
     }
@@ -156,10 +164,17 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           minLength={3}
           dir="ltr"
           placeholder="hunter_eg"
+          aria-invalid={Boolean(fieldErrors.username)}
+          aria-describedby={fieldErrors.username ? 'username-error' : undefined}
           className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
+        {fieldErrors.username && (
+          <p id="username-error" className="mt-1 text-sm text-red-600">
+            {fieldErrors.username}
+          </p>
+        )}
       </div>
       <div>
         <Label htmlFor="email" className="block mb-1 font-medium text-foreground">
@@ -171,37 +186,60 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           required
           dir="ltr"
           placeholder="you@example.com"
+          aria-invalid={Boolean(fieldErrors.email)}
+          aria-describedby={fieldErrors.email ? 'email-error' : undefined}
           className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
+        {fieldErrors.email && (
+          <p id="email-error" className="mt-1 text-sm text-red-600">
+            {fieldErrors.email}
+          </p>
+        )}
       </div>
       <div>
         <Label htmlFor="full_name" className="block mb-1 font-medium text-foreground">
-          الاسم الكامل <span className="font-normal text-muted-foreground">(اختياري)</span>
+          الاسم الكامل
         </Label>
         <Input
           id="full_name"
+          required
           placeholder="أحمد محمد"
+          aria-invalid={Boolean(fieldErrors.full_name)}
+          aria-describedby={fieldErrors.full_name ? 'full_name-error' : undefined}
           className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
         />
+        {fieldErrors.full_name && (
+          <p id="full_name-error" className="mt-1 text-sm text-red-600">
+            {fieldErrors.full_name}
+          </p>
+        )}
       </div>
       <div>
         <Label htmlFor="phone" className="block mb-1 font-medium text-foreground">
-          رقم الهاتف <span className="font-normal text-muted-foreground">(اختياري)</span>
+          رقم الهاتف
         </Label>
         <Input
           id="phone"
           type="tel"
           inputMode="numeric"
           dir="ltr"
+          required
           placeholder="01xxxxxxxxx"
+          aria-invalid={Boolean(fieldErrors.phone)}
+          aria-describedby={fieldErrors.phone ? 'phone-error' : undefined}
           className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={phone}
           onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, '').slice(0, 11))}
         />
+        {fieldErrors.phone && (
+          <p id="phone-error" className="mt-1 text-sm text-red-600">
+            {fieldErrors.phone}
+          </p>
+        )}
       </div>
       <div>
         <PasswordField
@@ -211,6 +249,11 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           onChange={setPassword}
           showStrength
         />
+        {fieldErrors.password && (
+          <p id="password-error" className="mt-1 text-sm text-red-600">
+            {fieldErrors.password}
+          </p>
+        )}
       </div>
       <div>
         <PasswordField
@@ -219,6 +262,11 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           value={confirmPassword}
           onChange={setConfirmPassword}
         />
+        {fieldErrors.confirmPassword && (
+          <p id="confirmPassword-error" className="mt-1 text-sm text-red-600">
+            {fieldErrors.confirmPassword}
+          </p>
+        )}
       </div>
       <div>
         <Label htmlFor="role" className="block mb-1 font-medium text-foreground">

@@ -1487,9 +1487,412 @@ DELETE FROM public.platform_settings WHERE key = 'pentest_write';
 -- ============================================================
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
 
+-- ============================================================
+-- 16. P0 COMMERCIAL HARDENING (idempotent)
+-- ============================================================
+
+-- 16.1 DOMAIN OWNERSHIP (replaces document verification)
+CREATE TABLE IF NOT EXISTS public.company_domains (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES public.company_profiles(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL CHECK (lower(domain) = domain),
+  verification_token_hash TEXT NOT NULL,
+  verification_token_plain TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','verified','failed','expired')),
+  verified_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ DEFAULT (now() + interval '90 days'),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  UNIQUE(company_id, domain)
+);
+CREATE INDEX IF NOT EXISTS idx_company_domains_domain ON public.company_domains(domain);
+CREATE INDEX IF NOT EXISTS idx_company_domains_company ON public.company_domains(company_id);
+DROP TRIGGER IF EXISTS trg_touch_company_domains ON public.company_domains;
+CREATE TRIGGER trg_touch_company_domains BEFORE UPDATE ON public.company_domains FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.domain_verification_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  domain_id UUID NOT NULL REFERENCES public.company_domains(id) ON DELETE CASCADE,
+  attempted_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  result TEXT CHECK (result IN ('verified','failed','pending','expired')),
+  details JSONB DEFAULT '{}' NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_domain_verification_attempts_domain ON public.domain_verification_attempts(domain_id);
+
+CREATE TABLE IF NOT EXISTS public.company_verification_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES public.company_profiles(id) ON DELETE CASCADE,
+  actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  event TEXT NOT NULL,
+  meta JSONB DEFAULT '{}' NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_company_verification_events_company ON public.company_verification_events(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_verification_events_created ON public.company_verification_events(created_at DESC);
+
+-- Keep company_verifications but deprecate document_url (allow null + comment)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='company_verifications' AND column_name='document_url' AND is_nullable='NO') THEN
+    ALTER TABLE public.company_verifications ALTER COLUMN document_url DROP NOT NULL;
+  END IF;
+END $$;
+COMMENT ON COLUMN public.company_verifications.document_url IS 'DEPRECATED: use company_domains domain verification; kept for backwards compat, allow null';
+
+-- Ensure legacy domain_verifications keeps working (no drop) — no-op verification
+DO $$ BEGIN PERFORM 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='domain_verifications'; END $$;
+
+-- RLS for new domain tables
+ALTER TABLE public.company_domains ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.domain_verification_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_verification_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "cd_read" ON public.company_domains;
+CREATE POLICY "cd_read" ON public.company_domains FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid()));
+DROP POLICY IF EXISTS "cd_write" ON public.company_domains;
+CREATE POLICY "cd_write" ON public.company_domains FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid())) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid()));
+DROP POLICY IF EXISTS "dva_read" ON public.domain_verification_attempts;
+CREATE POLICY "dva_read" ON public.domain_verification_attempts FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.company_domains cd WHERE cd.id=domain_id AND (EXISTS(SELECT 1 FROM public.company_profiles WHERE id=cd.company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=cd.company_id AND user_id=auth.uid()))));
+DROP POLICY IF EXISTS "dva_write" ON public.domain_verification_attempts;
+CREATE POLICY "dva_write" ON public.domain_verification_attempts FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+DROP POLICY IF EXISTS "cve_read" ON public.company_verification_events;
+CREATE POLICY "cve_read" ON public.company_verification_events FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_verification_events.company_id AND user_id=auth.uid()));
+DROP POLICY IF EXISTS "cve_insert" ON public.company_verification_events;
+CREATE POLICY "cve_insert" ON public.company_verification_events FOR INSERT WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_verification_events.company_id AND user_id=auth.uid()) OR auth.uid()=actor_id);
+
+-- 16.2 PROGRAM LIFECYCLE FIELDS
+ALTER TABLE public.programs ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE public.programs ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;
+ALTER TABLE public.programs ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname='program_visibility') THEN
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='invite_only' AND enumtypid='program_visibility'::regtype) THEN
+        ALTER TYPE program_visibility ADD VALUE 'invite_only';
+      END IF;
+    EXCEPTION WHEN others THEN NULL;
+    END;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='programs' AND column_name='visibility') THEN
+    ALTER TABLE public.programs ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','private','invite_only'));
+  ELSE
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='programs' AND column_name='visibility' AND udt_name='text') THEN
+      BEGIN
+        ALTER TABLE public.programs DROP CONSTRAINT IF EXISTS programs_visibility_check;
+      EXCEPTION WHEN others THEN NULL; END;
+      BEGIN
+        ALTER TABLE public.programs DROP CONSTRAINT IF EXISTS programs_visibility_check1;
+      EXCEPTION WHEN others THEN NULL; END;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='programs_visibility_invite_only' AND conrelid='public.programs'::regclass) THEN
+        ALTER TABLE public.programs ADD CONSTRAINT programs_visibility_invite_only CHECK (visibility IN ('public','private','invite_only'));
+      END IF;
+    END IF;
+  END IF;
+END $$;
+
+-- 16.3 COMPANY RBAC
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname='company_member_role') THEN
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='analyst' AND enumtypid='company_member_role'::regtype) THEN
+        ALTER TYPE company_member_role ADD VALUE 'analyst';
+      END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL WHEN others THEN NULL; END;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname='company_member_role') THEN
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel='finance' AND enumtypid='company_member_role'::regtype) THEN
+        ALTER TYPE company_member_role ADD VALUE 'finance';
+      END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL WHEN others THEN NULL; END;
+  END IF;
+END $$;
+DO $$ DECLARE r RECORD; BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='company_member_role') THEN
+    FOR r IN SELECT conname FROM pg_constraint WHERE conrelid='public.company_members'::regclass AND contype='c' AND pg_get_constraintdef(oid) ILIKE '%role%' LOOP
+      EXECUTE 'ALTER TABLE public.company_members DROP CONSTRAINT IF EXISTS ' || quote_ident(r.conname);
+    END LOOP;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='company_members_role_check' AND conrelid='public.company_members'::regclass) THEN
+      ALTER TABLE public.company_members ADD CONSTRAINT company_members_role_check CHECK (role IN ('owner','admin','triager','analyst','finance','viewer'));
+    END IF;
+  END IF;
+END $$;
+CREATE OR REPLACE FUNCTION public.company_role(p_company UUID, p_user UUID) RETURNS TEXT AS $$
+DECLARE v_role TEXT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.company_profiles WHERE id=p_company AND owner_id=p_user) THEN
+    RETURN 'owner';
+  END IF;
+  SELECT role::TEXT INTO v_role FROM public.company_members WHERE company_id=p_company AND user_id=p_user ORDER BY CASE role::TEXT WHEN 'owner' THEN 6 WHEN 'admin' THEN 5 WHEN 'finance' THEN 4 WHEN 'triager' THEN 3 WHEN 'analyst' THEN 2 WHEN 'viewer' THEN 1 ELSE 0 END DESC LIMIT 1;
+  RETURN v_role;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+CREATE OR REPLACE FUNCTION public.has_company_permission(p_company UUID, p_permission TEXT) RETURNS BOOLEAN AS $$
+DECLARE v_role TEXT; v_rank INT; v_req INT;
+BEGIN
+  v_role := public.company_role(p_company, auth.uid());
+  IF v_role IS NULL THEN RETURN false; END IF;
+  v_rank := CASE v_role WHEN 'owner' THEN 6 WHEN 'admin' THEN 5 WHEN 'finance' THEN 4 WHEN 'triager' THEN 3 WHEN 'analyst' THEN 2 WHEN 'viewer' THEN 1 ELSE 0 END;
+  v_req := CASE lower(p_permission)
+    WHEN 'owner' THEN 6 WHEN 'manage_owner' THEN 6 WHEN 'transfer_ownership' THEN 6
+    WHEN 'admin' THEN 5 WHEN 'manage_members' THEN 5 WHEN 'manage_company' THEN 5 WHEN 'manage_program' THEN 5
+    WHEN 'finance' THEN 4 WHEN 'manage_finance' THEN 4 WHEN 'manage_payouts' THEN 4 WHEN 'view_finance' THEN 4
+    WHEN 'triage' THEN 3 WHEN 'manage_reports' THEN 3 WHEN 'assign_reports' THEN 3 WHEN 'triager' THEN 3
+    WHEN 'analyst' THEN 2 WHEN 'view_analytics' THEN 2
+    WHEN 'view' THEN 1 WHEN 'view_reports' THEN 1 WHEN 'viewer' THEN 1
+    ELSE 1 END;
+  RETURN v_rank >= v_req;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- 16.4 PROFILES PHONE
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='profiles_phone_format' AND conrelid='public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_phone_format CHECK (phone IS NULL OR phone ~ '^01[0-9]{9}$');
+  END IF;
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_phone_unique ON public.profiles (lower(phone)) WHERE phone IS NOT NULL;
+
+-- 16.5 VIEWS: researcher_leaderboard already fixed in 14.4 — no change
+DO $$ BEGIN PERFORM 1 FROM pg_views WHERE viewname='researcher_leaderboard' AND schemaname='public'; END $$;
+
+-- 16.6 SECURITY HARDENING (idempotent)
+-- Report comments is_internal: anon researcher cannot read internal; check is_internal=false OR company member OR staff
+DROP POLICY IF EXISTS "rc_select" ON public.report_comments;
+CREATE POLICY "rc_select" ON public.report_comments FOR SELECT USING (
+  EXISTS(
+    SELECT 1 FROM public.reports r
+    JOIN public.programs p ON p.id = r.program_id
+    LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+    LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+    WHERE r.id = report_id AND (
+      (rp.id IS NOT NULL AND is_internal = false)
+      OR cm.user_id IS NOT NULL
+      OR public.has_company_permission(p.company_id, 'view')
+      OR public.has_role('admin') OR public.has_role('moderator')
+    )
+  )
+  OR public.has_role('admin') OR public.has_role('moderator')
+);
+DROP POLICY IF EXISTS "rc_insert" ON public.report_comments; CREATE POLICY "rc_insert" ON public.report_comments FOR INSERT WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS "rc_update" ON public.report_comments; CREATE POLICY "rc_update" ON public.report_comments FOR UPDATE USING (author_id = auth.uid()) WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS "rc_delete" ON public.report_comments; CREATE POLICY "rc_delete" ON public.report_comments FOR DELETE USING (author_id = auth.uid() OR public.has_role('admin'));
+-- Audit logs: ensure no UPDATE/DELETE policies exist for non-admin (drop any permissive ones, keep only admin/staff read)
+DROP POLICY IF EXISTS "audit_admin_update" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_admin_delete" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_write" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_update" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_delete" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_all" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_admin" ON public.audit_logs;
+CREATE POLICY "audit_admin" ON public.audit_logs FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator'));
+CREATE OR REPLACE FUNCTION public.prevent_audit_mutation() RETURNS TRIGGER AS $$ BEGIN RAISE EXCEPTION 'audit_logs immutable: no UPDATE/DELETE allowed'; RETURN NULL; END; $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS trg_audit_immutable_update ON public.audit_logs; CREATE TRIGGER trg_audit_immutable_update BEFORE UPDATE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_mutation();
+DROP TRIGGER IF EXISTS trg_audit_immutable_delete ON public.audit_logs; CREATE TRIGGER trg_audit_immutable_delete BEFORE DELETE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_mutation();
+-- Wallets: verify anon cannot read, only own (authenticated + owner or admin)
+DROP POLICY IF EXISTS "w_select" ON public.wallets;
+CREATE POLICY "w_select" ON public.wallets FOR SELECT USING (auth.role() = 'authenticated' AND (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid()) OR public.has_role('admin')));
+DROP POLICY IF EXISTS "wt_select" ON public.wallet_transactions;
+CREATE POLICY "wt_select" ON public.wallet_transactions FOR SELECT USING (auth.role() = 'authenticated' AND EXISTS(SELECT 1 FROM public.wallets w JOIN public.researcher_profiles rp ON rp.id=w.researcher_id WHERE w.id=wallet_id AND (rp.user_id=auth.uid() OR public.has_role('admin'))));
+-- company_domains RLS: anon blocked
+DROP POLICY IF EXISTS "cd_read" ON public.company_domains;
+CREATE POLICY "cd_read" ON public.company_domains FOR SELECT USING (auth.role() = 'authenticated' AND (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid())));
+DROP POLICY IF EXISTS "cd_write" ON public.company_domains;
+CREATE POLICY "cd_write" ON public.company_domains FOR ALL USING (auth.role() = 'authenticated' AND (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid()))) WITH CHECK (auth.role() = 'authenticated' AND (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid())));
+-- programs visibility: anon sees only public+active via can_view_program (private hidden)
+DROP POLICY IF EXISTS "prog_public_read" ON public.programs;
+CREATE POLICY "prog_public_read" ON public.programs FOR SELECT USING (public.can_view_program(id, auth.uid()));
+-- WITH CHECK (true) hardening: mirror USING for all FOR ALL policies that previously used true
+DROP POLICY IF EXISTS "cm_manage" ON public.company_members; CREATE POLICY "cm_manage" ON public.company_members FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+DROP POLICY IF EXISTS "prog_company_write" ON public.programs; CREATE POLICY "prog_company_write" ON public.programs FOR ALL USING (public.is_company_member(company_id, auth.uid()) OR created_by=auth.uid() OR public.has_role('admin')) WITH CHECK (public.is_company_member(company_id, auth.uid()) OR created_by=auth.uid() OR public.has_role('admin'));
+DROP POLICY IF EXISTS "pa_write" ON public.program_assets; CREATE POLICY "pa_write" ON public.program_assets FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+DROP POLICY IF EXISTS "pr_rules_write" ON public.program_rules; CREATE POLICY "pr_rules_write" ON public.program_rules FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+DROP POLICY IF EXISTS "bp_write" ON public.bounty_policies; CREATE POLICY "bp_write" ON public.bounty_policies FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+DROP POLICY IF EXISTS "rll_write" ON public.report_label_links; CREATE POLICY "rll_write" ON public.report_label_links FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid()))) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())));
+DROP POLICY IF EXISTS "rd_write" ON public.report_duplicates; CREATE POLICY "rd_write" ON public.report_duplicates FOR ALL USING (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid()))) WITH CHECK (public.has_role('admin') OR public.has_role('moderator') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())));
+DROP POLICY IF EXISTS "ras_write" ON public.report_assignees; CREATE POLICY "ras_write" ON public.report_assignees FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid()))) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.reports r JOIN public.programs p ON p.id=r.program_id WHERE r.id=report_id AND public.is_company_member(p.company_id, auth.uid())));
+DROP POLICY IF EXISTS "hof_write" ON public.hall_of_fame; CREATE POLICY "hof_write" ON public.hall_of_fame FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+DROP POLICY IF EXISTS "mod_admin" ON public.moderation_actions; CREATE POLICY "mod_admin" ON public.moderation_actions FOR ALL USING (public.has_role('admin') OR public.has_role('moderator')) WITH CHECK (public.has_role('admin') OR public.has_role('moderator'));
+DROP POLICY IF EXISTS "inv_write" ON public.company_invitations; CREATE POLICY "inv_write" ON public.company_invitations FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+DROP POLICY IF EXISTS "ver_write" ON public.company_verifications; CREATE POLICY "ver_write" ON public.company_verifications FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()));
+DROP POLICY IF EXISTS "dv_write" ON public.domain_verifications; CREATE POLICY "dv_write" ON public.domain_verifications FOR ALL USING (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=domain_verifications.company_id AND user_id=auth.uid())) WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=domain_verifications.company_id AND user_id=auth.uid()));
+DROP POLICY IF EXISTS "pu_write" ON public.program_updates; CREATE POLICY "pu_write" ON public.program_updates FOR ALL USING (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin')))) WITH CHECK (EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND (public.is_company_member(p.company_id, auth.uid()) OR public.has_role('admin'))));
+DROP POLICY IF EXISTS "pset_write" ON public.platform_settings; CREATE POLICY "pset_write" ON public.platform_settings FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+DROP POLICY IF EXISTS "ba_write" ON public.bounty_awards; CREATE POLICY "ba_write" ON public.bounty_awards FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+
 -- Trust badges seed
 INSERT INTO public.badges(code,name_ar,name_en,description_en,icon) VALUES
- ('verified-researcher','باحث موثق','Verified Researcher','Identity verified by review','shield-check'),
- ('trusted-researcher','باحث جدير بالثقة','Trusted Researcher','High trust score sustained','star'),
- ('verified-company','شركة موثقة','Verified Company','Business verification approved','building')
- ON CONFLICT (code) DO NOTHING;
+  ('verified-researcher','باحث موثق','Verified Researcher','Identity verified by review','shield-check'),
+  ('trusted-researcher','باحث جدير بالثقة','Trusted Researcher','High trust score sustained','star'),
+  ('verified-company','شركة موثقة','Verified Company','Business verification approved','building')
+  ON CONFLICT (code) DO NOTHING;
+
+-- ============================================================
+-- 17. P0 SECURITY RLS AUDIT + HARDENING (idempotent)
+-- Fixes is_internal leak, attachment privacy, wallet/payments,
+-- notifications scoping, audit immutability, and WITH CHECK mirroring.
+-- ============================================================
+
+-- 17.1 report_comments: is_internal only for company members + staff
+-- Replaces rc_select so policy string explicitly contains is_internal=false, has_company_permission, has_role
+DROP POLICY IF EXISTS "rc_select" ON public.report_comments;
+CREATE POLICY "rc_select" ON public.report_comments FOR SELECT USING (
+  EXISTS(
+    SELECT 1 FROM public.reports r
+    JOIN public.programs p ON p.id = r.program_id
+    LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+    LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+    WHERE r.id = report_id AND (
+      (rp.id IS NOT NULL AND is_internal = false)
+      OR cm.user_id IS NOT NULL
+      OR public.has_company_permission(p.company_id, 'view')
+      OR public.has_role('admin') OR public.has_role('moderator')
+    )
+  )
+  OR public.has_role('admin') OR public.has_role('moderator')
+);
+DROP POLICY IF EXISTS "rc_insert" ON public.report_comments;
+CREATE POLICY "rc_insert" ON public.report_comments FOR INSERT WITH CHECK (author_id = auth.uid());
+-- ensure update/delete remain participant-only (no leakage)
+DROP POLICY IF EXISTS "rc_update" ON public.report_comments;
+CREATE POLICY "rc_update" ON public.report_comments FOR UPDATE USING (author_id = auth.uid()) WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS "rc_delete" ON public.report_comments;
+CREATE POLICY "rc_delete" ON public.report_comments FOR DELETE USING (author_id = auth.uid() OR public.has_role('admin'));
+
+-- 17.2 report_attachments: private — only report participants + company members + staff
+DROP POLICY IF EXISTS "ra_select" ON public.report_attachments;
+CREATE POLICY "ra_select" ON public.report_attachments FOR SELECT USING (
+  auth.role() = 'authenticated' AND EXISTS(
+    SELECT 1 FROM public.reports r
+    JOIN public.programs p ON p.id = r.program_id
+    LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+    LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+    WHERE r.id = report_id AND (rp.id IS NOT NULL OR cm.user_id IS NOT NULL OR public.has_role('admin') OR public.has_role('moderator'))
+  )
+);
+DROP POLICY IF EXISTS "ra_insert" ON public.report_attachments;
+CREATE POLICY "ra_insert" ON public.report_attachments FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND uploaded_by = auth.uid());
+-- harden storage bucket report-attachments (private): already attach_private exists, re-assert it
+DROP POLICY IF EXISTS "attach_private" ON storage.objects;
+CREATE POLICY "attach_private" ON storage.objects FOR SELECT USING (
+  bucket_id='report-attachments' AND auth.role()='authenticated' AND (
+    public.has_role('admin') OR public.has_role('moderator') OR EXISTS(
+      SELECT 1 FROM public.reports r
+      LEFT JOIN public.researcher_profiles rp ON rp.id = r.researcher_id AND rp.user_id = auth.uid()
+      LEFT JOIN public.programs p ON p.id = r.program_id
+      LEFT JOIN public.company_members cm ON cm.company_id = p.company_id AND cm.user_id = auth.uid()
+      WHERE r.id = ((storage.foldername(name))[1])::uuid AND (rp.id IS NOT NULL OR cm.user_id IS NOT NULL)
+    )
+  )
+);
+
+-- 17.3 wallets/payments/bounties: researcher own wallet only, no anon
+DROP POLICY IF EXISTS "w_select" ON public.wallets;
+CREATE POLICY "w_select" ON public.wallets FOR SELECT USING (
+  auth.role() = 'authenticated' AND (
+    EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+    OR public.has_role('admin')
+  )
+);
+DROP POLICY IF EXISTS "wt_select" ON public.wallet_transactions;
+CREATE POLICY "wt_select" ON public.wallet_transactions FOR SELECT USING (
+  auth.role() = 'authenticated' AND EXISTS(
+    SELECT 1 FROM public.wallets w JOIN public.researcher_profiles rp ON rp.id=w.researcher_id
+    WHERE w.id=wallet_id AND (rp.user_id=auth.uid() OR public.has_role('admin'))
+  )
+);
+-- bounty_awards/payments: researcher own OR owning company, no anon
+DROP POLICY IF EXISTS "ba_select" ON public.bounty_awards;
+CREATE POLICY "ba_select" ON public.bounty_awards FOR SELECT USING (
+  auth.role() = 'authenticated' AND EXISTS(
+    SELECT 1 FROM public.reports r WHERE r.id=report_id AND (
+      EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=r.researcher_id AND rp.user_id=auth.uid())
+      OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=r.program_id AND public.is_company_member(p.company_id, auth.uid()))
+      OR public.has_role('admin')
+    )
+  )
+);
+DROP POLICY IF EXISTS "ba_write" ON public.bounty_awards;
+CREATE POLICY "ba_write" ON public.bounty_awards FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+DROP POLICY IF EXISTS "bpay_select" ON public.bounty_payments;
+CREATE POLICY "bpay_select" ON public.bounty_payments FOR SELECT USING (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin') OR EXISTS(
+      SELECT 1 FROM public.bounty_awards a JOIN public.reports r ON r.id=a.report_id JOIN public.programs p ON p.id=r.program_id
+      WHERE a.id=award_id AND public.is_company_member(p.company_id, auth.uid())
+    )
+  )
+);
+DROP POLICY IF EXISTS "bpay_write" ON public.bounty_payments;
+CREATE POLICY "bpay_write" ON public.bounty_payments FOR ALL USING (public.has_role('admin')) WITH CHECK (public.has_role('admin'));
+DROP POLICY IF EXISTS "pr_select" ON public.payout_requests;
+CREATE POLICY "pr_select" ON public.payout_requests FOR SELECT USING (
+  auth.role() = 'authenticated' AND (
+    EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+    OR public.has_role('admin')
+  )
+);
+DROP POLICY IF EXISTS "pm_all" ON public.payment_methods;
+CREATE POLICY "pm_all" ON public.payment_methods FOR ALL USING (
+  auth.role() = 'authenticated' AND EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+) WITH CHECK (
+  auth.role() = 'authenticated' AND EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+);
+
+-- 17.4 notifications: user can only read own (strict) — split into per-op policies, each mirrors USING/WITH CHECK
+DROP POLICY IF EXISTS "notif_all" ON public.notifications;
+DROP POLICY IF EXISTS "notif_select" ON public.notifications;
+DROP POLICY IF EXISTS "notif_insert" ON public.notifications;
+DROP POLICY IF EXISTS "notif_update" ON public.notifications;
+DROP POLICY IF EXISTS "notif_delete" ON public.notifications;
+CREATE POLICY "notif_select" ON public.notifications FOR SELECT USING (auth.role() = 'authenticated' AND user_id = auth.uid());
+CREATE POLICY "notif_insert" ON public.notifications FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND user_id = auth.uid());
+CREATE POLICY "notif_update" ON public.notifications FOR UPDATE USING (auth.role() = 'authenticated' AND user_id = auth.uid()) WITH CHECK (auth.role() = 'authenticated' AND user_id = auth.uid());
+CREATE POLICY "notif_delete" ON public.notifications FOR DELETE USING (auth.role() = 'authenticated' AND user_id = auth.uid());
+
+-- 17.5 audit_logs: immutable — only SELECT, no UPDATE/DELETE for anyone
+DROP POLICY IF EXISTS "audit_admin_update" ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_admin_delete" ON public.audit_logs;
+-- ensure only SELECT exists
+DROP POLICY IF EXISTS "audit_admin" ON public.audit_logs;
+CREATE POLICY "audit_admin" ON public.audit_logs FOR SELECT USING (public.has_role('admin') OR public.has_role('moderator'));
+CREATE OR REPLACE FUNCTION public.prevent_audit_mutation() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_logs immutable: no UPDATE/DELETE allowed';
+  RETURN NULL;
+END; $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS trg_audit_immutable_update ON public.audit_logs;
+CREATE TRIGGER trg_audit_immutable_update BEFORE UPDATE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_mutation();
+DROP TRIGGER IF EXISTS trg_audit_immutable_delete ON public.audit_logs;
+CREATE TRIGGER trg_audit_immutable_delete BEFORE DELETE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_mutation();
+
+-- 17.6 company_domains: harden anon cannot read, member own only, other company blocked
+DROP POLICY IF EXISTS "cd_read" ON public.company_domains;
+CREATE POLICY "cd_read" ON public.company_domains FOR SELECT USING (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin') OR public.has_role('moderator')
+    OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid())
+  )
+);
+DROP POLICY IF EXISTS "cd_write" ON public.company_domains;
+CREATE POLICY "cd_write" ON public.company_domains FOR ALL USING (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin')
+    OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid())
+  )
+) WITH CHECK (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin')
+    OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_domains.company_id AND user_id=auth.uid())
+  )
+);
+
+-- 17.7 programs visibility: anon sees only public+active (via can_view_program), private hidden
+-- re-assert prog_public_read uses can_view_program (already does) — keep hardened
+DROP POLICY IF EXISTS "prog_public_read" ON public.programs;
+CREATE POLICY "prog_public_read" ON public.programs FOR SELECT USING (public.can_view_program(id, auth.uid()));
+
+-- 17.8 WITH CHECK mirroring verification (no new FOR ALL with true remains)
+-- All FOR ALL policies above mirror USING in WITH CHECK. No WITH CHECK (true) remains for effective policies.

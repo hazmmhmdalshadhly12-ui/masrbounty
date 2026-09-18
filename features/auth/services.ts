@@ -68,6 +68,9 @@ export async function registerAction(formData: FormData) {
     username: formData.get('username'),
     email: formData.get('email'),
     password: formData.get('password'),
+    confirmPassword: formData.get('confirmPassword') ?? formData.get('password'),
+    full_name: formData.get('full_name'),
+    phone: formData.get('phone'),
     role: formData.get('role'),
   });
   if (!parsed.success) redirect('/register?error=' + encodeURIComponent('بيانات التسجيل غير صالحة'));
@@ -80,14 +83,26 @@ export async function registerAction(formData: FormData) {
     supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
-      options: { data: { username: parsed.data.username, role: parsed.data.role } },
+      options: {
+        data: {
+          username: parsed.data.username,
+          role: parsed.data.role,
+          full_name: parsed.data.full_name,
+          phone: parsed.data.phone,
+        },
+      },
     })
   );
   if (error) redirect('/register?error=' + encodeURIComponent(friendlyAuthError(error.message)));
   if (!data.user) redirect('/register?error=' + encodeURIComponent('فشل إنشاء الحساب — حاول مرة أخرى'));
-  // Create profile row (RLS allows own insert)
+  // Create profile row (RLS allows own insert) — full_name and phone are NOT NULL per P0
   const { error: pErr } = await step('REG-PROFILE', '/register', () =>
-    supabase.from('profiles').insert({ id: data.user!.id, username: parsed.data.username })
+    supabase.from('profiles').insert({
+      id: data.user!.id,
+      username: parsed.data.username,
+      full_name: parsed.data.full_name,
+      phone: parsed.data.phone,
+    })
   );
   if (pErr) redirect('/register?error=' + encodeURIComponent('اسم المستخدم مستخدم بالفعل — اختر اسمًا آخر'));
   await step('REG-ROLE', '/register', () =>

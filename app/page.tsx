@@ -48,7 +48,7 @@ export default async function Home() {
   try {
     const supabase = await createServerClient();
     const [p, r, u] = await Promise.all([
-      supabase.from('programs').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('programs').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('visibility', 'public'),
       supabase.from('reports').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
       supabase.from('researcher_profiles').select('id', { count: 'exact', head: true }),
     ]);
