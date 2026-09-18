@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { slugify } from '@/utils/slug';
+import { DomainsManager } from '@/components/company/domains-manager';
 
 async function saveCompany(formData: FormData) {
   'use server';
@@ -26,10 +27,41 @@ export default async function CompanySettings() {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return <main className="container py-12">Login required.</main>;
-  const { data: company } = await supabase.from('company_profiles').select('*').eq('owner_id', user.user.id).single();
+  // Support both owned and member companies (prefer owned)
+  const { data: ownedCompany } = await supabase.from('company_profiles').select('*').eq('owner_id', user.user.id).maybeSingle();
+  let company = ownedCompany as unknown as { id: string; name: string; slug: string; description: string | null; website: string | null } | null;
+  if (!company) {
+    const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', user.user.id).limit(1).maybeSingle();
+    if (mem) {
+      const { data: c2 } = await supabase.from('company_profiles').select('*').eq('id', (mem as { company_id: string }).company_id).maybeSingle();
+      company = c2 as typeof company;
+    }
+  }
+  // Fetch company_domains for DomainsManager (new table) — map token fields for UI
+  let companyDomains: { id: string; domain: string; token: string; status: string; verified_at: string | null }[] = [];
+  if (company) {
+    try {
+      const { data: cds } = await supabase
+        .from('company_domains')
+        .select('id,domain,verification_token_plain,token,verification_token_hash,status,verified_at,created_at')
+        .eq('company_id', company.id)
+        .order('created_at', { ascending: false });
+      if (cds) {
+        companyDomains = (cds as unknown as Record<string, unknown>[]).map((r) => ({
+          id: String(r['id']),
+          domain: String(r['domain']),
+          token: (r['verification_token_plain'] as string | null) ?? (r['token'] as string | null) ?? (r['verification_token_hash'] as string | null) ?? '',
+          status: String(r['status'] ?? 'pending'),
+          verified_at: (r['verified_at'] as string | null) ?? null,
+        }));
+      }
+    } catch {
+      companyDomains = [];
+    }
+  }
   return (
-    <main className="container py-8 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">إعدادات الشركة</h1>
+    <main className="container py-8 max-w-2xl space-y-6">
+      <h1 className="text-2xl font-bold">إعدادات الشركة</h1>
       <Card><CardHeader><CardTitle>Profile</CardTitle></CardHeader><CardContent>
         <form action={saveCompany} className="space-y-3">
           <Input name="name" required defaultValue={company?.name ?? ''} placeholder="Company name" />
@@ -39,8 +71,10 @@ export default async function CompanySettings() {
           <Button type="submit">Save</Button>
         </form>
       </CardContent></Card>
+      {company && <DomainsManager companyId={company.id} initialDomains={companyDomains} />}
       {company && <VerificationCard companyId={company.id} />}
       {company && <DomainCard companyId={company.id} />}
+      {!company && <p className="text-sm text-muted-foreground">أنشئ مؤسستك أولًا من <a href="/company/onboarding" className="underline">صفحة التأهيل</a>.</p>}
     </main>
   );
 }

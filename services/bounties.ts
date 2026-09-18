@@ -135,6 +135,19 @@ export async function awardBounty(
     if (error || !data) return { data: null, error: error?.message ?? 'Award failed' };
     await db.from('reports').update({ status: 'accepted', bounty_amount: amount }).eq('id', reportId);
     await logAudit('award', 'bounty_awards', (data as BountyAward).id, { report_id: reportId, amount }, auth.user?.id);
+    // best-effort bounty notification (fallback path)
+    try {
+      const parties = await reportParties(db, reportId);
+      if (parties.reporterUserId) {
+        await notify(db, parties.reporterUserId, {
+          type: 'bounty',
+          title: `Bounty ${amount} on report ${parties.reportNumber}`,
+          link: '/dashboard/payments',
+        });
+      }
+    } catch {
+      /* notify best-effort */
+    }
     try {
       revalidatePath(`/company/reports/${reportId}`);
     } catch {
@@ -194,6 +207,23 @@ export async function payAward(
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      // best-effort payment notification
+      try {
+        const { data: aw } = await db.from('bounty_awards').select('report_id').eq('id', awardId).maybeSingle();
+        const rid = (aw as { report_id: string } | null)?.report_id;
+        if (rid) {
+          const parties = await reportParties(db, rid);
+          if (parties.reporterUserId) {
+            await notify(db, parties.reporterUserId, {
+              type: 'payment',
+              title: `تم دفع المكافأة — مرجع ${ref}`,
+              link: '/dashboard/payments',
+            });
+          }
+        }
+      } catch {
+        /* notify best-effort */
+      }
       try {
         revalidatePath('/company/payments');
       } catch {
@@ -220,6 +250,20 @@ export async function payAward(
     if (error || !payment) return { data: null, error: error?.message ?? 'Payment failed' };
     await db.from('bounty_awards').update({ status: 'paid', decided_at: new Date().toISOString() }).eq('id', awardId);
     await logAudit('payout', 'bounty_awards', awardId, { reference: ref }, auth.user?.id);
+    // best-effort payment notification (fallback path)
+    try {
+      const rid = (award as { report_id: string }).report_id;
+      const parties = await reportParties(db, rid);
+      if (parties.reporterUserId) {
+        await notify(db, parties.reporterUserId, {
+          type: 'payment',
+          title: `تم دفع المكافأة — مرجع ${ref}`,
+          link: '/dashboard/payments',
+        });
+      }
+    } catch {
+      /* notify best-effort */
+    }
     try {
       revalidatePath('/company/payments');
     } catch {

@@ -1,37 +1,99 @@
-import { createServerClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ReportsChart } from '@/components/charts/reports-chart';
-import { SeverityChart } from '@/components/charts/severity-chart';
-import { EarningsChart } from '@/components/charts/earnings-chart';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { getCompanyAnalytics } from '@/services/analytics';
+import { ReportsPerMonthChart, SeverityDistChart, BountySpendingChart, AvgResolutionChart } from '@/components/company/analytics-charts';
 
 export default async function AnalyticsPage() {
-  const supabase = await createServerClient();
-  const { data } = await supabase.from('program_stats_view').select('*');
-  const { data: reports } = await supabase.from('reports').select('status,severity,created_at').limit(1000);
-  const overTime = Object.entries(
-    ((reports ?? []) as { created_at: string }[]).reduce<Record<string, number>>((a, r) => {
-      const m = new Date(r.created_at).toISOString().slice(0, 7);
-      return { ...a, [m]: (a[m] ?? 0) + 1 };
-    }, {})
-  ).sort().map(([month, total]) => ({ month, total }));
-  const byStatus = Object.entries(((reports ?? []) as { status: string }[]).reduce<Record<string, number>>((a, r) => ({ ...a, [r.status]: (a[r.status] ?? 0) + 1 }), {})).map(([status, count]) => ({ status, count }));
-  const bySeverity = Object.entries(((reports ?? []) as { severity: string }[]).reduce<Record<string, number>>((a, r) => ({ ...a, [r.severity]: (a[r.severity] ?? 0) + 1 }), {})).map(([severity, count]) => ({ severity, count }));
-  const totals = (data ?? []).reduce((a: { reports: number; resolved: number }, s: { total_reports: number; resolved_reports: number }) => ({ reports: a.reports + Number(s.total_reports), resolved: a.resolved + Number(s.resolved_reports) }), { reports: 0, resolved: 0 });
+  const { data: analytics, error } = await getCompanyAnalytics();
+
+  if (error || !analytics) {
+    return (
+      <main className="container py-8" dir="rtl">
+        <h1 className="text-2xl font-bold mb-2">التحليلات</h1>
+        <p className="text-sm text-muted-foreground mb-6">لوحة تحليلات الشركة — التقارير، الخطورة، الإنفاق، زمن الحل، وأفضل الباحثين</p>
+        <Card className="dark:border-slate-700"><CardContent className="p-6 text-sm text-destructive">تعذر تحميل التحليلات: {error ?? 'غير معروف'}</CardContent></Card>
+      </main>
+    );
+  }
+
+  const { reportsPerMonth, severityDistribution, bountySpending, avgResolutionTime, topResearchers, totals } = analytics;
+
   return (
-    <main className="container py-8">
-      <h1 className="text-2xl font-bold mb-6">التحليلات</h1>
-      <div className="grid sm:grid-cols-2 gap-4 mb-6">
-        <Card><CardHeader><CardTitle className="text-sm">Total reports</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{totals.reports}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm">Resolved</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{totals.resolved}</CardContent></Card>
+    <main className="container py-8" dir="rtl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">التحليلات</h1>
+        <p className="mt-1 text-sm text-muted-foreground">لوحة تحليلات الشركة — عبر services/analytics.ts (RLS-aware) — آمنة للوضع الداكن</p>
       </div>
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <Card><CardHeader><CardTitle className="text-sm">By status</CardTitle></CardHeader><CardContent><ReportsChart data={byStatus} /></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-sm">By severity</CardTitle></CardHeader><CardContent><SeverityChart data={bySeverity} /></CardContent></Card>
+
+      {/* Totals */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">إجمالي التقارير</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{totals.reports}</CardContent></Card>
+        <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">تقارير محلولة</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{totals.resolved}</CardContent></Card>
+        <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">إجمالي المكافآت</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{Number(totals.totalBounty).toLocaleString()} EGP</CardContent></Card>
+        <Card className="dark:border-slate-700"><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">متوسط زمن الحل</CardTitle></CardHeader><CardContent className="text-2xl font-black tabular-nums" dir="ltr">{totals.avgResolutionHours} ساعة</CardContent></Card>
       </div>
-      <Card className="mb-6"><CardHeader><CardTitle className="text-sm">التقارير عبر الأشهر</CardTitle></CardHeader><CardContent><EarningsChart data={overTime} /></CardContent></Card>
-      {!data?.length ? <p className="text-muted-foreground">No data.</p> : data.map((s: { program_id: string; name: string; total_reports: number; new_reports: number; resolved_reports: number; total_bounty: number }) => (
-        <Card key={s.program_id} className="mb-2"><CardContent className="p-3 text-sm">{s.name}: {s.total_reports} total / {s.new_reports} new / {s.resolved_reports} resolved / {s.total_bounty} EGP</CardContent></Card>
-      ))}
+
+      {/* Row 1: Reports/Month + Severity */}
+      <div className="grid md:grid-cols-2 gap-4 mb-4">
+        <Card className="dark:border-slate-700">
+          <CardHeader><CardTitle className="text-sm">التقارير حسب الشهر</CardTitle><CardDescription>Reports / Month</CardDescription></CardHeader>
+          <CardContent><ReportsPerMonthChart data={reportsPerMonth} /></CardContent>
+        </Card>
+        <Card className="dark:border-slate-700">
+          <CardHeader><CardTitle className="text-sm">توزيع الخطورة</CardTitle><CardDescription>Severity Distribution</CardDescription></CardHeader>
+          <CardContent><SeverityDistChart data={severityDistribution} /></CardContent>
+        </Card>
+      </div>
+
+      {/* Row 2: Bounty Spending + Avg Resolution */}
+      <div className="grid md:grid-cols-2 gap-4 mb-4">
+        <Card className="dark:border-slate-700">
+          <CardHeader><CardTitle className="text-sm">إنفاق المكافآت حسب الشهر</CardTitle><CardDescription>Bounty Spending (EGP)</CardDescription></CardHeader>
+          <CardContent><BountySpendingChart data={bountySpending} /></CardContent>
+        </Card>
+        <Card className="dark:border-slate-700">
+          <CardHeader><CardTitle className="text-sm">متوسط زمن الحل (ساعة)</CardTitle><CardDescription>Avg Resolution Time — per month</CardDescription></CardHeader>
+          <CardContent><AvgResolutionChart data={avgResolutionTime} /></CardContent>
+        </Card>
+      </div>
+
+      {/* Top Researchers */}
+      <Card className="dark:border-slate-700">
+        <CardHeader><CardTitle className="text-sm">أفضل الباحثين (Top Researchers)</CardTitle><CardDescription>حسب عدد التقارير وإجمالي المكافآت — من نفس مجموعة التقارير (RLS-aware)</CardDescription></CardHeader>
+        <CardContent>
+          {!topResearchers.length ? (
+            <p className="text-sm text-muted-foreground text-center py-6">لا يوجد باحثون بعد</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr className="text-right">
+                    <th className="px-3 py-2 font-medium">#</th>
+                    <th className="px-3 py-2 font-medium">الباحث</th>
+                    <th className="px-3 py-2 font-medium">التقارير</th>
+                    <th className="px-3 py-2 font-medium">إجمالي المكافآت</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topResearchers.map((r, i) => (
+                    <tr key={r.researcher_id} className="border-t hover:bg-muted/40">
+                      <td className="px-3 py-2 tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2 font-medium" dir="ltr">{r.display_name}</td>
+                      <td className="px-3 py-2 tabular-nums" dir="ltr">{r.reports}</td>
+                      <td className="px-3 py-2 tabular-nums" dir="ltr">{Number(r.total_earned).toLocaleString()} EGP</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {bountySpending.length ? <Badge variant="secondary">إنفاق {bountySpending.length} شهرًا</Badge> : null}
+            {reportsPerMonth.length ? <Badge variant="secondary">{reportsPerMonth.length} شهر تقارير</Badge> : null}
+            {avgResolutionTime.length ? <Badge variant="outline">متوسط {totals.avgResolutionHours}س</Badge> : null}
+          </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }

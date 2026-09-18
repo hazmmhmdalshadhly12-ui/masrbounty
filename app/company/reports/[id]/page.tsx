@@ -1,7 +1,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
-import { triageReportAction, awardBountyAction, changeSeverityAction, markDuplicateAction, assignReportAction, unassignReportAction, toggleLabelAction } from '@/features/company/services';
+import { triageReportAction, awardBountyAction, changeSeverityAction, markDuplicateAction, toggleLabelAction } from '@/features/company/services';
+import { assignReportAction as legacyAssign, unassignReportAction as legacyUnassign } from '@/features/company/services';
+import { assignReport, unassignReport } from '@/services/assignment';
 import { addCommentAction } from '@/features/reports/services';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReportStepper } from '@/components/reports/report-stepper';
 import { Avatar } from '@/components/shared/avatar';
 import { timeAgo } from '@/utils/time';
+import { getSLAStatus, getDueDate, slaIcon, slaLabel } from '@/lib/sla';
+import { SLABadge } from '@/components/company/sla-badge';
 
 async function contactResearcher(reportId: string) {
   'use server';
@@ -67,10 +71,11 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
     supabase.from('report_label_links').select('label_id').eq('report_id', id),
   ]);
   const attachedIds = new Set(((attached ?? []) as { label_id: string }[]).map((l) => l.label_id));
-  const slaHours = (report as unknown as { programs: { response_sla_hours: number } | null }).programs?.response_sla_hours ?? 72;
-  const submittedAt = report.submitted_at ? new Date(report.submitted_at).getTime() : null;
-  const elapsedH = submittedAt ? (Date.now() - submittedAt) / 3_600_000 : null;
-  const breached = elapsedH != null && elapsedH > slaHours && !['resolved', 'closed'].includes(report.status);
+  // SLA via lib/sla (24h response, 72h triage, 14d resolution)
+  const slaStatus = getSLAStatus({ status: report.status, created_at: report.created_at, submitted_at: report.submitted_at } as never);
+  const slaDueResponse = getDueDate({ status: report.status, created_at: report.created_at, submitted_at: report.submitted_at } as never, 'response');
+  const slaDueTriage = getDueDate({ status: report.status, created_at: report.created_at, submitted_at: report.submitted_at } as never, 'triage');
+  const slaDueResolution = getDueDate({ status: report.status, created_at: report.created_at, submitted_at: report.submitted_at } as never, 'resolution');
   const { data: comments } = await supabase.from('report_comments').select('id,body,is_internal,created_at,profiles!inner(username)').eq('report_id', id).order('created_at');
   const { data: dups } = await supabase.from('report_duplicates').select('id,duplicate_of').eq('report_id', id);
 
@@ -81,11 +86,15 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
           <h1 className="text-2xl font-bold">{report.report_number} — {report.title}</h1>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge>{report.status}</Badge><Badge variant="secondary">{report.severity}</Badge>
-            {elapsedH != null && (
-              <Badge variant={breached ? 'destructive' : 'secondary'}>
-                SLA {slaHours}h — مر {Math.floor(elapsedH)}h{breached ? ' (متجاوز!)' : ''}
-              </Badge>
-            )}
+            <SLABadge report={{ status: report.status, created_at: report.created_at, submitted_at: report.submitted_at } as never} />
+            <Badge variant="outline" className="font-mono text-xs" dir="ltr">{slaIcon(slaStatus)} {slaLabel(slaStatus)}</Badge>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+            <span>استجابة 24س: {slaDueResponse ? slaDueResponse.toLocaleString('ar-EG') : '—'}</span>
+            <span>·</span>
+            <span>فرز 72س: {slaDueTriage ? slaDueTriage.toLocaleString('ar-EG') : '—'}</span>
+            <span>·</span>
+            <span>حل 14ي: {slaDueResolution ? slaDueResolution.toLocaleString('ar-EG') : '—'}</span>
           </div>
         </div>
         <form action={contactResearcher.bind(null, report.id)}>
@@ -125,16 +134,16 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
         </CardContent>
       </Card>
       <div className="grid gap-6 md:grid-cols-2">
-        <Card><CardHeader><CardTitle>المكلفون</CardTitle></CardHeader><CardContent className="space-y-2">
+        <Card><CardHeader><CardTitle>المكلفون — RBAC triager+</CardTitle></CardHeader><CardContent className="space-y-2">
           {((assignees ?? []) as unknown as { user_id: string; profiles: { username: string } }[]).map((a) => (
             <div key={a.user_id} className="flex items-center justify-between text-sm">
               <span dir="ltr">@{a.profiles.username}</span>
-              <form action={unassignReportAction.bind(null, report.id, a.user_id)}>
+              <form action={async () => { 'use server'; await unassignReport(report.id, a.user_id); }}>
                 <Button size="sm" variant="ghost" type="submit">إزالة</Button>
               </form>
             </div>
           ))}
-          <form action={assignReportAction.bind(null, report.id)} className="flex gap-2 pt-1">
+          <form action={async (fd: FormData) => { 'use server'; await assignReport(report.id, String(fd.get('assignee_id') ?? '')); }} className="flex gap-2 pt-1">
             <select name="assignee_id" required defaultValue="" className="h-10 flex-1 rounded-md border px-2 text-sm">
               <option value="" disabled>اختر من الفريق…</option>
               {((members ?? []) as unknown as { user_id: string; role: string; profiles: { username: string } }[]).map((m) => (
@@ -143,6 +152,7 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
             </select>
             <Button size="sm" type="submit">تكليف</Button>
           </form>
+          <p className="text-xs text-muted-foreground">التكليف/إعادة التكليف/الإلغاء يتطلب دور triager فأعلى — يُتحقق عبر company_members و owner.</p>
         </CardContent></Card>
         <Card><CardHeader><CardTitle>الوسوم</CardTitle></CardHeader><CardContent>
           <form action={toggleLabelAction.bind(null, report.id)} className="flex flex-wrap gap-2">

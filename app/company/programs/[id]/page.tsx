@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { AssetManager } from '@/components/programs/asset-manager';
 
 async function updateStatus(id: string, formData: FormData) {
   'use server';
@@ -160,19 +161,7 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
           <Button size="sm" type="submit">حفظ النشر</Button>
         </form>
       </div>
-      <Card><CardHeader><CardTitle>الأصول ({assets?.length ?? 0})</CardTitle></CardHeader><CardContent>
-        {assets?.map((a) => (
-          <div key={a.id} className="flex items-center justify-between border-b py-2 text-sm">
-            <span>{a.type}: <span dir="ltr">{a.value}</span></span>
-            <form action={deleteAsset.bind(null, a.id, program.id)}><Button size="sm" variant="ghost" type="submit">حذف</Button></form>
-          </div>
-        ))}
-        <form action={addAsset.bind(null, program.id)} className="flex gap-2 mt-3">
-          <select name="type" className="h-10 border rounded-md px-2"><option value="web">web</option><option value="api">api</option><option value="mobile">mobile</option><option value="network">network</option><option value="other">other</option></select>
-          <Input name="value" required placeholder="https://… or 192.0.2.0/24" dir="ltr" />
-          <Button size="sm" type="submit">إضافة</Button>
-        </form>
-      </CardContent></Card>
+      <AssetManager programId={program.id} assets={(assets ?? []) as never} />
       <Card><CardHeader><CardTitle>القواعد ({rules?.length ?? 0})</CardTitle></CardHeader><CardContent>
         {rules?.map((r) => (
           <div key={r.id} className="flex items-center justify-between border-b py-2 text-sm">
