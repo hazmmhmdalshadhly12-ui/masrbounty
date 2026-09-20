@@ -1,5 +1,3 @@
-import { randomBytes, createHash } from 'node:crypto';
-import { resolveTxt } from 'node:dns/promises';
 import { revalidatePath } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase/server';
@@ -63,6 +61,8 @@ async function requireCompanyAccess(db: Db, companyId: string): Promise<string> 
 }
 
 async function lookupToken(domain: string, token: string): Promise<boolean> {
+  // webpackIgnore prevents Vercel/Next edge bundling from tracing node: import
+  const { resolveTxt } = await import(/* webpackIgnore: true */ 'node:dns/promises');
   const hosts = [`_masrbounty.${domain}`, domain];
   for (const host of hosts) {
     try {
@@ -90,7 +90,8 @@ export async function requestVerification(
     const clean = normalizeDomain(domain);
     if (!clean) return { data: null, error: 'Invalid domain' };
     const actorId = await requireCompanyAccess(db, companyId);
-    const token = randomBytes(16).toString('hex');
+    const { randomBytes: rb } = await import(/* webpackIgnore: true */ 'node:crypto');
+    const token = rb(16).toString('hex');
     const { data, error } = await db
       .from('domain_verifications')
       .upsert(
@@ -269,8 +270,9 @@ export async function requestCompanyDomain(
     const clean = normalizeDomain(domain);
     if (!clean) return { data: null, error: 'النطاق غير صالح' };
     const actorId = await requireCompanyAccess(db, companyId);
-    const token = randomBytes(16).toString('hex');
-    const hash = createHash('sha256').update(token).digest('hex');
+    const crypto = await import(/* webpackIgnore: true */ 'node:crypto');
+    const token = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
     // Try new-schema columns first; fall back to legacy token column if DB not migrated
     let payload: Record<string, unknown> = {
       company_id: companyId,

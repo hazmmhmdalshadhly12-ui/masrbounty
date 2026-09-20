@@ -1,25 +1,12 @@
-import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { getCompanyAnalytics } from '@/services/analytics';
-
-const ReportsPerMonthChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.ReportsPerMonthChart), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-full" />,
-});
-const SeverityDistChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.SeverityDistChart), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-full" />,
-});
-const BountySpendingChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.BountySpendingChart), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-full" />,
-});
-const AvgResolutionChart = dynamic(() => import('@/components/company/analytics-charts').then((m) => m.AvgResolutionChart), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-full" />,
-});
+import {
+  ReportsPerMonthChart,
+  SeverityDistChart,
+  BountySpendingChart,
+  AvgResolutionChart,
+} from '@/components/company/analytics-charts';
 
 export default async function AnalyticsPage() {
   const { data: analytics, error } = await getCompanyAnalytics();
