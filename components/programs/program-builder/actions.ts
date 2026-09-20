@@ -123,6 +123,65 @@ export async function createWizardProgramAction(payload: WizardData): Promise<Ac
   }
 }
 
+export async function createVerificationTokenAction(domain: string): Promise<{ token: string; sentence: string } | null> {
+  const d = domain.trim().toLowerCase();
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return null;
+  const { randomBytes } = await import(/* webpackIgnore: true */ 'node:crypto');
+  const token = randomBytes(16).toString('hex');
+  return { token, sentence: `masrbounty-verification=${token}` };
+}
+
+export async function verifyDomainFileAction(domain: string, token: string): Promise<{ verified: boolean; error?: string }> {
+  const d = domain.trim().toLowerCase();
+  if (!d || !token) return { verified: false, error: 'الدومين والرمز مطلوبان' };
+  const sentence = `masrbounty-verification=${token}`;
+  const urls = [`https://${d}/.well-known/masrbounty-verification.txt`, `https://${d}/masrbounty-verification.txt`];
+  let found = false;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (text.includes(sentence) || text.includes(token)) { found = true; break; }
+    } catch {
+      /* try next */
+    }
+  }
+  if (!found) return { verified: false, error: 'الملف غير موجود أو لا يحتوي الجملة — تأكد من https://' + d + '/.well-known/masrbounty-verification.txt' };
+  // Persist verification so publish gate passes — create/update company_domains as verified
+  try {
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (uid) {
+      let companyId: string | null = null;
+      const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
+      if (owned) companyId = (owned as { id: string }).id;
+      else {
+        const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
+        if (mem) companyId = (mem as { company_id: string }).company_id;
+      }
+      if (companyId) {
+        const { createHash } = await import(/* webpackIgnore: true */ 'node:crypto');
+        const hash = createHash('sha256').update(token).digest('hex');
+        await supabase.from('company_domains').upsert({
+          company_id: companyId,
+          domain: d,
+          verification_token_plain: token,
+          verification_token_hash: hash,
+          token,
+          status: 'verified',
+          verified_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+        }, { onConflict: 'company_id,domain' });
+      }
+    }
+  } catch {
+    /* verification succeeded even if persist fails — publish will use file check fallback */
+  }
+  return { verified: true };
+}
+
 export async function checkWizardReadinessAction(programId: string): Promise<{ ready: boolean; missing: string[]; error?: string }> {
   try {
     const supabase = await createServerClient();

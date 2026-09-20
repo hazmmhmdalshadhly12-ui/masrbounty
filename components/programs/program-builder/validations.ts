@@ -77,13 +77,22 @@ export const disclosureSchema = z.object({
   disclosureMode: z.enum(['private', 'coordinated', 'public']),
 });
 
+export const verificationSchema = z.object({
+  domain: z.string().trim().min(3, 'الدومين مطلوب').regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'صيغة الدومين غير صحيحة (مثال: example.com)'),
+  filePath: z.string().trim().min(1).default('/.well-known/masrbounty-verification.txt'),
+  sentence: z.string().trim().min(10),
+  verified: z.boolean().refine((v) => v === true, { message: 'يجب إثبات ملكية الدومين قبل المتابعة — ضع الملف ثم اضغط تحقق' }),
+  token: z.string().trim().min(8),
+});
+
 export const wizardSchemas = {
   1: basicSchema,
-  2: scopeSchema,
-  3: rulesSchema,
-  4: rewardsSchema,
-  5: slaSchema,
-  6: disclosureSchema,
+  2: verificationSchema,
+  3: scopeSchema,
+  4: rulesSchema,
+  5: rewardsSchema,
+  6: slaSchema,
+  7: disclosureSchema,
 } as const;
 
 export function validateStep(step: number, data: unknown): { ok: boolean; errors?: string[] } {

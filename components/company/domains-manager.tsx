@@ -18,6 +18,8 @@ type DomainRow = {
   created_at?: string | null;
 };
 
+const FILE_PATH = '/.well-known/masrbounty-verification.txt';
+
 function CopyInline({ text }: { text: string }) {
   const [done, setDone] = React.useState(false);
   async function copy() {
@@ -111,7 +113,7 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
         <CardTitle className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5" /> النطاقات المؤسسية
         </CardTitle>
-        <p className="text-xs text-muted-foreground">أضف نطاقات شركتك ووثّق ملكيتها عبر سجل DNS TXT. التوثيق مطلوب لنشر البرامج. الرمز يظهر مرة واحدة — احفظه ثم أضفه كسجل TXT.</p>
+        <p className="text-xs text-muted-foreground">أضف نطاقات شركتك ووثّق ملكيتها عبر ملف تحقق. ضع الملف في <code dir="ltr">{FILE_PATH}</code> بمحتوى الجملة — التوثيق مطلوب لنشر البرامج.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {msg && (
@@ -124,8 +126,8 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
 
         <div className="space-y-3">
           {domains.map((d) => {
-            const txt = `masrbounty-verification=${d.token}`;
-            const host = `_masrbounty.${d.domain}`;
+            const sentence = `masrbounty-verification=${d.token}`;
+            const fileUrl = `https://${d.domain}${FILE_PATH}`;
             const verified = d.status === 'verified';
             const expired = d.status === 'expired';
             const failed = d.status === 'failed';
@@ -156,20 +158,20 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
                     {showToken ? (
                       <>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-muted-foreground">سجل TXT — host:</span>
-                          <CopyInline text={host} />
+                          <span className="text-muted-foreground">المسار:</span>
+                          <CopyInline text={fileUrl} />
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-muted-foreground">القيمة:</span>
-                          <CopyInline text={txt} />
+                          <span className="text-muted-foreground">محتوى الملف (جملة واحدة):</span>
+                          <CopyInline text={sentence} />
                         </div>
-                        <p className="text-[11px] text-amber-700">انسخ القيمة الآن — الرمز يُخزن كـ hash ولن يظهر كاملاً مرة أخرى بعد التحديث.</p>
+                        <p className="text-[11px] text-amber-700">أنشئ الملف كـ text/plain بهذه الجملة بالضبط — يُخزن كـ hash بعد الحفظ.</p>
                       </>
                     ) : (
                       <p className="text-muted-foreground">الرمز مُخفي لأسباب أمنية — أعد إنشاء النطاق لإظهار رمز جديد.</p>
                     )}
-                    {failed && <p className="text-red-700">فشل التحقق الأخير — تأكد من انتشار DNS ثم اضغط إعادة تحقق.</p>}
-                    {expired && <p className="text-red-700">انتهت صلاحية التوثيق (90 يوم) — أضف النطاق مرة أخرى أو احذفه وأعد إنشاءه.</p>}
+                    {failed && <p className="text-red-700">فشل التحقق — تأكد أن الملف متاح عبر {FILE_PATH} ثم اضغط إعادة تحقق.</p>}
+                    {expired && <p className="text-red-700">انتهت صلاحية التوثيق (90 يوم) — احذف وأعد إنشاء النطاق.</p>}
                     <div className="mt-2 flex gap-2">
                       <Button size="sm" onClick={() => handleVerify(d.id)} disabled={pending === `verify-${d.id}`}>
                         {pending === `verify-${d.id}` && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}

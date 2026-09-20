@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { StepBasic } from './steps/StepBasic';
+import { StepVerification } from './steps/StepVerification';
 import { StepScope } from './steps/StepScope';
 import { StepRules } from './steps/StepRules';
 import { StepRewards } from './steps/StepRewards';
@@ -22,14 +23,16 @@ function getStepSlice(step: number, data: WizardData): unknown {
     case 1:
       return data.basic;
     case 2:
-      return data.scope;
+      return data.verification;
     case 3:
-      return data.rules;
+      return data.scope;
     case 4:
-      return data.rewards;
+      return data.rules;
     case 5:
-      return data.sla;
+      return data.rewards;
     case 6:
+      return data.sla;
+    case 7:
       return data.disclosure;
     default:
       return undefined;
@@ -164,13 +167,14 @@ export function ProgramBuilderWizard(): React.JSX.Element {
 
       <div className="min-h-[320px]">
         {step === 1 && <StepBasic data={data.basic} onChange={updateBasic} errors={errors} />}
-        {step === 2 && <StepScope data={data.scope} onChange={updateScope} errors={errors} />}
-        {step === 3 && <StepRules data={data.rules} onChange={updateRules} errors={errors} />}
-        {step === 4 && <StepRewards data={data.rewards} onChange={updateRewards} errors={errors} />}
-        {step === 5 && <StepSLA data={data.sla} onChange={updateSLA} errors={errors} />}
-        {step === 6 && <StepDisclosure data={data.disclosure} onChange={updateDisclosure} errors={errors} />}
-        {step === 7 && <StepPreview data={data} />}
-        {step === 8 && <StepPublish data={data} onCreated={setCreatedProgramId} />}
+        {step === 2 && <StepVerification errors={errors} />}
+        {step === 3 && <StepScope data={data.scope} onChange={updateScope} errors={errors} />}
+        {step === 4 && <StepRules data={data.rules} onChange={updateRules} errors={errors} />}
+        {step === 5 && <StepRewards data={data.rewards} onChange={updateRewards} errors={errors} />}
+        {step === 6 && <StepSLA data={data.sla} onChange={updateSLA} errors={errors} />}
+        {step === 7 && <StepDisclosure data={data.disclosure} onChange={updateDisclosure} errors={errors} />}
+        {step === 8 && <StepPreview data={data} />}
+        {step === 9 && <StepPublish data={data} onCreated={setCreatedProgramId} />}
       </div>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -180,7 +184,7 @@ export function ProgramBuilderWizard(): React.JSX.Element {
         </Button>
 
         <div className="flex items-center gap-2 justify-end">
-          {createdProgramId && step === 8 && (
+          {createdProgramId && step === 9 && (
             <a href={`/company/programs/${createdProgramId}`} className="text-xs text-primary hover:underline hidden sm:inline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               عرض البرنامج
             </a>
@@ -191,7 +195,7 @@ export function ProgramBuilderWizard(): React.JSX.Element {
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
           ) : (
-            <span className="text-xs text-muted-foreground">استخدم أزرار النشر داخل الخطوة ٨</span>
+            <span className="text-xs text-muted-foreground">استخدم أزرار النشر داخل الخطوة ٩</span>
           )}
         </div>
       </div>

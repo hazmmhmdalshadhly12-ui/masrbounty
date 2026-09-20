@@ -61,8 +61,26 @@ async function requireCompanyAccess(db: Db, companyId: string): Promise<string> 
   throw new Error('Forbidden: not a company member');
 }
 
+/** File-based verification: GET https://domain/.well-known/masrbounty-verification.txt — must contain token sentence. */
+async function lookupFile(domain: string, token: string): Promise<boolean> {
+  const sentence = `masrbounty-verification=${token}`;
+  const urls = [`https://${domain}/.well-known/masrbounty-verification.txt`, `https://${domain}/masrbounty-verification.txt`];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (text.includes(sentence) || text.includes(token)) return true;
+    } catch {
+      /* unreachable or timeout — try next */
+    }
+  }
+  return false;
+}
+
 async function lookupToken(domain: string, token: string): Promise<boolean> {
-  // webpackIgnore prevents Vercel/Next edge bundling from tracing node: import
+  // File method first (new), DNS TXT fallback (legacy) — webpackIgnore prevents edge bundling from tracing node: import
+  if (await lookupFile(domain, token)) return true;
   const { resolveTxt } = await import(/* webpackIgnore: true */ 'node:dns/promises');
   const hosts = [`_masrbounty.${domain}`, domain];
   for (const host of hosts) {

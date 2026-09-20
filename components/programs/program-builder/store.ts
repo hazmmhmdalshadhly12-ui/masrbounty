@@ -10,6 +10,7 @@ interface WizardStore {
   next: () => void;
   back: () => void;
   updateBasic: (patch: Partial<WizardData['basic']>) => void;
+  updateVerification: (patch: Partial<WizardData['verification']>) => void;
   updateScope: (patch: Partial<WizardData['scope']>) => void;
   updateRules: (patch: Partial<WizardData['rules']>) => void;
   updateRewards: (patch: Partial<WizardData['rewards']>) => void;
@@ -26,6 +27,7 @@ export const useWizardStore = create<WizardStore>((set) => ({
   next: () => set((s) => ({ step: Math.min(TOTAL_STEPS, s.step + 1) })),
   back: () => set((s) => ({ step: Math.max(1, s.step - 1) })),
   updateBasic: (patch) => set((s) => ({ data: { ...s.data, basic: { ...s.data.basic, ...patch } } })),
+  updateVerification: (patch) => set((s) => ({ data: { ...s.data, verification: { ...s.data.verification, ...patch } } })),
   updateScope: (patch) => set((s) => ({ data: { ...s.data, scope: { ...s.data.scope, ...patch } } })),
   updateRules: (patch) => set((s) => ({ data: { ...s.data, rules: { ...s.data.rules, ...patch } } })),
   updateRewards: (patch) => set((s) => ({ data: { ...s.data, rewards: { ...s.data.rewards, ...patch } } })),

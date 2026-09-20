@@ -27,6 +27,13 @@ export interface WizardData {
     website: string;
     contact_email: string;
   };
+  verification: {
+    domain: string;
+    filePath: string;
+    sentence: string;
+    verified: boolean;
+    token: string;
+  };
   scope: {
     assets: WizardAsset[];
     out_of_scope: string;
@@ -53,22 +60,24 @@ export interface WizardData {
   };
 }
 
-export const TOTAL_STEPS = 8;
+export const TOTAL_STEPS = 9;
 
 export const STEP_LABELS_AR: Record<number, { title: string; desc: string }> = {
   1: { title: 'البيانات الأساسية', desc: 'اسم وشعار ووصف البرنامج' },
-  2: { title: 'النطاق', desc: 'الأصول والنطاقات المستهدفة' },
-  3: { title: 'القواعد', desc: 'قواعد الاختبار والملاذ الآمن' },
-  4: { title: 'المكافآت', desc: 'مبالغ المكافآت حسب الخطورة' },
-  5: { title: 'اتفاقية الخدمة', desc: 'أزمنة الاستجابة والفرز والمعالجة' },
-  6: { title: 'الإفصاح', desc: 'الخصوصية وسياسة الإفصاح' },
-  7: { title: 'المعاينة', desc: 'كيف يرى الباحثون برنامجك' },
-  8: { title: 'النشر', desc: 'التحقق والنشر' },
+  2: { title: 'إثبات الملكية', desc: 'ملف التحقق على موقعك' },
+  3: { title: 'النطاق', desc: 'الأصول والنطاقات المستهدفة' },
+  4: { title: 'القواعد', desc: 'قواعد الاختبار والملاذ الآمن' },
+  5: { title: 'المكافآت', desc: 'مبالغ المكافآت حسب الخطورة' },
+  6: { title: 'اتفاقية الخدمة', desc: 'أزمنة الاستجابة والفرز والمعالجة' },
+  7: { title: 'الإفصاح', desc: 'الخصوصية وسياسة الإفصاح' },
+  8: { title: 'المعاينة', desc: 'كيف يرى الباحثون برنامجك' },
+  9: { title: 'النشر', desc: 'المراجعة والنشر' },
 };
 
 export function getDefaultWizardData(): WizardData {
   return {
     basic: { name: '', slug: '', logo_url: '', description: '', website: '', contact_email: '' },
+    verification: { domain: '', filePath: '/.well-known/masrbounty-verification.txt', sentence: '', verified: false, token: '' },
     scope: {
       assets: [{ id: '1', type: 'web', value: '', description: '' }],
       out_of_scope: '',
