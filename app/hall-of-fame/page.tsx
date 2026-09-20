@@ -91,7 +91,7 @@ export default async function HallOfFamePage() {
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-white dark:bg-slate-900">
                       {group.company?.logo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={group.company.logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                        <img src={group.company.logo_url} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-lg object-cover" />
                       ) : (
                         <Building2 className="h-5 w-5 text-muted-foreground" />
                       )}

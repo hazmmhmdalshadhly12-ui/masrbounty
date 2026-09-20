@@ -9,9 +9,9 @@ import { PageHeader } from '@/components/shared/page-header';
 export const dynamic = 'force-dynamic';
 
 type CompanyRow = { id: string; name: string; slug: string };
-type DomainRow = { id: string; domain: string; token?: string; verification_token_plain?: string | null; status: string; verified_at: string | null; created_at: string };
+type DomainRow = { id: string; domain: string; token?: string; verification_token_plain?: string | null; status: string; verified_at: string | null; created_at: string; expires_at?: string | null };
 
-function mapDomain(r: Record<string, unknown>): DomainRow & { token: string } {
+function mapDomain(r: Record<string, unknown>): DomainRow & { token: string; expires_at?: string | null } {
   const token = (r['verification_token_plain'] as string | null) ?? (r['token'] as string | null) ?? (r['verification_token_hash'] as string | null) ?? '';
   return {
     id: String(r['id']),
@@ -21,6 +21,7 @@ function mapDomain(r: Record<string, unknown>): DomainRow & { token: string } {
     status: String(r['status'] ?? 'pending'),
     verified_at: (r['verified_at'] as string | null) ?? null,
     created_at: String(r['created_at'] ?? new Date().toISOString()),
+    expires_at: (r['expires_at'] as string | null) ?? null,
   };
 }
 
@@ -131,6 +132,7 @@ export default async function CompanyOnboardingPage({
     status: d.status,
     verified_at: d.verified_at,
     created_at: d.created_at,
+    expires_at: (d as unknown as { expires_at?: string | null }).expires_at ?? null,
   }));
 
   return (

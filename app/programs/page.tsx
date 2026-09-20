@@ -80,7 +80,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
 
   const supabase = await createServerClient();
 
-  // Base query: public + active only
+  // Public directory — anon sees ONLY public+active via can_view_program (RLS).
+  // private / invite_only are hidden here even if RLS were bypassed; paused/draft/closed also hidden via status=active.
   let query = supabase
     .from('programs')
     .select('id,name,slug,description,status,visibility,created_at,company_id,logo_url')
@@ -205,8 +206,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
 
   return (
     <main>
-      <section className="bg-[#0a1628] text-white">
-        <div className="container py-10 md:py-12">
+      <section className="bg-[#0a1628] text-white dark:border-slate-800">
+        <div className="container mx-auto max-w-6xl px-4 py-10 md:py-12">
           <span className="inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
             اختبار مصرح به فقط
           </span>
@@ -269,7 +270,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
         </div>
       </section>
 
-      <section className="container grid gap-6 py-8 grid-cols-1 lg:grid-cols-[280px_1fr]">
+      <section className="container mx-auto grid max-w-6xl gap-6 px-4 py-8 grid-cols-1 lg:grid-cols-[280px_1fr]">
         {/* Filters sidebar */}
         <aside className="h-fit space-y-4 lg:sticky lg:top-20">
           <Card>
@@ -411,10 +412,10 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                   const severitySet = severitiesByProgram.get(p.id);
                   const techSet = techByProgram.get(p.id);
                   return (
-                    <Card key={p.id} className="group flex flex-col transition-colors hover:border-slate-400">
+                    <Card key={p.id} className="group flex flex-col rounded-lg border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-slate-600">
                       <CardContent className="flex flex-1 flex-col p-5">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-muted">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-muted dark:border-slate-700 dark:bg-slate-800">
                             {p.logo_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={p.logo_url} alt="" width={40} height={40} loading="lazy" decoding="async" className="h-10 w-10 rounded-lg object-cover" />
@@ -423,39 +424,39 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                             )}
                           </span>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="secondary">عام</Badge>
+                            <Badge variant="secondary" className="dark:bg-slate-800 dark:text-slate-200">عام</Badge>
                             {company?.is_verified && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
                                 <Building2 className="h-3 w-3" /> موثقة
                               </span>
                             )}
                           </div>
                         </div>
-                        <h2 className="mt-4 line-clamp-1 text-base font-black leading-snug" title={p.name}>
+                        <h2 className="mt-4 line-clamp-1 text-base font-black leading-snug tracking-tight" title={p.name}>
                           {p.name}
                         </h2>
-                        {company && <p className="truncate text-xs text-muted-foreground">{company.name}</p>}
+                        {company && <p className="truncate text-xs font-medium text-muted-foreground">{company.name}</p>}
                         <p className="mt-2 line-clamp-2 min-h-[2.5rem] flex-1 text-sm leading-relaxed text-muted-foreground">
                           {p.description || '—'}
                         </p>
                         {!!severitySet?.size && (
                           <div className="mt-3 flex flex-wrap gap-1">
                             {[...severitySet].slice(0, 3).map((s) => (
-                              <Badge key={s} variant="outline" className="text-[11px] capitalize">
+                              <Badge key={s} variant="outline" className="border-amber-200 bg-amber-50 text-[11px] capitalize text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                                 {s}
                               </Badge>
                             ))}
                             {techSet && [...techSet].slice(0, 2).map((t) => (
-                              <Badge key={t} variant="secondary" className="text-[11px] uppercase">
+                              <Badge key={t} variant="secondary" className="text-[11px] uppercase tracking-wide dark:bg-slate-800">
                                 {t}
                               </Badge>
                             ))}
                           </div>
                         )}
                         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-bold text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                             حتى{' '}
-                            <b className="tabular-nums text-foreground" dir="ltr">
+                            <b className="tabular-nums" dir="ltr">
                               {max.toLocaleString()} EGP
                             </b>
                           </span>
@@ -465,8 +466,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                           <span>{new Date(p.created_at).toLocaleDateString('ar-EG')}</span>
                         </div>
                         <Link href={`/programs/${p.slug}`} className="mt-4">
-                          <Button variant="outline" className="w-full">
-                            عرض التفاصيل <ArrowLeft className="h-4 w-4" />
+                          <Button variant="outline" className="w-full group-hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600">
+                            عرض التفاصيل <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
                           </Button>
                         </Link>
                       </CardContent>

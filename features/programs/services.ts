@@ -6,12 +6,14 @@ import { createServerClient } from '@/lib/supabase/server';
 import { programSchema } from '@/schemas/program';
 import { slugify } from '@/utils/slug';
 import { enforceRate } from '@/lib/rate-limit';
+import { notify } from '@/lib/notify';
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerClient>>;
 
 export type PublishReadiness = { ready: boolean; missing: string[] };
 
-// Allowed state machine for program status
+// Strict state machine: draft→active (publish), active→paused, paused→active, active→closed, paused→closed, draft→closed
+// Also pending_review→active/closed if the enum exists. No other transitions allowed.
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   draft: ['active', 'closed'],
   pending_review: ['active', 'closed'],
@@ -24,6 +26,26 @@ function assertTransition(current: string, target: string): void {
   const allowed = ALLOWED_TRANSITIONS[current];
   if (!allowed || !allowed.includes(target)) {
     throw new Error(`الانتقال غير مسموح من الحالة "${current}" إلى "${target}"`);
+  }
+}
+
+async function notifyCompanyMembers(
+  supabase: SupabaseClient,
+  companyId: string,
+  payload: { title: string; body?: string; link?: string },
+) {
+  try {
+    const { data: company } = await supabase.from('company_profiles').select('owner_id').eq('id', companyId).single();
+    const ownerId = (company as { owner_id: string } | null)?.owner_id;
+    const { data: members } = await supabase.from('company_members').select('user_id').eq('company_id', companyId);
+    const ids = new Set<string>();
+    if (ownerId) ids.add(ownerId);
+    for (const m of (members ?? []) as { user_id: string }[]) ids.add(m.user_id);
+    for (const uid of ids) {
+      await notify(supabase, uid, { type: 'program', title: payload.title, body: payload.body, link: payload.link });
+    }
+  } catch {
+    /* notify best-effort */
   }
 }
 
@@ -213,17 +235,40 @@ async function doTransition(programId: string, target: 'draft' | 'active' | 'pau
   const program = await requireOwnedProgram(supabase, user.user.id, programId);
   const current = program.status as string;
   assertTransition(current, target);
+  // Going to active (publish or resume) must be fully ready — re-check gate
+  if (target === 'active') {
+    const readiness = await checkPublishReadiness(supabase, programId);
+    if (!readiness.ready) {
+      throw new Error(`البرنامج غير جاهز للنشر:\n- ${readiness.missing.join('\n- ')}`);
+    }
+  }
 
-  // Try to set published_at when going active; fallback gracefully if column missing
+  const now = new Date().toISOString();
   const updates: Record<string, unknown> = { status: target };
   if (target === 'active') {
-    updates['published_at'] = new Date().toISOString();
+    updates['published_at'] = now;
+    updates['paused_at'] = null;
+  } else if (target === 'paused') {
+    updates['paused_at'] = now;
+  } else if (target === 'closed') {
+    updates['closed_at'] = now;
+  } else if (target === 'draft') {
+    // unpublish is intentionally restricted by the state machine above (draft←active is not allowed).
+    // If reached, clear publish timestamps so RLS (can_view_program) hides it from anon.
+    updates['published_at'] = null;
+    updates['paused_at'] = null;
   }
 
   let { error } = await supabase.from('programs').update(updates).eq('id', programId);
-  // If published_at column doesn't exist, retry without it
-  if (error && /published_at/i.test(error.message)) {
-    const retry = await supabase.from('programs').update({ status: target }).eq('id', programId);
+  // Graceful fallback if lifecycle columns don't exist yet (older DB)
+  if (error && /published_at|paused_at|closed_at/i.test(error.message)) {
+    const fallback: Record<string, unknown> = { status: target };
+    // keep published_at for active if possible
+    if (target === 'active' && !/published_at/i.test(error.message)) fallback['published_at'] = now;
+    let retry = await supabase.from('programs').update(fallback).eq('id', programId);
+    if (retry.error && /published_at|paused_at|closed_at/i.test(retry.error.message)) {
+      retry = await supabase.from('programs').update({ status: target }).eq('id', programId);
+    }
     error = retry.error;
   }
   if (error) throw new Error(error.message);
@@ -239,6 +284,14 @@ async function doTransition(programId: string, target: 'draft' | 'active' | 'pau
     });
   } catch {
     // audit failure should not block transition
+  }
+
+  if (target === 'active') {
+    await notifyCompanyMembers(supabase, program.company_id, {
+      title: `نُشر البرنامج — ${target}`,
+      body: `انتقل البرنامج من ${current} إلى ${target}`,
+      link: `/company/programs/${programId}`,
+    });
   }
 
   revalidatePath('/programs');
@@ -260,12 +313,17 @@ export async function publishProgramAction(programId: string) {
   if (!readiness.ready) {
     throw new Error(`البرنامج غير جاهز للنشر:\n- ${readiness.missing.join('\n- ')}`);
   }
-  // delegate to doTransition but we already validated; do update directly to avoid double fetch
-  const updates: Record<string, unknown> = { status: 'active', published_at: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const updates: Record<string, unknown> = { status: 'active', published_at: now, paused_at: null };
   let { error } = await supabase.from('programs').update(updates).eq('id', programId);
-  if (error && /published_at/i.test(error.message)) {
-    const retry = await supabase.from('programs').update({ status: 'active' }).eq('id', programId);
-    error = retry.error;
+  if (error && /published_at|paused_at/i.test(error.message)) {
+    const retry = await supabase.from('programs').update({ status: 'active', published_at: now }).eq('id', programId);
+    if (retry.error && /published_at/i.test(retry.error.message)) {
+      const r2 = await supabase.from('programs').update({ status: 'active' }).eq('id', programId);
+      error = r2.error;
+    } else {
+      error = retry.error;
+    }
   }
   if (error) throw new Error(error.message);
 
@@ -281,6 +339,12 @@ export async function publishProgramAction(programId: string) {
     /* ignore audit errors */
   }
 
+  await notifyCompanyMembers(supabase, program.company_id, {
+    title: `نُشر البرنامج وبات ظاهرًا للباحثين`,
+    body: `البرنامج أصبح active — الرابط العام متاح الآن`,
+    link: `/programs`,
+  });
+
   revalidatePath('/programs');
   revalidatePath('/company/programs');
   revalidatePath(`/programs/${programId}`);
@@ -288,22 +352,27 @@ export async function publishProgramAction(programId: string) {
   revalidatePath('/');
 }
 
-/** Active → paused: hides from public listing, keeps data. */
+/** Active → paused: hides from public listing, keeps data. Sets paused_at. */
 export async function pauseProgramAction(programId: string) {
   await doTransition(programId, 'paused');
 }
 
-/** Paused → active. */
+/** Paused → active: re-publish. GATED (readiness re-checked inside doTransition). */
 export async function resumeProgramAction(programId: string) {
   await doTransition(programId, 'active');
 }
 
-/** Any → closed: permanent end of submissions. Valid: draft/active/paused -> closed */
+/** Valid: draft/active/paused/pending_review -> closed. Sets closed_at. */
 export async function closeProgramAction(programId: string) {
   await doTransition(programId, 'closed');
 }
 
-/** Back to draft for rework. Valid: active/paused -> draft (best-effort) */
+/**
+ * Unpublish back to draft — NOT part of the strict state machine.
+ * Allowed transitions do NOT include active→draft or paused→draft, so this
+ * will throw with Arabic message. Kept for explicit RLS handling: when/if
+ * admin enables draft←active, the program becomes invisible via can_view_program (anon sees only active+public).
+ */
 export async function unpublishProgramAction(programId: string) {
   await doTransition(programId, 'draft');
 }

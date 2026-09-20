@@ -44,13 +44,13 @@ export function ForgotForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4">
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <div>
+    <form onSubmit={onSubmit} className="mt-6 space-y-5">
+      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      <div className="space-y-1.5">
         <Label htmlFor="email">البريد الإلكتروني</Label>
-        <Input id="email" type="email" required dir="ltr" className="mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input id="email" type="email" required dir="ltr" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
       </div>
-      <Button type="submit" disabled={busy} className="w-full bg-amber-400 font-bold text-[#0a1628] hover:bg-amber-300">
+      <Button type="submit" disabled={busy} className="w-full">
         {busy ? 'جارٍ الإرسال…' : 'إرسال الرابط'}
       </Button>
     </form>

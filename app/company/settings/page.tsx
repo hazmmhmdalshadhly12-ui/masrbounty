@@ -38,12 +38,12 @@ export default async function CompanySettings() {
     }
   }
   // Fetch company_domains for DomainsManager (new table) — map token fields for UI
-  let companyDomains: { id: string; domain: string; token: string; status: string; verified_at: string | null }[] = [];
+  let companyDomains: { id: string; domain: string; token: string; status: string; verified_at: string | null; expires_at: string | null; created_at: string | null }[] = [];
   if (company) {
     try {
       const { data: cds } = await supabase
         .from('company_domains')
-        .select('id,domain,verification_token_plain,token,verification_token_hash,status,verified_at,created_at')
+        .select('id,domain,verification_token_plain,token,verification_token_hash,status,verified_at,created_at,expires_at')
         .eq('company_id', company.id)
         .order('created_at', { ascending: false });
       if (cds) {
@@ -53,7 +53,17 @@ export default async function CompanySettings() {
           token: (r['verification_token_plain'] as string | null) ?? (r['token'] as string | null) ?? (r['verification_token_hash'] as string | null) ?? '',
           status: String(r['status'] ?? 'pending'),
           verified_at: (r['verified_at'] as string | null) ?? null,
+          expires_at: (r['expires_at'] as string | null) ?? null,
+          created_at: (r['created_at'] as string | null) ?? null,
         }));
+        // Surface expired locally if expires_at passed (UI expiry countdown)
+        const now = Date.now();
+        companyDomains = companyDomains.map((d) => {
+          if (d.expires_at && new Date(d.expires_at).getTime() < now && d.status === 'verified') {
+            return { ...d, status: 'expired' };
+          }
+          return d;
+        });
       }
     } catch {
       companyDomains = [];

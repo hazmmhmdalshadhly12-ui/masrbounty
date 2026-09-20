@@ -33,9 +33,9 @@
   .dark {
     --background: 216 60% 7%;
     --foreground: 210 40% 98%;
-    --card: 216 60% 7%;
+    --card: 217.2 32.6% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 216 60% 7%;
+    --popover: 217.2 32.6% 10%;
     --popover-foreground: 210 40% 98%;
     --primary: 43 96% 56%;
     --primary-foreground: 216 60% 7%;
@@ -70,11 +70,32 @@
     font-family: var(--font-cairo), var(--font-inter), 'Segoe UI', Tahoma, system-ui, sans-serif;
     text-rendering: optimizeLegibility;
   }
-  code, pre, .font-mono {
+  code,
+  pre,
+  .font-mono {
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   }
+  /* Enterprise headings — font-black tracking-tight */
+  h1,
+  h2,
+  h3 {
+    @apply font-black tracking-tight;
+  }
+  h1 {
+    @apply leading-tight;
+  }
+  /* Arabic paragraph comfort */
+  p,
+  li {
+    @apply leading-relaxed;
+  }
+  :lang(ar) {
+    line-height: 1.8;
+  }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
@@ -85,6 +106,10 @@
     outline-offset: 2px;
   }
   ::selection {
+    background: #f59e0b;
+    color: #0a1628;
+  }
+  .dark ::selection {
     background: #fbbf24;
     color: #0a1628;
   }
@@ -98,11 +123,30 @@
   ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #fbbf24;
+    background: #f59e0b;
+    background-clip: content-box;
   }
   .dark ::-webkit-scrollbar-thumb {
     background: #334155;
+    background-clip: content-box;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #fbbf24;
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  /* Enforce enterprise container — max-w-6xl centered */
+  .container {
+    max-width: 72rem;
+  }
+  /* Consistent section rhythm */
+  .section-py {
+    @apply py-8 md:py-12;
   }
 }

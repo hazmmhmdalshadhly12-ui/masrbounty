@@ -2,37 +2,13 @@ import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
 import { notify } from '@/lib/notify';
 import { requireCompanyRole } from '@/features/company/services';
+import { checkPublishReadiness, publishProgramAction, pauseProgramAction, resumeProgramAction, closeProgramAction } from '@/features/programs/services';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AssetManager } from '@/components/programs/asset-manager';
-
-async function updateStatus(id: string, formData: FormData) {
-  'use server';
-  const supabase = await createServerClient();
-  const status = String(formData.get('status'));
-  const visibility = String(formData.get('visibility'));
-  if (!['draft', 'pending_review', 'active', 'paused', 'closed'].includes(status)) throw new Error('Invalid status');
-  if (!['public', 'private'].includes(visibility)) throw new Error('Invalid visibility');
-  await requireCompanyRole(id);
-  const { data: program } = await supabase.from('programs').select('name').eq('id', id).single();
-  await supabase.from('programs').update({ status, visibility }).eq('id', id);
-  // Notify researchers who saved this program
-  const { data: savers } = await supabase
-    .from('saved_programs')
-    .select('researcher_id,researcher_profiles!inner(user_id)')
-    .eq('program_id', id);
-  for (const s of (savers ?? []) as unknown as { researcher_profiles: { user_id: string } }[]) {
-    await notify(supabase, s.researcher_profiles.user_id, {
-      type: 'program',
-      title: `تحديث البرنامج ${program?.name ?? ''}: ${status}`,
-      link: `/programs`,
-    });
-  }
-  revalidatePath('/company/programs');
-}
 
 async function addAsset(id: string, formData: FormData) {
   'use server';
@@ -128,6 +104,37 @@ async function inviteResearcher(programId: string, formData: FormData) {
   revalidatePath(`/company/programs/${programId}`);
 }
 
+async function visibilityAction(programId: string, formData: FormData) {
+  'use server';
+  const supabase = await createServerClient();
+  const v = String(formData.get('visibility'));
+  if (!['public', 'private', 'invite_only'].includes(v)) throw new Error('Invalid visibility');
+  await requireCompanyRole(programId);
+  const { error } = await supabase.from('programs').update({ visibility: v }).eq('id', programId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/company/programs/${programId}`);
+  revalidatePath('/programs');
+  revalidatePath('/');
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+    draft: { label: 'مسودة — draft', variant: 'secondary' },
+    pending_review: { label: 'قيد المراجعة — pending_review', variant: 'outline' },
+    active: { label: 'نشط — active', variant: 'default' },
+    paused: { label: 'مُعلّق — paused', variant: 'outline' },
+    closed: { label: 'مُغلق — closed', variant: 'destructive' },
+  };
+  const m = map[status] ?? { label: status, variant: 'secondary' as const };
+  return <Badge variant={m.variant}>{m.label}</Badge>;
+}
+
+function VisibilityBadge({ visibility }: { visibility: string }) {
+  if (visibility === 'private') return <Badge variant="destructive">خاص — للمدعوين فقط (private)</Badge>;
+  if (visibility === 'invite_only') return <Badge variant="destructive">دعوة فقط — invite_only</Badge>;
+  return <Badge variant="secondary">عام — يراه الجميع (public)</Badge>;
+}
+
 export default async function ManageProgram({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerClient();
   const { id: programId } = await params;
@@ -140,25 +147,122 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
     supabase.from('program_researchers').select('researcher_id,researcher_profiles(display_name)').eq('program_id', programId),
     supabase.from('program_updates').select('id,title,body,created_at').eq('program_id', programId).order('created_at', { ascending: false }).limit(10),
   ]);
+
+  // Publish readiness — Arabic missing list for UI badges & tooltip
+  let readiness: { ready: boolean; missing: string[] } = { ready: false, missing: [] };
+  try {
+    readiness = await checkPublishReadiness(supabase, programId);
+  } catch {
+    readiness = { ready: false, missing: ['تعذر التحقق من الجاهزية'] };
+  }
+  const canPublish = readiness.ready;
+  const missingText = readiness.missing.join(' • ');
+  const status = program.status as string;
+  const visibility = (program.visibility as string) ?? 'public';
+
+  const showPublish = status === 'draft' || status === 'pending_review';
+  const showResume = status === 'paused';
+  const showPause = status === 'active';
+  const showClose = status !== 'closed';
+
   return (
     <main className="container py-8 max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{program.name}</h1>
-        <div className="mt-2 flex gap-2">
-          <Badge>{program.status}</Badge>
-          <Badge variant={program.visibility === 'private' ? 'destructive' : 'secondary'}>
-            {program.visibility === 'private' ? 'خاص — للمدعوين فقط' : 'عام'}
-          </Badge>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">الحالة:</span>
+          <StatusBadge status={status} />
+          <span className="text-xs text-muted-foreground">الظهور:</span>
+          <VisibilityBadge visibility={visibility} />
+          {program.published_at && <span className="text-xs text-muted-foreground">نُشر: {new Date(program.published_at).toLocaleDateString('ar-EG')}</span>}
+          {program.paused_at && <span className="text-xs text-muted-foreground">مُعلّق: {new Date(program.paused_at).toLocaleDateString('ar-EG')}</span>}
+          {program.closed_at && <span className="text-xs text-muted-foreground">مُغلق: {new Date(program.closed_at).toLocaleDateString('ar-EG')}</span>}
         </div>
-        <form action={updateStatus.bind(null, program.id)} className="mt-3 flex flex-wrap gap-2">
-          <select name="status" defaultValue={program.status} className="h-10 border rounded-md px-3">
-            <option value="draft">draft</option><option value="pending_review">pending_review</option><option value="active">active</option><option value="paused">paused</option><option value="closed">closed</option>
+
+        {/* Publish readiness panel */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-sm">جاهزية النشر — Readiness Gates</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {canPublish ? (
+              <div className="flex items-center gap-2">
+                <Badge>جاهز للنشر ✓</Badge>
+                <span className="text-xs text-muted-foreground">كل المتطلبات مكتملة — يمكنك النشر الآن (ينقل draft → active ويظهر في /programs)</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs font-bold text-destructive">البرنامج غير جاهز — النواقص:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {readiness.missing.map((m) => (
+                    <Badge key={m} variant="destructive" className="text-[11px]">
+                      {m}
+                    </Badge>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {showPublish && (
+                <form action={publishProgramAction.bind(null, program.id)}>
+                  <Button
+                    size="sm"
+                    type="submit"
+                    disabled={!canPublish}
+                    title={!canPublish ? missingText : 'نشر البرنامج — يصبح مرئيًا في /programs و /'}
+                    aria-disabled={!canPublish}
+                  >
+                    نشر البرنامج (draft → active)
+                  </Button>
+                </form>
+              )}
+              {showResume && (
+                <form action={resumeProgramAction.bind(null, program.id)}>
+                  <Button
+                    size="sm"
+                    type="submit"
+                    disabled={!canPublish}
+                    title={!canPublish ? missingText : 'استئناف البرنامج — paused → active'}
+                    aria-disabled={!canPublish}
+                  >
+                    استئناف (paused → active)
+                  </Button>
+                </form>
+              )}
+              {showPause && (
+                <form action={pauseProgramAction.bind(null, program.id)}>
+                  <Button size="sm" variant="outline" type="submit" title="إيقاف مؤقت — active → paused (يُخفى من /programs)">
+                    إيقاف مؤقت (active → paused)
+                  </Button>
+                </form>
+              )}
+              {showClose && (
+                <form action={closeProgramAction.bind(null, program.id)}>
+                  <Button size="sm" variant="destructive" type="submit" title="إغلاق نهائي — يُخفى من /programs ويُسجل closed_at">
+                    إغلاق (→ closed)
+                  </Button>
+                </form>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              آلة الحالات الصارمة: draft→active، active→paused، paused→active، active/pending_review/draft→closed، paused→closed. أي انتقال غير مسموح يُرفض بخطأ عربي. عند النشر يُضبط published_at ويسجل audit log ويُرسل إشعار لأعضاء الشركة ويُحدث /programs و /.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Visibility control — separate from status machine */}
+        <form action={visibilityAction.bind(null, program.id)} className="mt-3 flex flex-wrap items-center gap-2">
+          <label htmlFor="vis" className="text-xs font-bold">
+            الظهور:
+          </label>
+          <select id="vis" name="visibility" defaultValue={visibility} className="h-9 rounded-md border bg-background px-3 text-sm">
+            <option value="public">عام — يراه الجميع (public) — يظهر في /programs عند active</option>
+            <option value="private">خاص — للمدعوين فقط (private)</option>
+            <option value="invite_only">دعوة فقط — invite_only (مخفي عن anon، RLS عبر can_view_program)</option>
           </select>
-          <select name="visibility" defaultValue={program.visibility} className="h-10 border rounded-md px-3">
-            <option value="public">عام — يراه الجميع</option>
-            <option value="private">خاص — للمدعوين فقط</option>
-          </select>
-          <Button size="sm" type="submit">حفظ النشر</Button>
+          <Button size="sm" variant="outline" type="submit">
+            حفظ الظهور
+          </Button>
         </form>
       </div>
       <AssetManager programId={program.id} assets={(assets ?? []) as never} />

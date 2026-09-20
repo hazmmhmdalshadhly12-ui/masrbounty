@@ -40,6 +40,8 @@ export function Avatar({
         width={dims}
         height={dims}
         unoptimized
+        loading="lazy"
+        decoding="async"
         className={cn('rounded-full object-cover', sizes[size], className)}
       />
     );

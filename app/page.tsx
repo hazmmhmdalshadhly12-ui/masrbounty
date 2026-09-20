@@ -47,6 +47,7 @@ export default async function Home() {
   let researchers = 0;
   try {
     const supabase = await createServerClient();
+    // Homepage stats — must count ONLY public+active (anon-visible). RLS can_view_program enforces same, but explicit filters guarantee it.
     const [p, r, u] = await Promise.all([
       supabase.from('programs').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('visibility', 'public'),
       supabase.from('reports').select('id', { count: 'exact', head: true }).neq('status', 'draft'),
@@ -62,21 +63,22 @@ export default async function Home() {
   return (
     <main>
       {/* HERO */}
-      <section className="relative overflow-hidden border-b bg-slate-950 text-white">
+      <section className="relative overflow-hidden border-b border-slate-800 bg-[#0a1628] text-white">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.15]"
+          className="pointer-events-none absolute inset-0 opacity-[0.12]"
           style={{
-            backgroundImage: 'linear-gradient(to left, rgb(148 163 184 / 0.25) 1px, transparent 1px), linear-gradient(to bottom, rgb(148 163 184 / 0.25) 1px, transparent 1px)',
+            backgroundImage: 'linear-gradient(to left, rgb(148 163 184 / 0.3) 1px, transparent 1px), linear-gradient(to bottom, rgb(148 163 184 / 0.3) 1px, transparent 1px)',
             backgroundSize: '44px 44px',
           }}
         />
-        <div className="container relative grid items-center gap-12 py-20 md:py-28 lg:grid-cols-2">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-bl from-amber-500/[0.06] via-transparent to-transparent" />
+        <div className="container relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-2">
           <div className="max-w-3xl">
-            <p className="flex items-center gap-3 text-sm font-medium text-amber-400">
+            <p className="flex items-center gap-3 text-sm font-bold tracking-wide text-amber-400">
               <span className="inline-block h-px w-10 bg-amber-400" />
               منصة مصرية لبرامج مكافآت الثغرات
             </p>
-            <h1 className="mt-5 text-4xl font-black leading-[1.3] tracking-tight md:text-5xl">
+            <h1 className="mt-5 text-4xl font-black leading-[1.25] tracking-tight md:text-5xl">
               اكتشف الثغرات. احم الشركات.
               <br />
               <span className="text-slate-400">اكسب المكافآت.</span>
@@ -86,12 +88,12 @@ export default async function Home() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/programs">
-                <Button size="lg" className="bg-amber-400 font-bold text-slate-950 hover:bg-amber-300">
+                <Button size="lg" className="bg-amber-400 font-black text-slate-950 shadow-sm hover:bg-amber-300 hover:shadow-md active:scale-[0.98]">
                   استكشف البرامج
                 </Button>
               </Link>
               <Link href="/register">
-                <Button size="lg" variant="outline" className="border-slate-700 text-white hover:bg-white/10 hover:text-white">
+                <Button size="lg" variant="outline" className="border-slate-700 bg-transparent font-bold text-white hover:bg-white/10 hover:text-white">
                   ابدأ كباحث أمني <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
@@ -110,17 +112,19 @@ export default async function Home() {
       </section>
 
       {/* FEATURES */}
-      <section className="container py-16 md:py-20">
+      <section className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
         <div className="max-w-2xl">
-          <p className="text-sm font-bold text-amber-600">المنصة</p>
+          <p className="text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">المنصة</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">بنية متكاملة لدورة البلاغ</h2>
           <p className="mt-3 leading-relaxed text-muted-foreground">من الاكتشاف حتى صرف المستحقات — كل مرحلة موثقة وقابلة للتتبع.</p>
         </div>
-        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border bg-border dark:border-slate-700 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f) => (
-            <div key={f.title} className="bg-card p-6">
-              <f.icon className="h-5 w-5 text-amber-600" strokeWidth={2} />
-              <h3 className="mt-4 font-bold">{f.title}</h3>
+            <div key={f.title} className="group bg-card p-6 transition-colors hover:bg-muted/50 dark:bg-slate-900/40">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-amber-50 text-amber-600 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+                <f.icon className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <h3 className="mt-4 font-bold tracking-tight">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
             </div>
           ))}
@@ -128,8 +132,8 @@ export default async function Home() {
       </section>
 
       {/* STEPS */}
-      <section className="border-y bg-muted/40">
-        <div className="container py-16 md:py-20">
+      <section className="border-y bg-muted/40 dark:border-slate-800 dark:bg-slate-900/20">
+        <div className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
           <div className="max-w-2xl">
             <p className="text-sm font-bold text-amber-600">آلية العمل</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">ثلاث خطوات للبدء</h2>
@@ -147,8 +151,8 @@ export default async function Home() {
       </section>
 
       {/* COMPANY CTA */}
-      <section className="container py-16 md:py-20">
-        <div className="grid items-center gap-8 rounded-xl border bg-slate-950 p-8 text-white md:grid-cols-[1fr_auto] md:p-12">
+      <section className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
+        <div className="grid items-center gap-8 rounded-xl border border-slate-800 bg-slate-950 p-8 text-white shadow-sm dark:border-slate-700 md:grid-cols-[1fr_auto] md:p-12">
           <div>
             <p className="text-sm font-bold text-amber-400">للشركات</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">حوّل مجتمع الباحثين إلى خط دفاعك الأول</h2>

@@ -6,6 +6,7 @@ export const ROUTES = {
   researchers: '/researchers',
   researcherDetail: (username: string): string => `/researchers/${username}`,
   companies: '/companies',
+  companyDetail: (slug: string): string => `/companies/${slug}`,
   leaderboard: '/leaderboard',
   hallOfFame: '/hall-of-fame',
   blog: '/blog',
@@ -13,6 +14,7 @@ export const ROUTES = {
   help: '/help',
   faq: '/faq',
   about: '/about',
+  disclosure: '/disclosure',
   contact: '/contact',
   privacy: '/privacy',
   terms: '/terms',
@@ -21,15 +23,31 @@ export const ROUTES = {
   login: '/login',
   register: '/register',
   forgotPassword: '/forgot-password',
+  authCallback: '/auth/callback',
   dashboard: '/dashboard',
   dashboardReports: '/dashboard/reports',
   dashboardReportNew: '/dashboard/reports/new',
   dashboardReport: (id: string): string => `/dashboard/reports/${id}`,
   dashboardWallet: '/dashboard/wallet',
+  dashboardPayments: '/dashboard/payments',
+  dashboardBadges: '/dashboard/badges',
+  dashboardMessages: '/dashboard/messages',
+  dashboardNotifications: '/dashboard/notifications',
+  dashboardVerification: '/dashboard/verification',
+  dashboardPrograms: '/dashboard/programs',
   dashboardSettings: '/dashboard/settings',
   company: '/company',
+  companyOnboarding: '/company/onboarding',
   companyPrograms: '/company/programs',
+  companyProgramNew: '/company/programs/new',
+  companyProgramDetail: (id: string): string => `/company/programs/${id}`,
   companyReports: '/company/reports',
+  companyReportDetail: (id: string): string => `/company/reports/${id}`,
+  companyAnalytics: '/company/analytics',
+  companyPayments: '/company/payments',
+  companyMessages: '/company/messages',
+  companyNotifications: '/company/notifications',
+  companyResearchers: '/company/researchers',
   companySettings: '/company/settings',
   companyTeam: '/company/team',
   admin: '/admin',
@@ -37,12 +55,17 @@ export const ROUTES = {
   adminReports: '/admin/reports',
   adminPrograms: '/admin/programs',
   adminPayments: '/admin/payments',
+  adminCompanies: '/admin/companies',
+  adminDisputes: '/admin/disputes',
+  adminModeration: '/admin/moderation',
+  adminSupport: '/admin/support',
+  adminVerification: '/admin/verification',
+  adminAuditLogs: '/admin/audit-logs',
   adminSettings: '/admin/settings',
   profile: '/profile',
   settings: '/settings',
   welcome: '/welcome',
   appeal: '/appeal',
-  authCallback: '/auth/callback',
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;
@@ -60,6 +83,7 @@ export const STATIC_ROUTES: readonly string[] = [
   ROUTES.help,
   ROUTES.faq,
   ROUTES.about,
+  ROUTES.disclosure,
   ROUTES.contact,
   ROUTES.privacy,
   ROUTES.terms,
@@ -72,10 +96,23 @@ export const STATIC_ROUTES: readonly string[] = [
   ROUTES.dashboardReports,
   ROUTES.dashboardReportNew,
   ROUTES.dashboardWallet,
+  ROUTES.dashboardPayments,
+  ROUTES.dashboardBadges,
+  ROUTES.dashboardMessages,
+  ROUTES.dashboardNotifications,
+  ROUTES.dashboardVerification,
+  ROUTES.dashboardPrograms,
   ROUTES.dashboardSettings,
   ROUTES.company,
+  ROUTES.companyOnboarding,
   ROUTES.companyPrograms,
+  ROUTES.companyProgramNew,
   ROUTES.companyReports,
+  ROUTES.companyAnalytics,
+  ROUTES.companyPayments,
+  ROUTES.companyMessages,
+  ROUTES.companyNotifications,
+  ROUTES.companyResearchers,
   ROUTES.companySettings,
   ROUTES.companyTeam,
   ROUTES.admin,
@@ -83,6 +120,12 @@ export const STATIC_ROUTES: readonly string[] = [
   ROUTES.adminReports,
   ROUTES.adminPrograms,
   ROUTES.adminPayments,
+  ROUTES.adminCompanies,
+  ROUTES.adminDisputes,
+  ROUTES.adminModeration,
+  ROUTES.adminSupport,
+  ROUTES.adminVerification,
+  ROUTES.adminAuditLogs,
   ROUTES.adminSettings,
   ROUTES.profile,
   ROUTES.settings,
@@ -96,4 +139,16 @@ export function programUrl(slug: string): string {
 
 export function reportUrl(id: string): string {
   return ROUTES.dashboardReport(id);
+}
+
+export function companyProgramUrl(id: string): string {
+  return ROUTES.companyProgramDetail(id);
+}
+
+export function companyReportUrl(id: string): string {
+  return ROUTES.companyReportDetail(id);
+}
+
+export function companiesUrl(slug: string): string {
+  return ROUTES.companyDetail(slug);
 }

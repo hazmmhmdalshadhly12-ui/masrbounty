@@ -1,7 +1,7 @@
 import type { Locale, Role, ThemeMode } from './index';
 
 export type UserRole = Role;
-export type CompanyMemberRole = 'owner' | 'admin' | 'triager' | 'viewer';
+export type CompanyMemberRole = 'owner' | 'admin' | 'triager' | 'analyst' | 'finance' | 'viewer';
 export type VerificationKind = 'email' | 'phone' | 'identity';
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 

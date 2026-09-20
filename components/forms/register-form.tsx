@@ -130,16 +130,16 @@ export function RegisterForm({ next = '' }: { next?: string }) {
 
   if (pendingEmail) {
     return (
-      <div className="max-w-md mx-auto mt-6 space-y-4 p-6 bg-background/90 backdrop-blur rounded-xl border border-border">
-        <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+      <div className="mx-auto mt-6 max-w-md space-y-4 rounded-xl border bg-card p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
           تم إنشاء حسابك — أرسلنا رابط التفعيل إلى <b dir="ltr">{pendingEmail}</b>. أكّد بريدك ثم سجّل الدخول.
         </p>
-        {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
         <div className="flex gap-2">
           <Button type="button" variant="outline" disabled={busy} onClick={resend} className="flex-1">
             إعادة إرسال الرابط
           </Button>
-          <Button type="button" onClick={() => router.push('/login')} className="flex-1 bg-slate-900 text-white hover:bg-slate-700">
+          <Button type="button" onClick={() => router.push('/login')} className="flex-1">
             الذهاب للدخول
           </Button>
         </div>
@@ -148,16 +148,14 @@ export function RegisterForm({ next = '' }: { next?: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-md mx-auto space-y-4 p-6 bg-background/90 backdrop-blur rounded-xl border border-border">
+    <form onSubmit={onSubmit} className="mx-auto max-w-md space-y-5 rounded-xl border bg-card p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 md:p-8">
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </p>
       )}
-      <div>
-        <Label htmlFor="username" className="block mb-1 font-medium text-foreground">
-          اسم المستخدم
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="username">اسم المستخدم</Label>
         <Input
           id="username"
           required
@@ -166,20 +164,18 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           placeholder="hunter_eg"
           aria-invalid={Boolean(fieldErrors.username)}
           aria-describedby={fieldErrors.username ? 'username-error' : undefined}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          autoComplete="username"
         />
         {fieldErrors.username && (
-          <p id="username-error" className="mt-1 text-sm text-red-600">
+          <p id="username-error" className="text-xs font-medium text-destructive">
             {fieldErrors.username}
           </p>
         )}
       </div>
-      <div>
-        <Label htmlFor="email" className="block mb-1 font-medium text-foreground">
-          البريد الإلكتروني
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="email">البريد الإلكتروني</Label>
         <Input
           id="email"
           type="email"
@@ -188,40 +184,36 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           placeholder="you@example.com"
           aria-invalid={Boolean(fieldErrors.email)}
           aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
         />
         {fieldErrors.email && (
-          <p id="email-error" className="mt-1 text-sm text-red-600">
+          <p id="email-error" className="text-xs font-medium text-destructive">
             {fieldErrors.email}
           </p>
         )}
       </div>
-      <div>
-        <Label htmlFor="full_name" className="block mb-1 font-medium text-foreground">
-          الاسم الكامل
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="full_name">الاسم الكامل</Label>
         <Input
           id="full_name"
           required
           placeholder="أحمد محمد"
           aria-invalid={Boolean(fieldErrors.full_name)}
           aria-describedby={fieldErrors.full_name ? 'full_name-error' : undefined}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
+          autoComplete="name"
         />
         {fieldErrors.full_name && (
-          <p id="full_name-error" className="mt-1 text-sm text-red-600">
+          <p id="full_name-error" className="text-xs font-medium text-destructive">
             {fieldErrors.full_name}
           </p>
         )}
       </div>
-      <div>
-        <Label htmlFor="phone" className="block mb-1 font-medium text-foreground">
-          رقم الهاتف
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="phone">رقم الهاتف</Label>
         <Input
           id="phone"
           type="tel"
@@ -231,12 +223,12 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           placeholder="01xxxxxxxxx"
           aria-invalid={Boolean(fieldErrors.phone)}
           aria-describedby={fieldErrors.phone ? 'phone-error' : undefined}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={phone}
           onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, '').slice(0, 11))}
+          autoComplete="tel"
         />
         {fieldErrors.phone && (
-          <p id="phone-error" className="mt-1 text-sm text-red-600">
+          <p id="phone-error" className="text-xs font-medium text-destructive">
             {fieldErrors.phone}
           </p>
         )}
@@ -248,12 +240,8 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           value={password}
           onChange={setPassword}
           showStrength
+          error={fieldErrors.password}
         />
-        {fieldErrors.password && (
-          <p id="password-error" className="mt-1 text-sm text-red-600">
-            {fieldErrors.password}
-          </p>
-        )}
       </div>
       <div>
         <PasswordField
@@ -261,20 +249,14 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           label="تأكيد كلمة السر"
           value={confirmPassword}
           onChange={setConfirmPassword}
+          error={fieldErrors.confirmPassword}
         />
-        {fieldErrors.confirmPassword && (
-          <p id="confirmPassword-error" className="mt-1 text-sm text-red-600">
-            {fieldErrors.confirmPassword}
-          </p>
-        )}
       </div>
-      <div>
-        <Label htmlFor="role" className="block mb-1 font-medium text-foreground">
-          أنا…
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="role">أنا…</Label>
         <select
           id="role"
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-slate-700 dark:bg-slate-900/50"
           value={role}
           onChange={(e) => setRole(e.target.value as 'researcher' | 'company')}
         >
@@ -282,7 +264,7 @@ export function RegisterForm({ next = '' }: { next?: string }) {
           <option value="company">شركة — عايز أحمي منتجي</option>
         </select>
       </div>
-      <Button type="submit" disabled={busy} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+      <Button type="submit" disabled={busy} className="w-full">
         {busy ? 'جارٍ الإنشاء…' : 'إنشاء الحساب'}
       </Button>
     </form>

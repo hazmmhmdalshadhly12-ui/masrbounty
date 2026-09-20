@@ -1,7 +1,7 @@
 import type { Locale } from '@/types/index';
 
 export const ROLES = ['researcher', 'company', 'moderator', 'admin'] as const;
-export const MEMBER_ROLES = ['owner', 'admin', 'triager', 'viewer'] as const;
+export const MEMBER_ROLES = ['owner', 'admin', 'triager', 'analyst', 'finance', 'viewer'] as const;
 export const STAFF_ROLES = ['admin', 'moderator'] as const;
 
 export type UserRole = (typeof ROLES)[number];
@@ -21,6 +21,8 @@ export const MEMBER_ROLE_LABELS: Record<CompanyMemberRole, { ar: string; en: str
   owner: { ar: 'مالك', en: 'Owner' },
   admin: { ar: 'مدير', en: 'Admin' },
   triager: { ar: 'فارز', en: 'Triager' },
+  analyst: { ar: 'محلل', en: 'Analyst' },
+  finance: { ar: 'مالية', en: 'Finance' },
   viewer: { ar: 'مشاهِد', en: 'Viewer' },
 };
 
@@ -45,7 +47,7 @@ export function hasRole(mine: readonly string[], ...wanted: UserRole[]): boolean
 }
 
 export function canTriage(memberRole: CompanyMemberRole | null | undefined): boolean {
-  return memberRole === 'owner' || memberRole === 'admin' || memberRole === 'triager';
+  return memberRole === 'owner' || memberRole === 'admin' || memberRole === 'triager' || memberRole === 'analyst';
 }
 
 export function roleLabel(role: UserRole, locale: Locale = 'ar'): string {

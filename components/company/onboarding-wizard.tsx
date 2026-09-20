@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Building2, Globe, ShieldCheck, BadgeCheck, Copy, Check, Loader2, Trash2, Shield } from 'lucide-react';
+import { Building2, Globe, ShieldCheck, BadgeCheck, Copy, Check, Loader2, Trash2, Shield, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,7 +16,20 @@ type WizardDomain = {
   status: string;
   verified_at: string | null;
   created_at: string;
+  expires_at?: string | null;
 };
+
+function expiryCountdown(expiresAt: string | null | undefined): { label: string; urgent: boolean } | null {
+  if (!expiresAt) return null;
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return { label: 'منتهي — يحتاج تجديد', urgent: true };
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return { label: `ينتهي خلال ${days} يوم${hours ? ` و ${hours} ساعة` : ''}`, urgent: days <= 7 };
+  if (hours > 0) return { label: `ينتهي خلال ${hours} ساعة`, urgent: true };
+  const mins = Math.floor((diff % 3600000) / 60000);
+  return { label: `ينتهي خلال ${mins} دقيقة`, urgent: true };
+}
 
 type WizardCompany = {
   id: string;
@@ -234,6 +247,8 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified }: 
               const txt = `masrbounty-verification=${d.token}`;
               const host = `_masrbounty.${d.domain}`;
               const isPending = d.status !== 'verified';
+              const countdown = expiryCountdown(d.expires_at);
+              const expired = d.status === 'expired';
               return (
                 <div key={d.id} className="space-y-3 rounded-lg border p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -244,10 +259,19 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified }: 
                       <Badge className="bg-emerald-600">موثّق ✓</Badge>
                     ) : d.status === 'failed' ? (
                       <Badge variant="destructive">فشل — حاول مجددًا</Badge>
+                    ) : expired ? (
+                      <Badge variant="destructive">منتهي</Badge>
                     ) : (
                       <Badge variant="secondary">بانتظار التوثيق</Badge>
                     )}
                   </div>
+                  {countdown && (
+                    <div className={['flex items-center gap-1.5 text-xs', countdown.urgent ? 'text-amber-700' : 'text-muted-foreground'].join(' ')}>
+                      {countdown.urgent ? <AlertTriangle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                      <span>{countdown.label}</span>
+                      {d.expires_at && <span className="text-[11px]">({new Date(d.expires_at).toLocaleDateString('ar-EG')})</span>}
+                    </div>
+                  )}
 
                   {isPending ? (
                     <>
@@ -265,12 +289,15 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified }: 
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground">قد يستغرق انتشار DNS بضع دقائق. يمكنك التحقق بعد 1–5 دقائق.</p>
+                        <p className="text-[11px] text-amber-700">الرمز يظهر مرة واحدة — يُخزن كـ hash بعد الحفظ. انسخه الآن.</p>
+                        {expired && <p className="text-xs font-bold text-red-700">انتهت صلاحية التوثيق (90 يوم) — أعد التحقق بعد تجديد السجل.</p>}
+                        {d.status === 'failed' && <p className="text-xs text-red-700">فشل التحقق الأخير — تأكد من السجل ثم اضغط إعادة تحقق.</p>}
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={() => handleVerify(d.id)} disabled={pendingAction === `verify-${d.id}`} size="sm">
                           {pendingAction === `verify-${d.id}` && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                           <Shield className="ml-1 h-4 w-4" />
-                          تحقق الآن
+                          {d.status === 'failed' || expired ? 'إعادة تحقق' : 'تحقق الآن'}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleDelete(d.id)} disabled={pendingAction === `del-${d.id}`}>
                           <Trash2 className="ml-1 h-4 w-4" />
@@ -279,7 +306,10 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified }: 
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-emerald-700">تم التوثيق — انتقل للخطوة التالية.</p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-emerald-700">تم التوثيق — انتقل للخطوة التالية.</p>
+                      {d.expires_at && <p className="text-xs text-muted-foreground">صالح حتى {new Date(d.expires_at).toLocaleDateString('ar-EG')} — {countdown?.label ?? ''}</p>}
+                    </div>
                   )}
                 </div>
               );
