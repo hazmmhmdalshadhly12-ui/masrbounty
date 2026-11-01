@@ -216,7 +216,13 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
   // let SPA catch-all pages (HTTP 200 for any path) "verify" with a trivial token.
   if (!isValidVerificationToken(token)) return { verified: false, error: 'رمز التحقق غير صالح — أنشئ رمزًا جديدًا' };
   const sentence = `masrbounty-verification=${token}`;
-  const urls = [`https://${d}/.well-known/masrbounty-verification.txt`, `https://${d}/masrbounty-verification.txt`];
+  // Primary: token-as-filename at the root (hazem.blog/<token>.txt);
+  // legacy paths still accepted for domains that already deployed them.
+  const urls = [
+    `https://${d}/${token}.txt`,
+    `https://${d}/.well-known/masrbounty-verification.txt`,
+    `https://${d}/masrbounty-verification.txt`,
+  ];
   let found = false;
   for (const url of urls) {
     try {
@@ -228,7 +234,7 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
       /* try next */
     }
   }
-  if (!found) return { verified: false, error: 'الملف غير موجود أو لا يحتوي الجملة — تأكد من https://' + d + '/.well-known/masrbounty-verification.txt' };
+  if (!found) return { verified: false, error: 'الملف غير موجود أو لا يحتوي الجملة — أنشئ الملف على https://' + d + '/' + token + '.txt (المسار البديل: /.well-known/masrbounty-verification.txt)' };
   const saved = await persistVerifiedDomain(d, token);
   return saved.ok ? { verified: true } : { verified: false, error: saved.error };
 }

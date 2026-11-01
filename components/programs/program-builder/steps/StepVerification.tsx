@@ -116,7 +116,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
     }
   }
 
-  const fileUrl = v.domain ? `https://${v.domain}${v.filePath}` : '';
+  const fileUrl = v.domain && v.token ? `https://${v.domain}/${v.token}.txt` : '';
   const sentence = v.sentence || (v.token ? `masrbounty-verification=${v.token}` : '');
   const txtHost = v.domain ? `_masrbounty.${v.domain}` : '_masrbounty.example.com';
 
@@ -233,9 +233,9 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                 </div>
               ) : (
                 <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-                  <p className="text-sm font-bold">١) أنشئ هذا الملف على موقعك:</p>
+                  <p className="text-sm font-bold">١) أنشئ هذا الملف على موقعك — في الجذر مباشرة، باسم الرمز نفسه:</p>
                   <div className="flex items-center gap-2 rounded-md bg-background border px-3 py-2 text-sm font-mono" dir="ltr">
-                    <span className="flex-1 truncate">{fileUrl || `https://example.com${v.filePath}`}</span>
+                    <span className="flex-1 truncate">{fileUrl || 'https://example.com/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.txt'}</span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -243,15 +243,19 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                       className="h-7 w-7 shrink-0"
                       onClick={() => copy(fileUrl, 'المسار')}
                       aria-label="نسخ المسار"
+                      disabled={!fileUrl}
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                     {fileUrl && (
                       <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground">
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        <ExternalLink className="h-4 w-4" />
                       </a>
                     )}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    الملف مطلوب في الجذر باسم الرمز (مثال: <code dir="ltr">hazem.blog/xxxxxxxx.txt</code>) — ويُقبل أيضًا المسار البديل <code dir="ltr">/.well-known/masrbounty-verification.txt</code>.
+                  </p>
 
                   <p className="text-sm font-bold pt-2">٢) محتوى الملف — جملة واحدة بالضبط:</p>
                   <div className="flex items-center gap-2 rounded-md bg-slate-950 text-amber-300 border border-slate-800 px-3 py-3 text-sm font-mono" dir="ltr">

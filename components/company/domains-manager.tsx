@@ -127,7 +127,8 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
         <div className="space-y-3">
           {domains.map((d) => {
             const sentence = `masrbounty-verification=${d.token}`;
-            const fileUrl = `https://${d.domain}${FILE_PATH}`;
+            // Primary file method: token-as-filename at the site root.
+            const fileUrl = d.token ? `https://${d.domain}/${d.token}.txt` : `https://${d.domain}${FILE_PATH}`;
             const verified = d.status === 'verified';
             const expired = d.status === 'expired';
             const failed = d.status === 'failed';
@@ -158,19 +159,19 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
                     {showToken ? (
                       <>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-muted-foreground">المسار:</span>
+                          <span className="text-muted-foreground">المسار (في الجذر):</span>
                           <CopyInline text={fileUrl} />
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-muted-foreground">محتوى الملف (جملة واحدة):</span>
                           <CopyInline text={sentence} />
                         </div>
-                        <p className="text-[11px] text-amber-700">أنشئ الملف كـ text/plain بهذه الجملة بالضبط — يُخزن كـ hash بعد الحفظ.</p>
+                        <p className="text-[11px] text-amber-700">أنشئ الملف في الجذر باسم الرمز نفسه (مثال: example.com/TOKEN.txt) كـ text/plain بهذه الجملة بالضبط — يُقبل أيضًا المسار البديل /.well-known/masrbounty-verification.txt.</p>
                       </>
                     ) : (
                       <p className="text-muted-foreground">الرمز مُخفي لأسباب أمنية — أعد إنشاء النطاق لإظهار رمز جديد.</p>
                     )}
-                    {failed && <p className="text-red-700">فشل التحقق — تأكد أن الملف متاح عبر {FILE_PATH} ثم اضغط إعادة تحقق.</p>}
+                    {failed && <p className="text-red-700">فشل التحقق — تأكد أن الملف متاح عبر {fileUrl} ثم اضغط إعادة تحقق.</p>}
                     {expired && <p className="text-red-700">انتهت صلاحية التوثيق (90 يوم) — احذف وأعد إنشاء النطاق.</p>}
                     <div className="mt-2 flex gap-2">
                       <Button size="sm" onClick={() => handleVerify(d.id)} disabled={pending === `verify-${d.id}`}>

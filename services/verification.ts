@@ -63,10 +63,15 @@ async function requireCompanyAccess(db: Db, companyId: string): Promise<string> 
   throw new Error('Forbidden: not a company member');
 }
 
-/** File-based verification: GET https://domain/.well-known/masrbounty-verification.txt — must contain token sentence. */
+/** File-based verification: primary https://domain/<token>.txt (root, token-as-filename —
+ *  like hazem.blog/xxxxxxxxxxxx.txt); legacy fallbacks still accepted. */
 async function lookupFile(domain: string, token: string): Promise<boolean> {
   const sentence = `masrbounty-verification=${token}`;
-  const urls = [`https://${domain}/.well-known/masrbounty-verification.txt`, `https://${domain}/masrbounty-verification.txt`];
+  const urls = [
+    `https://${domain}/${token}.txt`,
+    `https://${domain}/.well-known/masrbounty-verification.txt`,
+    `https://${domain}/masrbounty-verification.txt`,
+  ];
   for (const url of urls) {
     try {
       const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
