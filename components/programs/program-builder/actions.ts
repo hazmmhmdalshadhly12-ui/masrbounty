@@ -152,35 +152,38 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
     }
   }
   if (!found) return { verified: false, error: 'الملف غير موجود أو لا يحتوي الجملة — تأكد من https://' + d + '/.well-known/masrbounty-verification.txt' };
-  // Persist verification so publish gate passes — create/update company_domains as verified
+  // Persist verification so publish gate passes — create/update company_domains as verified.
+  // Real schema (masrbounty.sql §16.1): verification_token_plain / verification_token_hash — there is NO `token` column.
   try {
     const supabase = await createServerClient();
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth.user?.id;
-    if (uid) {
-      let companyId: string | null = null;
-      const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
-      if (owned) companyId = (owned as { id: string }).id;
-      else {
-        const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
-        if (mem) companyId = (mem as { company_id: string }).company_id;
-      }
-      if (companyId) {
-        const hash = await sha256Hex(token);
-        await supabase.from('company_domains').upsert({
-          company_id: companyId,
-          domain: d,
-          verification_token_plain: token,
-          verification_token_hash: hash,
-          token,
-          status: 'verified',
-          verified_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
-        }, { onConflict: 'company_id,domain' });
-      }
+    if (!uid) return { verified: false, error: 'انتهت الجلسة — سجّل الدخول ثم أعد التحقق' };
+    let companyId: string | null = null;
+    const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
+    if (owned) companyId = (owned as { id: string }).id;
+    else {
+      const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
+      if (mem) companyId = (mem as { company_id: string }).company_id;
     }
-  } catch {
-    /* verification succeeded even if persist fails — publish will use file check fallback */
+    if (!companyId) return { verified: false, error: 'لم يتم العثور على شركة مرتبطة بحسابك — أكمل إنشاء ملف الشركة أولاً' };
+    const hash = await sha256Hex(token);
+    const { error: upErr } = await supabase.from('company_domains').upsert({
+      company_id: companyId,
+      domain: d,
+      verification_token_plain: token,
+      verification_token_hash: hash,
+      status: 'verified',
+      verified_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+    }, { onConflict: 'company_id,domain' });
+    // Do NOT swallow persistence errors: checkPublishReadiness reads this row,
+    // so a silent failure would deadlock the wizard (verified in UI, missing in DB).
+    if (upErr) {
+      return { verified: false, error: 'تم التحقق من الملف لكن فشل حفظ التوثيق: ' + upErr.message };
+    }
+  } catch (e) {
+    return { verified: false, error: 'فشل حفظ التوثيق: ' + (e instanceof Error ? e.message : 'خطأ غير متوقع') };
   }
   return { verified: true };
 }

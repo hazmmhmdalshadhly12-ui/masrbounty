@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { createVerificationTokenAction, verifyDomainFileAction } from '../actions';
 
 export function StepVerification({ errors }: { errors: string[] }): React.JSX.Element {
@@ -16,16 +16,32 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
   const [msg, setMsg] = React.useState<string | null>(null);
   const [ok, setOk] = React.useState<boolean | null>(null);
 
+  const domainValid = /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.domain.trim());
+
   // Auto-generate token/sentence when domain changes and not yet verified
-  const ensureToken = React.useCallback(async () => {
+  const ensureToken = React.useCallback(async (): Promise<boolean> => {
     const domain = v.domain.trim().toLowerCase();
-    if (!domain || v.token) return;
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) return;
+    if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) return false;
+    if (v.token) return true;
     const res = await createVerificationTokenAction(domain);
     if (res?.token && res?.sentence) {
       updateVerification({ token: res.token, sentence: res.sentence });
+      return true;
     }
+    return false;
   }, [v.domain, v.token, updateVerification]);
+
+  async function onGenerate() {
+    setBusy(true);
+    setMsg(null);
+    setOk(null);
+    const got = await ensureToken();
+    if (!got) {
+      setOk(false);
+      setMsg('تعذّر توليد رمز التحقق — تأكد من صيغة الدومين (مثال: example.com) ثم أعد المحاولة');
+    }
+    setBusy(false);
+  }
 
   async function onVerify() {
     setBusy(true);
@@ -133,10 +149,17 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" onClick={onVerify} disabled={busy || !v.token || !v.domain} className="gap-2">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  تحقق الآن
-                </Button>
+                {!v.token ? (
+                  <Button type="button" onClick={onGenerate} disabled={busy || !domainValid} className="gap-2">
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    إنشاء رمز التحقق
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={onVerify} disabled={busy} className="gap-2">
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                    تحقق الآن
+                  </Button>
+                )}
                 {v.verified ? (
                   <Badge variant="default" className="gap-1 bg-emerald-600 hover:bg-emerald-600">
                     <CheckCircle className="h-3.5 w-3.5" /> موثّق
@@ -148,6 +171,9 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                 )}
                 {msg && <span className={`text-sm ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>{msg}</span>}
               </div>
+              {!v.token && !domainValid && (
+                <p className="text-xs text-amber-600">أدخل دومينًا بصيغة صحيحة (مثال: example.com) لتفعيل إنشاء الرمز.</p>
+              )}
             </>
           )}
         </CardContent>

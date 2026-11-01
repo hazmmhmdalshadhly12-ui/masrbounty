@@ -375,13 +375,12 @@ export async function requestCompanyDomain(
     const token = randomHex(16);
     const hash = await sha256Hex(token);
     const expiresAt = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();
-    // Try new-schema columns first; fall back to legacy token column if DB not migrated
+    // New schema (masrbounty.sql §16.1) has NO `token` column — use verification_token_plain/hash.
     let payload: Record<string, unknown> = {
       company_id: companyId,
       domain: clean,
       verification_token_plain: token,
       verification_token_hash: hash,
-      token,
       status: 'pending',
       verified_at: null,
       expires_at: expiresAt,
@@ -391,8 +390,8 @@ export async function requestCompanyDomain(
       .upsert(payload, { onConflict: 'company_id,domain' })
       .select('*')
       .single();
-    if (error && /column|verification_token/i.test(error.message)) {
-      // Retry with legacy shape only
+    if (error && /verification_token/i.test(error.message)) {
+      // Legacy DB without verification_token columns — retry with legacy `token` column only
       payload = { company_id: companyId, domain: clean, token, status: 'pending', verified_at: null, expires_at: expiresAt };
       const retry = await db
         .from('company_domains')
@@ -409,7 +408,6 @@ export async function requestCompanyDomain(
         domain: clean,
         verification_token_plain: token,
         verification_token_hash: hash,
-        token,
         status: 'pending',
         verified_at: null,
       };
