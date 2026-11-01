@@ -9,7 +9,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 export const runtime = 'edge';
 
@@ -17,12 +17,31 @@ const cairo = Cairo({ subsets: ['arabic', 'latin'], variable: '--font-cairo', di
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' });
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a1628' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: { default: 'MasrBounty', template: '%s | MasrBounty' },
-  description: 'Egyptian Bug Bounty Platform — Authorized security testing only',
+  description: 'MasrBounty — منصة مصرية لبرامج مكافآت الثغرات. اختبارات أمنية مصرح بها، تقارير منهجية، ومكافآت شفافة.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://masrbounty.vercel.app'),
+  applicationName: 'MasrBounty',
+  keywords: ['bug bounty', 'مكافآت الثغرات', 'أمن المعلومات', 'اختبار الاختراق', 'Egypt', 'مصر'],
+  openGraph: {
+    type: 'website',
+    siteName: 'MasrBounty',
+    locale: 'ar_EG',
+    title: 'MasrBounty — منصة مكافآت الثغرات المصرية',
+    description: 'اكتشف الثغرات، احمِ الشركات، واكسب المكافآت — اختبارات مصرح بها فقط.',
+  },
+  twitter: { card: 'summary_large_image', title: 'MasrBounty', description: 'منصة مصرية لبرامج مكافآت الثغرات' },
   icons: { icon: '/logo.svg', apple: '/logo.svg' },
   manifest: '/manifest.json',
-  themeColor: '#0a1628',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
