@@ -1,5 +1,5 @@
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { triageReportAction, awardBountyAction, changeSeverityAction, markDuplicateAction, toggleLabelAction } from '@/features/company/services';
 import { assignReportAction as legacyAssign, unassignReportAction as legacyUnassign } from '@/features/company/services';
@@ -61,9 +61,21 @@ async function contactResearcher(reportId: string) {
 export default async function CompanyReport({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerClient();
   const { id } = await params;
+  const { data: user } = await supabase.auth.getUser();
   const { data: report } = await supabase.from('reports').select('*,programs(company_id,response_sla_hours)').eq('id', id).single();
-  if (!report) return <div className="container py-12">Not found.</div>;
+  if (!report) notFound();
   const companyId = (report as unknown as { programs: { company_id: string } | null }).programs?.company_id ?? null;
+
+  // Explicit server-side authorization: must belong to the owning company.
+  if (companyId && user.user) {
+    const [{ data: membership }, { data: owned }] = await Promise.all([
+      supabase.from('company_members').select('id').eq('company_id', companyId).eq('user_id', user.user.id).maybeSingle(),
+      supabase.from('company_profiles').select('id').eq('id', companyId).eq('owner_id', user.user.id).maybeSingle(),
+    ]);
+    if (!membership && !owned) notFound();
+  } else if (!user.user) {
+    notFound();
+  }
   const [{ data: assignees }, { data: members }, { data: labels }, { data: attached }] = await Promise.all([
     supabase.from('report_assignees').select('user_id,profiles!inner(username)').eq('report_id', id),
     companyId ? supabase.from('company_members').select('user_id,role,profiles!inner(username)').eq('company_id', companyId) : Promise.resolve({ data: [] }),

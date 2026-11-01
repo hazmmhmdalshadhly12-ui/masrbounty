@@ -1,16 +1,63 @@
-const QA = [
-  ['How do report numbers work?', 'Every report gets a unique MB-000001 style number generated safely in PostgreSQL.'],
-  ['How do I get paid?', 'Approved bounties credit your wallet. Request a payout; an admin reviews and completes it.'],
-  ['What can I test?', 'Only assets explicitly listed in an active program scope. Out-of-scope testing is forbidden.'],
-  ['How are disputes handled?', 'Open a dispute on the report. The company responds; moderators review and resolve.'],
-  ['Is my data private?', 'Report attachments are private storage. Only the reporter, program company team, and admins can access them.'],
+import { PageHero } from '@/components/layout/page-hero';
+import { Card, CardContent } from '@/components/ui/card';
+
+const QA: [string, string][] = [
+  [
+    'كيف تُرقَّم التقارير؟',
+    'كل تقرير يحصل على رقم فريد بصيغة MB-000001 يُولَّد بأمان داخل PostgreSQL عبر تسلسل مخصص — فلا تكرار ولا تعارض حتى مع تقارير متزامنة.',
+  ],
+  [
+    'كيف أستلم مكافأتي؟',
+    'عند اعتماد الشركة للمكافأة تُقيَّد في محفظتك كرصيد معلق، ثم تتحول لرصيد متاح بعد تأكيد الدفع. اطلب سحبًا من المحفظة وتراجعه الإدارة وتُكمله عبر وسيلة الدفع المسجلة في إعداداتك.',
+  ],
+  [
+    'ما الذي يحق لي اختباره؟',
+    'فقط الأصول المذكورة صراحةً في نطاق برنامج نشط. أي اختبار خارج النطاق أو مسح عشوائي أو هجمات على أنظمة غير مصرح بها ممنوع منعًا باتًا وقد يعرّضك لإيقاف الحساب.',
+  ],
+  [
+    'كيف تُعالج النزاعات؟',
+    'افتح نزاعًا من صفحة التقرير موضحًا سبب خلافك. ترد الشركة أولًا، ثم يراجع فريق الإدارة المحادثة والأدلة ويصدر قرارًا موثقًا (قبول أو رفض) مع مبرر مسجل.',
+  ],
+  [
+    'هل بياناتي وتقاريري محمية؟',
+    'نعم. مرفقات التقارير تُخزَّن في مخزن خاص غير عام — لا يصل إليها إلا مقدم التقرير وفريق الشركة المعنية وفريق الإدارة. كما لا يُعرض بريدك أو بياناتك الشخصية على العامة.',
+  ],
+  [
+    'ما معنى نقاط السمعة والشارات؟',
+    'نقاط السمعة تُحسب تلقائيًا من التقارير المقبولة وخطورة الثغرات، وتحدد ترتيبك في المتصدرين. الشارات تُمنح آليًا عند تحقيق إنجازات (أول تقرير مقبول، ثغرة حرجة، إلخ).',
+  ],
+  [
+    'كيف أنضم كشركة؟',
+    'سجّل حسابًا بنوع «شركة»، أنشئ ملف مؤسستك من إعدادات الشركة، وثّق نطاقك عبر سجل DNS TXT، ثم انشر برنامجًا بنطاق وقواعد ومكافآت واضحة وابدأ استقبال التقارير.',
+  ],
+  [
+    'هل يمكنني حذف أو تعديل تقريري بعد الإرسال؟',
+    'يمكنك تعديل مسودتك قبل الإرسال. بعد الإرسال يصبح التقرير جزءًا من سجل موثق لا يُحذف — لكن يمكنك فتح نزاع أو طلب توضيح من الشركة في أي وقت.',
+  ],
 ];
+
+export const metadata = {
+  title: 'الأسئلة الشائعة — MasrBounty',
+  description: 'إجابات على أكثر أسئلة الباحثين والشركات تكرارًا حول التقارير والمكافآت والنزاعات والخصوصية.',
+};
 
 export default function Faq() {
   return (
-    <div className="container py-12 max-w-3xl">
-      <h1 className="text-3xl font-bold mb-6">الأسئلة الشائعة</h1>
-      {QA.map(([q, a]) => <div key={q} className="border rounded-md p-4 mb-3"><p className="font-semibold">{q}</p><p className="text-sm text-muted-foreground mt-1">{a}</p></div>)}
+    <div>
+      <PageHero kicker="مركز المساعدة" title="الأسئلة الشائعة" desc="كل ما تحتاج معرفته عن العمل على المنصة — التقارير، المكافآت، النزاعات، والخصوصية." />
+      <section className="container max-w-3xl space-y-3 py-10">
+        {QA.map(([q, a]) => (
+          <Card key={q}>
+            <CardContent className="p-5">
+              <p className="font-bold">{q}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{a}</p>
+            </CardContent>
+          </Card>
+        ))}
+        <p className="pt-4 text-center text-sm text-muted-foreground">
+          لم تجد إجابتك؟ <a href="/contact" className="font-bold text-blue-700 hover:underline dark:text-blue-400">تواصل معنا</a> وسيرد فريق الدعم عبر التذاكر.
+        </p>
+      </section>
     </div>
   );
 }

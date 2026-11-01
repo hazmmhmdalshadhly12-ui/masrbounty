@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { addCommentAction, submitReportAction } from '@/features/reports/services';
 import { openDisputeAction } from '@/features/disputes/services';
@@ -15,7 +16,7 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
   const supabase = await createServerClient();
   const { id: reportId } = await params;
   const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
-  if (!report) return <div className="container py-12">Report not found.</div>;
+  if (!report) notFound();
   const [{ data: comments }, { data: events }, { data: attachments }, { data: award }, { data: payments }] = await Promise.all([
     supabase.from('report_comments').select('id,body,created_at,profiles!inner(username)').eq('report_id', reportId).order('created_at'),
     supabase.from('report_events').select('id,from_status,to_status,note,created_at').eq('report_id', reportId).order('created_at'),

@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache';
+import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { notify } from '@/lib/notify';
 import { requireCompanyRole } from '@/features/company/services';
@@ -139,7 +140,20 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
   const supabase = await createServerClient();
   const { id: programId } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('id', programId).single();
-  if (!program) return <div className="container py-12">Not found.</div>;
+  if (!program) notFound();
+
+  // Explicit server-side authorization (defense-in-depth on top of RLS):
+  // only members/owners of the owning company may open the management view.
+  const { data: authUser } = await supabase.auth.getUser();
+  const [{ data: membership }, { data: owned }] = await Promise.all([
+    authUser.user
+      ? supabase.from('company_members').select('id').eq('company_id', program.company_id).eq('user_id', authUser.user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    authUser.user
+      ? supabase.from('company_profiles').select('id').eq('id', program.company_id).eq('owner_id', authUser.user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (!membership && !owned) notFound();
   const [{ data: assets }, { data: rules }, { data: bounty }, { data: invited }, { data: updates }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', programId),
     supabase.from('program_rules').select('*').eq('program_id', programId),

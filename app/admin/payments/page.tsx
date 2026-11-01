@@ -47,7 +47,7 @@ export default async function AdminPayments() {
     { gross: 0, fee: 0, net: 0 }
   );
   const feePct = Number((feeRow?.value as { percent?: number } | null)?.percent ?? 10);
-  const vfNumber = String((vfRow?.value as string | null) ?? '0112417443').replace(/"/g, '');
+  const vfNumber = String((vfRow?.value as string | null) ?? '').replace(/"/g, '').trim();
 
   return (
     <div className="py-2">

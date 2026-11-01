@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth/admin-actions';
 import { logAudit } from '@/services/audit';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,10 +14,8 @@ import { FileText, Flag, Check, X, Copy, Eye } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 async function staff() {
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  return { supabase, user: user.user };
+  // Re-verify staff role on every mutation (layout check alone is not enough).
+  return requireStaff(['admin', 'moderator']);
 }
 
 async function triageReport(reportId: string, formData: FormData) {
@@ -187,7 +186,7 @@ export default async function AdminReports({
                       <StatusPill value={r.severity} kind="severity" />
                       {r.bounty_amount != null && Number(r.bounty_amount) > 0 && <Badge variant="outline">{Number(r.bounty_amount).toLocaleString()} EGP</Badge>}
                     </div>
-                    <Link href={`/reports/${r.id}`} className="mt-1 block truncate text-sm font-bold hover:underline">
+                    <Link href={`/dashboard/reports/${r.id}`} className="mt-1 block truncate text-sm font-bold hover:underline">
                       {r.title}
                     </Link>
                     <p className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -199,7 +198,7 @@ export default async function AdminReports({
                     </p>
                   </div>
                   <Button asChild size="sm" variant="outline" className="shrink-0">
-                    <Link href={`/reports/${r.id}`}>
+                    <Link href={`/dashboard/reports/${r.id}`}>
                       <Eye className="ml-1 h-3 w-3" /> عرض
                     </Link>
                   </Button>

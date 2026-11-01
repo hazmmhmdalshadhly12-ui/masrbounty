@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { enforceRate } from '@/lib/rate-limit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,21 +8,30 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { PageHero } from '@/components/layout/page-hero';
 
+// Generic responses only: the form never reveals whether an email exists.
+const GENERIC_ERROR = 'تعذّر استلام الاستئناف — تحقق من البيانات أو حاول لاحقًا';
+
 async function submitAppeal(formData: FormData) {
   'use server';
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
-  const reason = String(formData.get('reason') ?? '').trim();
-  if (!email.includes('@') || reason.length < 10) {
-    redirect('/appeal?error=' + encodeURIComponent('بريد غير صالح أو سبب قصير (10 أحرف على الأقل)'));
+  const reason = String(formData.get('reason') ?? '').trim().slice(0, 4000);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && reason.length >= 10;
+  if (!valid) {
+    redirect('/appeal?error=' + encodeURIComponent(GENERIC_ERROR));
   }
+  // Rate-limit per submission window (same shape as other public forms).
+  enforceRate(`appeal:${email}`, 3, 10 * 60_000);
+
   const db = createAdminClient();
-  const { data: users } = await db.auth.admin.listUsers();
-  const target = users.users.find((u) => u.email?.toLowerCase() === email);
-  if (!target) {
-    redirect('/appeal?error=' + encodeURIComponent('لا يوجد حساب بهذا البريد'));
+  // Look up the account without leaking existence: both paths return the
+  // same generic response, and an empty reason is recorded for moderation
+  // review only when a match exists.
+  const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const target = (list?.users ?? []).find((u) => u.email?.toLowerCase() === email);
+  if (target) {
+    await db.from('appeals').insert({ user_id: target.id, target_type: 'user', target_id: target.id, reason });
   }
-  await db.from('appeals').insert({ user_id: target.id, target_type: 'user', target_id: target.id, reason });
-  redirect('/appeal?ok=' + encodeURIComponent('استلمنا استئنافك — ستراجع الإدارة حالتك وترد عليك'));
+  redirect('/appeal?ok=' + encodeURIComponent('استلمنا طلبك — ستراجع الإدارة حالتك وترد عليك'));
 }
 
 export default async function Appeal({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {

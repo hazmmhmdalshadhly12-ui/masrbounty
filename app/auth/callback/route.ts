@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       if (error) return NextResponse.redirect(badLink);
       if (type === 'signup' || type === 'invite' || type === 'email_change') {
         return NextResponse.redirect(
-          `${origin}/login?ok=` + encodeURIComponent('تم تأكيد بريدك بنجاح — سجّل الدخول الآن')
+          `${origin}/welcome`
         );
       }
       if (type === 'recovery') {

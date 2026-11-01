@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth/admin-actions';
 import { logAudit } from '@/services/audit';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +13,8 @@ import { AppWindow, CheckCircle2, XCircle, Pause, Play, Eye } from 'lucide-react
 export const dynamic = 'force-dynamic';
 
 async function staff() {
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  return { supabase, user: user.user };
+  // Re-verify staff role on every mutation (layout check alone is not enough).
+  return requireStaff(['admin', 'moderator']);
 }
 
 async function programAction(programId: string, action: 'approve' | 'reject' | 'pause' | 'activate', formData: FormData) {

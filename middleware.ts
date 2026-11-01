@@ -82,7 +82,10 @@ export async function middleware(req: NextRequest) {
     const { data } = await supabase.auth.getUser();
     userId = data.user?.id ?? null;
   } else {
-    userId = hasCookie ? 'unknown' : null;
+    // Cookie presence is NOT identity: with auth env unset we treat every
+    // request as unauthenticated so protected routes bounce to /login, where
+    // the layout guard shows a proper "auth unavailable" message.
+    userId = null;
   }
 
   if (!userId && PROTECTED.some((rx) => rx.test(pathname))) {

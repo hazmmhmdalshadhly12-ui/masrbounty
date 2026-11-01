@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ export default async function CompanyPublic({ params }: { params: Promise<{ slug
   const supabase = await createServerClient();
   const { slug } = await params;
   const { data: company } = await supabase.from('company_profiles').select('*').eq('slug', slug).single();
-  if (!company) return <div className="container py-12">Company not found.</div>;
+  if (!company) notFound();
   const [{ data: programs }, { data: domains }, trust] = await Promise.all([
     supabase.from('programs').select('id,name,slug,status').eq('company_id', company.id).eq('status', 'active').eq('visibility', 'public'),
     supabase.from('domain_verifications').select('domain').eq('company_id', company.id).eq('status', 'verified'),

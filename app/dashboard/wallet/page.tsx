@@ -16,9 +16,12 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   if (!user.user) return <div className="py-2 text-sm">سجّل الدخول أولًا.</div>;
   const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single();
   if (!rp) return <div className="py-2 text-sm text-muted-foreground">لا يوجد ملف باحث.</div>;
-  const [{ data: wallet }, { data: txns }, { data: payouts }, { data: methods }] = await Promise.all([
-    supabase.from('wallets').select('*').eq('researcher_id', rp.id).single(),
-    supabase.from('wallet_transactions').select('id,type,amount,balance_after,note,created_at').order('created_at', { ascending: false }).limit(30),
+  const { data: wallet } = await supabase.from('wallets').select('*').eq('researcher_id', rp.id).single();
+  // Transactions are scoped to THIS wallet explicitly (defense-in-depth on top of RLS).
+  const [{ data: txns }, { data: payouts }, { data: methods }] = await Promise.all([
+    wallet
+      ? supabase.from('wallet_transactions').select('id,type,amount,balance_after,note,created_at').eq('wallet_id', wallet.id).order('created_at', { ascending: false }).limit(30)
+      : Promise.resolve({ data: [] } as { data: { id: string; type: string; amount: number; balance_after: number; note: string | null; created_at: string }[] | null }),
     supabase.from('payout_requests').select('*').eq('researcher_id', rp.id).order('created_at', { ascending: false }),
     supabase.from('payment_methods').select('*').eq('researcher_id', rp.id),
   ]);

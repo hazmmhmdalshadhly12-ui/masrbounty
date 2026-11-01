@@ -9,14 +9,13 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/page-header';
 import { ShieldCheck, Globe, Copy, CheckCircle2, XCircle, Search, AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireStaff } from '@/lib/auth/admin-actions';
 
 export const dynamic = 'force-dynamic';
 
 async function staff() {
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  return { supabase, user: user.user };
+  // Re-verify staff role on every mutation (layout check alone is not enough).
+  return requireStaff(['admin', 'moderator']);
 }
 
 // ---- Domain verification actions ----
@@ -38,12 +37,12 @@ async function verifyDomain(domainId: string, companyId: string, formData: FormD
         type: 'system',
         title: `تم توثيق نطاق شركتكم ${company.name}`,
         body: note || 'تم التحقق بنجاح بواسطة الإدارة',
-        link: '/company/domains',
+        link: '/company/settings',
       });
       const { data: members } = await admin.from('company_members').select('user_id').eq('company_id', companyId);
       for (const m of (members ?? []) as { user_id: string }[]) {
         if (m.user_id !== company.owner_id) {
-          await notify(supabase, m.user_id, { type: 'system', title: `تم توثيق نطاق ${company.name}`, link: '/company/domains' });
+          await notify(supabase, m.user_id, { type: 'system', title: `تم توثيق نطاق ${company.name}`, link: '/company/settings' });
         }
       }
     }

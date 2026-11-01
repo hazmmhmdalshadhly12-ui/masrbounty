@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { timeAgo } from '@/utils/time';
@@ -11,7 +11,7 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
   const supabase = await createServerClient();
   const { slug } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('slug', slug).single();
-  if (!program) return <div className="container py-12">Program not found.</div>;
+  if (!program) notFound();
   const [{ data: assets }, { data: rules }, { data: bounty }, { data: updates }, { data: activity }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', program.id),
     supabase.from('program_rules').select('*').eq('program_id', program.id).order('sort_order'),
