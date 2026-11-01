@@ -4,6 +4,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/services/audit';
 import { notify } from '@/lib/notify';
+import { randomHex, sha256Hex } from '@/lib/security/edge-crypto';
+import { resolveTxt } from '@/lib/security/dns-txt';
 
 export type ServiceResult<T> = { data: T | null; error: string | null };
 
@@ -79,14 +81,12 @@ async function lookupFile(domain: string, token: string): Promise<boolean> {
 }
 
 async function lookupToken(domain: string, token: string): Promise<boolean> {
-  // File method first (new), DNS TXT fallback (legacy) — webpackIgnore prevents edge bundling from tracing node: import
+  // File method first (new), DNS TXT fallback via DNS-over-HTTPS (works on edge runtimes)
   if (await lookupFile(domain, token)) return true;
-  const { resolveTxt } = await import(/* webpackIgnore: true */ 'node:dns/promises');
   const hosts = [`_masrbounty.${domain}`, domain];
   for (const host of hosts) {
     try {
-      const records = await resolveTxt(host);
-      const flat = records.map((chunks) => chunks.join(''));
+      const flat = await resolveTxt(host);
       if (flat.some((txt) => txt.includes(token))) return true;
       // also check for exact masrbounty-verification=TOKEN format
       if (flat.some((txt) => txt.includes(`masrbounty-verification=${token}`))) return true;
@@ -177,8 +177,7 @@ export async function requestVerification(
     const clean = normalizeDomain(domain);
     if (!clean) return { data: null, error: 'Invalid domain' };
     const actorId = await requireCompanyAccess(db, companyId);
-    const { randomBytes: rb } = await import(/* webpackIgnore: true */ 'node:crypto');
-    const token = rb(16).toString('hex');
+    const token = randomHex(16);
     const { data, error } = await db
       .from('domain_verifications')
       .upsert(
@@ -373,9 +372,8 @@ export async function requestCompanyDomain(
     const clean = normalizeDomain(domain);
     if (!clean) return { data: null, error: 'النطاق غير صالح' };
     const actorId = await requireCompanyAccess(db, companyId);
-    const crypto = await import(/* webpackIgnore: true */ 'node:crypto');
-    const token = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const token = randomHex(16);
+    const hash = await sha256Hex(token);
     const expiresAt = new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString();
     // Try new-schema columns first; fall back to legacy token column if DB not migrated
     let payload: Record<string, unknown> = {
@@ -442,7 +440,7 @@ export async function requestCompanyDomain(
 
 /**
  * Server-only DNS TXT check for company_domains.
- * Uses node:dns/promises resolveTxt — must not run on client.
+ * Uses DNS-over-HTTPS TXT lookups — must not run on client.
  */
 export async function verifyCompanyDomain(id: string, client?: Db): Promise<ServiceResult<CompanyDomain>> {
   try {

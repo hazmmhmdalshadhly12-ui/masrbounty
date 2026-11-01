@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { slugify } from '@/utils/slug';
 import { checkPublishReadiness } from '@/features/programs/services';
 import type { WizardData } from './types';
+import { randomHex, sha256Hex, isValidVerificationToken } from '@/lib/security/edge-crypto';
 
 type ActionResult = { ok: true; programId: string } | { ok: false; error: string };
 
@@ -126,14 +127,17 @@ export async function createWizardProgramAction(payload: WizardData): Promise<Ac
 export async function createVerificationTokenAction(domain: string): Promise<{ token: string; sentence: string } | null> {
   const d = domain.trim().toLowerCase();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return null;
-  const { randomBytes } = await import(/* webpackIgnore: true */ 'node:crypto');
-  const token = randomBytes(16).toString('hex');
+  const token = randomHex(16);
   return { token, sentence: `masrbounty-verification=${token}` };
 }
 
 export async function verifyDomainFileAction(domain: string, token: string): Promise<{ verified: boolean; error?: string }> {
   const d = domain.trim().toLowerCase();
   if (!d || !token) return { verified: false, error: 'الدومين والرمز مطلوبان' };
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return { verified: false, error: 'الدومين غير صالح' };
+  // Only accept server-format tokens and the exact sentence — a bare substring match
+  // let SPA catch-all pages (HTTP 200 for any path) "verify" with a trivial token.
+  if (!isValidVerificationToken(token)) return { verified: false, error: 'رمز التحقق غير صالح — أنشئ رمزًا جديدًا' };
   const sentence = `masrbounty-verification=${token}`;
   const urls = [`https://${d}/.well-known/masrbounty-verification.txt`, `https://${d}/masrbounty-verification.txt`];
   let found = false;
@@ -142,7 +146,7 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
       const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (!res.ok) continue;
       const text = await res.text();
-      if (text.includes(sentence) || text.includes(token)) { found = true; break; }
+      if (text.split(/\r?\n/).some((line) => line.trim() === sentence)) { found = true; break; }
     } catch {
       /* try next */
     }
@@ -162,8 +166,7 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
         if (mem) companyId = (mem as { company_id: string }).company_id;
       }
       if (companyId) {
-        const { createHash } = await import(/* webpackIgnore: true */ 'node:crypto');
-        const hash = createHash('sha256').update(token).digest('hex');
+        const hash = await sha256Hex(token);
         await supabase.from('company_domains').upsert({
           company_id: companyId,
           domain: d,

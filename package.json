@@ -12,7 +12,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
-    "pages:build": "npx @cloudflare/next-on-pages@1.12.1",
+    "pages:build": "next-on-pages",
     "pages:deploy": "npx wrangler pages deploy .vercel/output/static",
     "db:generate": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > types/supabase.ts",
     "db:push": "supabase db push",

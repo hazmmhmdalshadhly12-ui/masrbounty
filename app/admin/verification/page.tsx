@@ -83,21 +83,12 @@ async function dnsCheck(domainId: string, domain: string, token: string) {
   let verified = false;
   let detail = '';
   try {
-    // Real DNS TXT check for _masrbounty.<domain> or <domain> itself
-    const dns = await import(/* webpackIgnore: true */ 'node:dns/promises');
-    const candidates = [`_masrbounty.${domain}`, domain];
-    for (const host of candidates) {
-      try {
-        const records = await dns.resolveTxt(host);
-        const flat = records.flat().join(' ');
-        if (flat.includes(token)) {
-          verified = true;
-          detail = `TXT found at ${host}`;
-          break;
-        }
-      } catch {
-        /* try next */
-      }
+    // Real DNS TXT check (DNS-over-HTTPS) for _masrbounty.<domain> or <domain> itself
+    const { hasVerificationTxt } = await import('@/lib/security/dns-txt');
+    const result = await hasVerificationTxt(domain, token);
+    if (result.found) {
+      verified = true;
+      detail = `TXT found at ${result.host}`;
     }
     if (!verified) detail = 'رمز التحقق غير موجود في سجلات TXT';
   } catch (e) {

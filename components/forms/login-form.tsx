@@ -91,6 +91,7 @@ export function LoginForm({ next = '' }: { next?: string }) {
         <Label htmlFor="email">البريد الإلكتروني</Label>
         <Input
           id="email"
+          name="email"
           type="email"
           required
           dir="ltr"

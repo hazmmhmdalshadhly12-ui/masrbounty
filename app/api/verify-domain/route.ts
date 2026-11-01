@@ -1,9 +1,6 @@
+// Domain verification runs on the edge runtime: DNS TXT lookups use
+// DNS-over-HTTPS (lib/security/dns-txt.ts), so no Node built-ins are needed.
 export const runtime = 'edge';
-// NOTE: This route uses node:dns/promises via dynamic import with webpackIgnore:true
-// to avoid edge bundling issues. When deployed on Cloudflare Pages, enable
-// `nodejs_compat` compatibility flag so node:dns resolves. The verification
-// service itself dynamic-imports `node:dns/promises` and also matches both
-// plain token and sha256 hash on _masrbounty.<domain> and apex.
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
