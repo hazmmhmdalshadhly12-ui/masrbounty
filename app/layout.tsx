@@ -10,6 +10,7 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import type { Metadata, Viewport } from 'next';
+import { SITE_URL } from '@/lib/site-url';
 
 export const runtime = 'edge';
 
@@ -29,7 +30,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: { default: 'MasrBounty', template: '%s | MasrBounty' },
   description: 'MasrBounty — منصة مصرية لبرامج مكافآت الثغرات. اختبارات أمنية مصرح بها، تقارير منهجية، ومكافآت شفافة.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://masrbounty.vercel.app'),
+  metadataBase: new URL(SITE_URL),
   applicationName: 'MasrBounty',
   keywords: ['bug bounty', 'مكافآت الثغرات', 'أمن المعلومات', 'اختبار الاختراق', 'Egypt', 'مصر'],
   openGraph: {

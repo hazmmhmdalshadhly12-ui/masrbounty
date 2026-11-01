@@ -1,41 +1,31 @@
 # النشر على Cloudflare Pages
 
-النشر بيتم تلقائيًا من GitHub Actions: كل push على `main` → الـ CI يشتغل →
-لو كل الفحوصات نجحت، workflow اسمه **Deploy** يبني بـ `next-on-pages` وينشر على
-Cloudflare Pages. الإعدادات (اسم المشروع + `nodejs_compat`) موجودة في `wrangler.toml`.
+المشروع `masrbounty` على Cloudflare Pages **مربوط بـ GitHub مباشرة**:
 
-## 1. إعداد لمرة واحدة
+- كل push على `main` → Cloudflare يبني وينشر Production على
+  **https://masrbounty.online** و https://masrbounty.pages.dev
+- كل Pull Request → رابط Preview تلقائي (بيظهر كتعليق على الـ PR).
+- أمر البناء: `npx @cloudflare/next-on-pages` — المخرجات: `.vercel/output/static`
+  — الإعدادات (`nodejs_compat`) في `wrangler.toml`.
 
-1. سجّل في [dash.cloudflare.com](https://dash.cloudflare.com) (الخطة المجانية كافية).
-2. **Account ID**: من الصفحة الرئيسية للحساب (أو Workers & Pages → الشريط الجانبي) انسخ `Account ID`.
-3. **API Token**: My Profile → API Tokens → Create Token → Custom token:
-   - Permissions: `Account` → `Cloudflare Pages` → `Edit`
-   - Account Resources: حسابك
-4. في GitHub: **Settings → Secrets and variables → Actions → New repository secret**:
-   - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_ACCOUNT_ID`
-5. تأكد إن الأسرار دي موجودة (موجودة حاليًا): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` = `https://masrbounty.pages.dev` (أو دومينك).
-   اختياري: `SUPABASE_WEBHOOK_SECRET`.
+## 1. متغيرات البيئة (Cloudflare → masrbounty → Settings → Variables and Secrets)
 
-أول تشغيل للـ workflow بيعمل مشروع `masrbounty` على Cloudflare لوحده، وبينقل
-`SUPABASE_SERVICE_ROLE_KEY` كسر للـ runtime.
+- Production: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (= `https://masrbounty.online`).
+- Preview: نفس المتغيرات (لكن يُفضّل مشروع Supabase تجريبي) — من غيرها صفحات الـ Preview
+  اللي بتقرا من قاعدة البيانات بتعرض رسالة خطأ.
 
-## 2. تشغيل النشر
+## 2. Supabase
 
-- تلقائي بعد كل CI ناجح على `main`.
-- يدوي: **Actions → Deploy → Run workflow**.
+Authentication → URL Configuration: **Site URL** = `https://masrbounty.online`،
+و **Redirect URLs** تشمل `https://masrbounty.online/**` و `https://*.masrbounty.pages.dev/**`.
 
-## 3. بعد أول نشر
+## 3. نشر يدوي (احتياطي)
 
-- في Supabase → Authentication → URL Configuration: حدّث **Site URL** و **Redirect URLs**
-  (`https://masrbounty.pages.dev/**`).
+GitHub → **Actions → Deploy → Run workflow** (يحتاج أسرار `CLOUDFLARE_API_TOKEN`
+و `CLOUDFLARE_ACCOUNT_ID` في GitHub — موجودين). أو محليًا: `npm run pages:build && npm run pages:deploy`.
 
-## 4. دومين خاص (اختياري)
-
-**Workers & Pages → masrbounty → Custom domains** → اتبع تعليمات DNS، وحدّث `NEXT_PUBLIC_APP_URL`.
-
-## 5. ملاحظات تقنية
+## 4. ملاحظات تقنية
 
 - كل الـ routes لازم تكون `runtime = 'edge'` (مطبق في `app/layout.tsx` والـ API routes).
 - ممنوع استيراد `node:*` في كود السيرفر — استخدم `lib/security/edge-crypto.ts` و `lib/security/dns-txt.ts`.

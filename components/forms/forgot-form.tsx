@@ -6,6 +6,7 @@ import { friendlyAuthError } from '@/lib/auth/errors';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { normalizeSiteUrl } from '@/lib/site-url';
 
 export function ForgotForm() {
   const [email, setEmail] = useState('');
@@ -23,7 +24,7 @@ export function ForgotForm() {
     setBusy(true);
     try {
       const supabase = createClient();
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+      const appUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_APP_URL, window.location.origin);
       const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo: `${appUrl}/auth/callback?next=/auth/update-password`,
       });

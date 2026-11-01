@@ -1,12 +1,10 @@
 name: Deploy
 
-# Production deploy to Cloudflare Pages — runs only after CI succeeds on a push
-# to main (never on PRs), or manually from the Actions tab.
+# Manual fallback deploy to Cloudflare Pages.
+# The Pages project `masrbounty` is Git-connected: Cloudflare already builds and
+# deploys every push to main (production, masrbounty.online) and every PR
+# (preview). Use this only if you need to redeploy from GitHub Actions.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -17,7 +15,6 @@ jobs:
   deploy:
     name: Deploy to Cloudflare Pages (production)
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: read
     environment:
@@ -37,7 +34,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -59,23 +56,10 @@ jobs:
             npx wrangler pages project create "$PROJECT" --production-branch=main
           fi
 
-      - name: Sync runtime secrets
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_WEBHOOK_SECRET: ${{ secrets.SUPABASE_WEBHOOK_SECRET }}
-        run: |
-          for name in SUPABASE_SERVICE_ROLE_KEY SUPABASE_WEBHOOK_SECRET; do
-            value="${!name}"
-            if [ -n "$value" ]; then
-              printf '%s' "$value" | npx wrangler pages secret put "$name" --project-name "$PROJECT" > /dev/null
-              echo "synced $name"
-            fi
-          done
-
       - name: Deploy
         id: deploy
         run: |
           npx wrangler pages deploy --project-name="$PROJECT" --branch=main \
-            --commit-hash="${{ github.event.workflow_run.head_sha || github.sha }}" | tee deploy.log
+            --commit-hash="${{ github.sha }}" | tee deploy.log
           url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.pages\.dev' deploy.log | tail -1)
           echo "url=${url:-https://$PROJECT.pages.dev}" >> "$GITHUB_OUTPUT"

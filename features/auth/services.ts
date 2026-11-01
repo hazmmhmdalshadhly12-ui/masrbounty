@@ -16,6 +16,7 @@ async function clientIp(): Promise<string> {
 }
 
 import { friendlyAuthError } from '@/lib/auth/errors';
+import { normalizeSiteUrl } from '@/lib/site-url';
 
 export async function loginAction(formData: FormData) {
   try {
@@ -132,7 +133,7 @@ export async function requestResetAction(formData: FormData) {
     const email = String(formData.get('email') ?? '').trim().toLowerCase();
     if (!email.includes('@')) redirect('/forgot-password?error=' + encodeURIComponent('بريد غير صالح'));
     const supabase = await createServerClient();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const appUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_APP_URL, 'http://localhost:3000');
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${appUrl}/auth/callback?next=/auth/update-password`,
     });
