@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth/admin-actions';
 import { disputeSchema } from '@/schemas/dispute';
 import { enforceRate, limits } from '@/lib/rate-limit';
 import { logAudit } from '@/services/audit';
@@ -23,12 +24,11 @@ export async function resolveDisputeAction(disputeId: string, formData: FormData
   const resolution = String(formData.get('resolution') ?? '');
   const status = String(formData.get('status') ?? 'resolved');
   if (!['resolved', 'rejected'].includes(status)) throw new Error('Invalid status');
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  await supabase.from('disputes').update({ status, resolution, resolved_by: user.user.id }).eq('id', disputeId);
-  await supabase.from('moderation_actions').insert({ moderator_id: user.user.id, target_type: 'dispute', target_id: disputeId, action: status, reason: resolution });
-  await logAudit('moderate', 'disputes', disputeId, { status }, user.user.id);
+  // Dispute resolution is a staff-only operation — verify server-side.
+  const { supabase, user } = await requireStaff(['admin', 'moderator']);
+  await supabase.from('disputes').update({ status, resolution, resolved_by: user.id }).eq('id', disputeId);
+  await supabase.from('moderation_actions').insert({ moderator_id: user.id, target_type: 'dispute', target_id: disputeId, action: status, reason: resolution });
+  await logAudit('moderate', 'disputes', disputeId, { status }, user.id);
   revalidatePath('/admin/disputes');
 }
 

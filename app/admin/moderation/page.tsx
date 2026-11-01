@@ -1,16 +1,15 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth/admin-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 async function moderate(formData: FormData) {
   'use server';
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
+  const { supabase, user } = await requireStaff(['admin', 'moderator']);
   await supabase.from('moderation_actions').insert({
-    moderator_id: user.user.id,
+    moderator_id: user.id,
     target_type: String(formData.get('target_type')),
     target_id: String(formData.get('target_id')),
     action: String(formData.get('action')),

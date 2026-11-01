@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth/admin-actions';
 import { logAudit } from '@/services/audit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,18 +9,16 @@ import { Input } from '@/components/ui/input';
 
 async function reviewVerification(verifId: string, companyId: string, approve: boolean, formData: FormData) {
   'use server';
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
+  const { supabase, user } = await requireStaff(['admin', 'moderator']);
   const note = String(formData.get(`note_${verifId}`) ?? '');
   await supabase
     .from('company_verifications')
-    .update({ status: approve ? 'approved' : 'rejected', reviewed_by: user.user.id, review_note: note || null })
+    .update({ status: approve ? 'approved' : 'rejected', reviewed_by: user.id, review_note: note || null })
     .eq('id', verifId);
   if (approve) {
     await supabase.from('company_profiles').update({ is_verified: true }).eq('id', companyId);
   }
-  await logAudit('verify', 'company_verifications', verifId, { approve, company_id: companyId }, user.user.id);
+  await logAudit('verify', 'company_verifications', verifId, { approve, company_id: companyId }, user.id);
   revalidatePath('/admin/companies');
 }
 

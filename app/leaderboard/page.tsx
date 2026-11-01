@@ -72,7 +72,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
           {tabs.map((t) => (
             <Link
               key={t.key}
-              href={`/leaderboard?by=${t.key}`}
+              href={`/leaderboard?by=${t.key}&period=${period}`}
               className={cn(
                 'flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-bold',
                 active === t.key ? 'border-slate-900 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-muted-foreground hover:text-foreground'

@@ -18,7 +18,7 @@ export default async function CompanyPayments() {
   const due = ((awards ?? []) as { amount: number; status: string }[])
     .filter((a) => a.status === 'approved')
     .reduce((s, a) => s + Number(a.amount), 0);
-  const vfNumber = String((vfRow?.value as string | null) ?? '0112417443').replace(/"/g, '');
+  const vfNumber = String((vfRow?.value as string | null) ?? '').replace(/"/g, '').trim();
   return (
     <div className="container py-8">
       <h1 className="text-2xl font-bold mb-6">المدفوعات</h1>
@@ -26,7 +26,11 @@ export default async function CompanyPayments() {
         <CardHeader><CardTitle>تمويل المنصة (ضمان)</CardTitle></CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>المستحق عليك حاليًا: <b className="tabular-nums" dir="ltr">{due.toLocaleString()} EGP</b></p>
-          <p>حوّل المبلغ من فودافون كاش إلى رقم المنصة <b className="font-mono" dir="ltr">{vfNumber}</b>، ثم أبلغ الإدارة لتعتمد التمويل وتدفع للباحث.</p>
+          {vfNumber ? (
+            <p>حوّل المبلغ من فودافون كاش إلى رقم المنصة <b className="font-mono" dir="ltr">{vfNumber}</b>، ثم أبلغ الإدارة لتعتمد التمويل وتدفع للباحث.</p>
+          ) : (
+            <p>لم يُضبط رقم التحصيل بعد — تواصل مع الإدارة لمعرفة وسيلة التحويل المعتمدة.</p>
+          )}
           <p className="text-xs text-muted-foreground">لا يصل المبلغ للباحث إلا بعد تأكيد الإدارة استلام تحويلك — هكذا يحمي الضمان الطرفين.</p>
         </CardContent>
       </Card>

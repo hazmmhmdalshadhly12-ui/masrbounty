@@ -54,13 +54,19 @@ export default async function DashboardPage() {
       const { data } = await supabase.from('wallet_transactions').select('amount,created_at,type').eq('wallet_id', wid).order('created_at', { ascending: false }).limit(100);
       return { data: data ?? [] };
     })(),
-    supabase.from('bounty_awards').select('amount,created_at,status,report_id').limit(200).then(async (res) => {
-      // filter to only my reports
-      const { data: myReports } = await supabase.from('reports').select('id').eq('researcher_id', researcherId).limit(200);
-      const myIds = new Set(((myReports ?? []) as { id: string }[]).map((r) => r.id));
-      const filtered = ((res.data ?? []) as { amount: number | string; created_at: string; status: string; report_id: string }[]).filter((a) => myIds.has(a.report_id) && (a.status === 'paid' || a.status === 'approved'));
-      return { data: filtered };
-    }),
+    (async () => {
+      // Scope awards to MY reports server-side (no global 200-row cap dependency).
+      const { data: myReports } = await supabase.from('reports').select('id').eq('researcher_id', researcherId).limit(500);
+      const myIds = ((myReports ?? []) as { id: string }[]).map((r) => r.id);
+      if (!myIds.length) return { data: [] as unknown[] };
+      const { data } = await supabase
+        .from('bounty_awards')
+        .select('amount,created_at,status,report_id')
+        .in('report_id', myIds)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      return { data: (data ?? []) as { amount: number | string; created_at: string; status: string; report_id: string }[] };
+    })(),
     supabase.from('researcher_badges').select('id,awarded_at,badges(id,code,name_ar,name_en,icon)').eq('researcher_id', researcherId).order('awarded_at', { ascending: false }).limit(20),
     supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank,total_earned').order('score', { ascending: false }).limit(5),
     supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank').eq('researcher_id', researcherId).maybeSingle(),

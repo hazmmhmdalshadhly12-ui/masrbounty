@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireStaff } from '@/lib/auth/admin-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -7,10 +8,8 @@ import { Badge } from '@/components/ui/badge';
 
 async function reply(ticketId: string, formData: FormData) {
   'use server';
-  const supabase = await createServerClient();
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error('Unauthorized');
-  await supabase.from('support_messages').insert({ ticket_id: ticketId, author_id: user.user.id, body: String(formData.get('body')) });
+  const { supabase, user } = await requireStaff(['admin', 'moderator']);
+  await supabase.from('support_messages').insert({ ticket_id: ticketId, author_id: user.id, body: String(formData.get('body')) });
   await supabase.from('support_tickets').update({ status: 'in_progress' }).eq('id', ticketId);
   revalidatePath('/admin/support');
 }
