@@ -58,7 +58,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
     active === 'earnings' ? `${r.total_earned} EGP` : active === 'accepted' ? `${r.accepted_reports} تقرير` : `${r.score} نقطة`;
 
   return (
-    <main>
+    <div>
       <PageHero kicker="التنافس الشريف" title="المتصدرين" desc="ترتيب الباحثين — اختر المعيار المناسب." />
       <section className="container max-w-3xl py-10">
         <div className="mb-3 flex gap-2 text-xs">
@@ -87,7 +87,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
             {rows.map((r: { researcher_id: string; display_name: string; score: number; rank: number; total_earned: number; accepted_reports: number }, i: number) => (
               <Card key={r.researcher_id} className={i < 3 ? 'border-amber-400/60 bg-amber-50 dark:bg-amber-950/20' : ''}>
                 <CardContent className="flex items-center gap-4 p-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0a1628] font-black text-amber-400">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy font-black text-amber-400">
                     {i < 3 ? <Medal className="h-5 w-5" /> : i + 1}
                   </span>
                   <Avatar name={r.display_name} />
@@ -99,6 +99,6 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

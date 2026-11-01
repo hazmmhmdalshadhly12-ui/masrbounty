@@ -23,9 +23,9 @@ async function respondInvite(programId: string, accept: boolean) {
 export default async function SavedPrograms() {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return <main className="container py-12">Login required.</main>;
+  if (!user.user) return <div className="container py-12">Login required.</div>;
   const { data: rp } = await supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single();
-  if (!rp) return <main className="container py-12">No profile.</main>;
+  if (!rp) return <div className="container py-12">No profile.</div>;
   const [{ data: saved }, { data: invites }] = await Promise.all([
     supabase.from('saved_programs').select('program_id,programs(id,name,slug)').eq('researcher_id', rp.id),
     supabase.from('program_researchers').select('program_id,status,programs!inner(id,name,slug,status)').eq('researcher_id', rp.id).eq('programs.status', 'active'),
@@ -34,7 +34,7 @@ export default async function SavedPrograms() {
   const pending = rows.filter((i) => i.status === 'pending');
   const invited = rows.filter((i) => i.status === 'accepted');
   return (
-    <main className="container py-8">
+    <div className="container py-8">
       <h1 className="mb-6 text-2xl font-bold">برامجي</h1>
       <h2 className="mb-3 font-bold">دعوات بانتظار ردك ({pending.length})</h2>
       {!pending.length ? <p className="mb-6 text-sm text-muted-foreground">لا توجد دعوات معلقة.</p> :
@@ -65,6 +65,6 @@ export default async function SavedPrograms() {
           <Card key={s.program_id} className="mb-2"><CardHeader><CardTitle><Link href={`/programs/${s.programs?.slug}`} className="hover:underline">{s.programs?.name}</Link></CardTitle></CardHeader>
             <CardContent><Link href="/programs" className="text-xs underline">Browse more</Link></CardContent></Card>
         ))}
-    </main>
+    </div>
   );
 }

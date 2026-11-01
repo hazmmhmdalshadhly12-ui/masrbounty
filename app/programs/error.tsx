@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <main className="container py-10">
+    <div className="container py-10">
       <Card className="mx-auto w-full max-w-md text-center">
         <CardContent className="p-8">
           <h2 className="text-lg font-black">تعذر تحميل البرامج</h2>
@@ -20,14 +20,14 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             <Button onClick={reset} size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
               إعادة المحاولة
             </Button>
-            <Link href="/programs">
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/programs">
                 البرامج
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

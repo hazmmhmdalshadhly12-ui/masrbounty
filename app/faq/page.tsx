@@ -8,9 +8,9 @@ const QA = [
 
 export default function Faq() {
   return (
-    <main className="container py-12 max-w-3xl">
+    <div className="container py-12 max-w-3xl">
       <h1 className="text-3xl font-bold mb-6">الأسئلة الشائعة</h1>
       {QA.map(([q, a]) => <div key={q} className="border rounded-md p-4 mb-3"><p className="font-semibold">{q}</p><p className="text-sm text-muted-foreground mt-1">{a}</p></div>)}
-    </main>
+    </div>
   );
 }

@@ -13,18 +13,18 @@ export default async function AnalyticsPage() {
 
   if (error || !analytics) {
     return (
-      <main className="container py-8">
+      <div className="container py-8">
         <h1 className="text-2xl font-bold mb-2">التحليلات</h1>
         <p className="text-sm text-muted-foreground mb-6">لوحة تحليلات الشركة — التقارير، الخطورة، الإنفاق، زمن الحل، وأفضل الباحثين</p>
         <Card className="dark:border-slate-700"><CardContent className="p-6 text-sm text-destructive">تعذر تحميل التحليلات: {error ?? 'غير معروف'}</CardContent></Card>
-      </main>
+      </div>
     );
   }
 
   const { reportsPerMonth, severityDistribution, bountySpending, avgResolutionTime, topResearchers, totals } = analytics;
 
   return (
-    <main className="container py-8">
+    <div className="container py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">التحليلات</h1>
         <p className="mt-1 text-sm text-muted-foreground">لوحة تحليلات الشركة — عبر services/analytics.ts (RLS-aware) — آمنة للوضع الداكن</p>
@@ -99,6 +99,6 @@ export default async function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

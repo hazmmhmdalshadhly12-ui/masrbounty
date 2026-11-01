@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 export default function Loading() {
   return (
-    <main className="container py-8" aria-busy="true" aria-label="جارٍ تحميل التحليلات">
+    <div className="container py-8" aria-busy="true" aria-label="جارٍ تحميل التحليلات">
       <Skeleton className="h-7 w-32" />
       <Skeleton className="mt-2 h-4 w-80" />
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -40,6 +40,6 @@ export default function Loading() {
           <Skeleton className="h-32 w-full" />
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

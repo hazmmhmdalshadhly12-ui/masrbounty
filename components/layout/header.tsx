@@ -1,17 +1,12 @@
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
-import { nav } from '@/config/nav';
 import { Button } from '@/components/ui/button';
 import { NotificationBell } from '@/components/layout/notification-bell';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { UserMenu } from '@/components/layout/user-menu';
+import { HeaderNav } from '@/components/layout/header-nav';
 
-const resources = [
-  { href: '/blog', ar: 'المدونة' },
-  { href: '/help', ar: 'المساعدة' },
-  { href: '/about', ar: 'من نحن' },
-];
 
 export async function Header() {
   let username: string | null = null;
@@ -29,7 +24,7 @@ export async function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/90 shadow-[0_1px_0_0_hsl(var(--border))] backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
       <div className="container flex h-16 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <MobileNav authed={!!username} />
@@ -40,26 +35,7 @@ export async function Header() {
             <span className="text-[17px] font-extrabold tracking-tight">MasrBounty</span>
           </Link>
         </div>
-        <nav className="hidden items-center gap-6 md:flex" aria-label="التنقل الرئيسي">
-          <Link href="/programs" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">البرامج</Link>
-          <Link href="/researchers" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">الباحثون</Link>
-          <Link href="/companies" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">الشركات</Link>
-          <Link href="/leaderboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">المتصدرين</Link>
-          <div className="group relative">
-            <button type="button" className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" aria-haspopup="true" aria-label="فتح قائمة الموارد">
-              الموارد
-            </button>
-            <div className="invisible absolute end-0 top-full z-50 w-44 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-              <div className="overflow-hidden rounded-xl border bg-popover shadow-xl">
-                {[...nav.filter((n) => !['/programs', '/researchers', '/companies', '/leaderboard'].includes(n.href)), ...resources].map((n) => (
-                  <Link key={n.href} href={n.href} className="block px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:bg-accent focus-visible:text-foreground">
-                    {n.ar}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </nav>
+        <HeaderNav />
         <div className="flex items-center gap-1.5">
           {username ? (
             <>
@@ -68,14 +44,14 @@ export async function Header() {
             </>
           ) : (
             <>
-              <Link href="/login" className="hidden sm:block">
-                <Button variant="ghost" size="sm">تسجيل الدخول</Button>
-              </Link>
-              <Link href="/register">
-                <Button size="sm" className="bg-slate-900 font-bold text-white hover:bg-slate-700 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300">
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                <Link href="/login">تسجيل الدخول</Link>
+              </Button>
+              <Button asChild size="sm" className="bg-slate-900 font-bold text-white hover:bg-slate-700 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300">
+                <Link href="/register">
                   انضم الآن
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </>
           )}
         </div>

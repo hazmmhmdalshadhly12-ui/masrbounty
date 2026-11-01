@@ -21,7 +21,7 @@ export default async function ProfilePage() {
   ]);
 
   return (
-    <main className="container max-w-2xl py-10">
+    <div className="container max-w-2xl py-10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight">{profile?.full_name || rp?.display_name || profile?.username}</h1>
@@ -35,8 +35,8 @@ export default async function ProfilePage() {
           {profile?.bio && <p className="mt-3 text-sm leading-relaxed">{profile.bio}</p>}
         </div>
         <div className="flex gap-2">
-          {rp && <Link href={`/researchers/${profile?.username}`}><Button size="sm" variant="outline">العرض العام</Button></Link>}
-          <Link href="/dashboard/settings"><Button size="sm">تعديل</Button></Link>
+          {rp && <Button asChild size="sm" variant="outline"><Link href={`/researchers/${profile?.username}`}>العرض العام</Link></Button>}
+          <Button asChild size="sm"><Link href="/dashboard/settings">تعديل</Link></Button>
         </div>
       </div>
 
@@ -70,6 +70,6 @@ export default async function ProfilePage() {
       )}
 
       <p className="mt-6 text-xs text-muted-foreground">عضو منذ {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ar-EG') : '—'}</p>
-    </main>
+    </div>
   );
 }

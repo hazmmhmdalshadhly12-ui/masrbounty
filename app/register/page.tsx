@@ -19,9 +19,9 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   if (loggedIn) redirect(safeNext(next));
   const target = safeNext(next, '');
   return (
-    <main className="bg-slate-100 dark:bg-slate-950">
+    <div className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
-        <div className="relative hidden overflow-hidden rounded-3xl bg-[#0a1628] p-10 text-white lg:block">
+        <div className="relative hidden overflow-hidden rounded-3xl bg-navy p-10 text-white lg:block">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.2),transparent_60%)]" />
           <div className="relative">
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 text-[#0a1628]">
@@ -61,6 +61,6 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

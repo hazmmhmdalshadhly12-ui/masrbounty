@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { HeroVisual } from '@/components/home/hero-visual';
 import { HeroStats } from '@/components/home/hero-stats';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,25 @@ const steps = [
   ['01', 'اختر البرنامج', 'راجع النطاق والقواعد ونطاقات المكافآت قبل أن تبدأ'],
   ['02', 'وثّق الثغرة', 'أرسل تقريرًا منهجيًا: الأثر، خطوات الاستنساخ، والمقترح العلاجي'],
   ['03', 'استلم مكافأتك', 'عند القبول تُقيّد المكافأة في محفظتك وتطلب سحبها متى شئت'],
+];
+
+const severities = [
+  { label: 'حرجة', cvss: '9.0–10', dot: 'bg-red-600', desc: 'سيطرة كاملة أو تسريب بيانات واسع — أعلى شريحة مكافآت' },
+  { label: 'عالية', cvss: '7.0–8.9', dot: 'bg-orange-500', desc: 'وصول غير مصرح لبيانات حساسة أو تجاوز صلاحيات' },
+  { label: 'متوسطة', cvss: '4.0–6.9', dot: 'bg-amber-400', desc: 'أثر محدود يتطلب شروطًا أو تفاعلًا من المستخدم' },
+  { label: 'منخفضة', cvss: '0.1–3.9', dot: 'bg-sky-500', desc: 'مشكلات ضعيفة الأثر أو إعدادات تحتاج تحسينًا' },
+];
+
+const researcherPerks = [
+  'برامج من شركات مصرية بنطاق وقواعد واضحة',
+  'مكافآت تُقيّد في محفظتك وسحب بمراجعة شفافة',
+  'سمعة مهنية ولوحة متصدرين مبنية على نتائج حقيقية',
+];
+
+const companyPerks = [
+  'برامج عامة أو خاصة مع تحقق من ملكية الدومين',
+  'صندوق فرز بمهل SLA وتقييم خطورة موحّد',
+  'سجل تدقيق كامل وتحكم دقيق في صلاحيات الفريق',
 ];
 
 export default async function Home() {
@@ -61,9 +80,9 @@ export default async function Home() {
   }
 
   return (
-    <main>
+    <div>
       {/* HERO */}
-      <section className="relative overflow-hidden border-b border-slate-800 bg-[#0a1628] text-white">
+      <section className="relative overflow-hidden border-b border-slate-800 bg-navy text-white">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.12]"
           style={{
@@ -87,16 +106,16 @@ export default async function Home() {
               اختبارات أمنية مصرح بها فقط — تقارير منهجية، تقييم شفاف، ومستحقات تصل لأصحابها.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/programs">
-                <Button size="lg" className="bg-amber-400 font-black text-slate-950 shadow-sm hover:bg-amber-300 hover:shadow-md active:scale-[0.98]">
+              <Button asChild size="lg" className="bg-amber-400 font-black text-slate-950 shadow-sm hover:bg-amber-300 hover:shadow-md active:scale-[0.98]">
+                <Link href="/programs">
                   استكشف البرامج
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button size="lg" variant="outline" className="border-slate-700 bg-transparent font-bold text-white hover:bg-white/10 hover:text-white">
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-slate-700 bg-transparent font-bold text-white hover:bg-white/10 hover:text-white">
+                <Link href="/register">
                   ابدأ كباحث أمني <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
             <div className="mt-6">
               <Link href="/register" className="text-sm text-slate-300 underline underline-offset-4 hover:text-white">
@@ -150,23 +169,76 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* COMPANY CTA */}
+      {/* SEVERITY GUIDE */}
       <section className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
-        <div className="grid items-center gap-8 rounded-xl border border-slate-800 bg-slate-950 p-8 text-white shadow-sm dark:border-slate-700 md:grid-cols-[1fr_auto] md:p-12">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
           <div>
-            <p className="text-sm font-bold text-amber-400">للشركات</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight">حوّل مجتمع الباحثين إلى خط دفاعك الأول</h2>
-            <p className="mt-3 max-w-xl leading-relaxed text-slate-300">
-              أنشئ برنامجك الخاص، حدد النطاق والقواعد، واستقبل تقارير موثقة من باحثين مؤهلين.
+            <p className="text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">تقييم عادل</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">المكافأة على قد الأثر</h2>
+            <p className="mt-3 leading-relaxed text-muted-foreground">
+              كل تقرير يُقيَّم حسب خطورته الفعلية وفق معايير CVSS، وكل برنامج يعلن نطاقات مكافآته مقدمًا — لا مفاجآت بعد التقديم.
             </p>
-          </div>
-          <Link href="/register" className="shrink-0">
-            <Button size="lg" className="bg-white font-bold text-slate-950 hover:bg-slate-200">
-              سجّل شركتك
+            <Button asChild variant="outline" className="mt-6">
+              <Link href="/disclosure">
+                سياسة الإفصاح المسؤول <ArrowLeft className="h-4 w-4" />
+              </Link>
             </Button>
-          </Link>
+          </div>
+          <ul className="grid gap-3 sm:grid-cols-2" aria-label="مستويات الخطورة">
+            {severities.map((sv) => (
+              <li key={sv.label} className="flex items-start gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${sv.dot}`} />
+                <div>
+                  <p className="font-bold">
+                    {sv.label} <span className="ms-1 font-mono text-xs font-medium text-muted-foreground" dir="ltr">CVSS {sv.cvss}</span>
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{sv.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
-    </main>
+
+      {/* AUDIENCES */}
+      <section className="container mx-auto max-w-6xl px-4 pb-16 md:pb-20">
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="flex flex-col rounded-2xl border bg-card p-8 shadow-sm">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
+              <FileSearch className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h2 className="mt-5 text-xl font-black tracking-tight">للباحثين الأمنيين</h2>
+            <ul className="mt-4 flex-1 space-y-2.5 text-sm text-muted-foreground">
+              {researcherPerks.map((t) => (
+                <li key={t} className="flex gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <Button asChild className="mt-6 w-full sm:w-auto sm:self-start">
+              <Link href="/register">ابدأ الصيد الآن</Link>
+            </Button>
+          </div>
+          <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-950 p-8 text-white shadow-sm dark:border-slate-700">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10 text-amber-400">
+              <Building2 className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <h2 className="mt-5 text-xl font-black tracking-tight">للشركات</h2>
+            <ul className="mt-4 flex-1 space-y-2.5 text-sm text-slate-300">
+              {companyPerks.map((t) => (
+                <li key={t} className="flex gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <Button asChild className="mt-6 w-full bg-white font-bold text-slate-950 hover:bg-slate-200 sm:w-auto sm:self-start">
+              <Link href="/register">سجّل شركتك</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

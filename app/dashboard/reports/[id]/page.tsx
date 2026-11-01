@@ -15,7 +15,7 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
   const supabase = await createServerClient();
   const { id: reportId } = await params;
   const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
-  if (!report) return <main className="container py-12">Report not found.</main>;
+  if (!report) return <div className="container py-12">Report not found.</div>;
   const [{ data: comments }, { data: events }, { data: attachments }, { data: award }, { data: payments }] = await Promise.all([
     supabase.from('report_comments').select('id,body,created_at,profiles!inner(username)').eq('report_id', reportId).order('created_at'),
     supabase.from('report_events').select('id,from_status,to_status,note,created_at').eq('report_id', reportId).order('created_at'),
@@ -26,7 +26,7 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
   const paymentRef = (payments as unknown as { bounty_payments: { reference: string | null; status: string }[] } | null)?.bounty_payments?.[0]?.reference;
 
   return (
-    <main className="py-2 max-w-3xl space-y-4">
+    <div className="py-2 max-w-3xl space-y-4">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-mono text-sm text-muted-foreground" dir="ltr">{report.report_number}</p>
@@ -127,6 +127,6 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
           </form>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

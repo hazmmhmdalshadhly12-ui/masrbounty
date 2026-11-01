@@ -111,9 +111,9 @@ export default async function DashboardPage() {
           <h1 className="text-xl font-black tracking-tight">مرحبًا، {(rp as { display_name: string }).display_name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">نظرة عامة على نشاطك ومستحقاتك — بيانات حية</p>
         </div>
-        <Link href="/dashboard/reports/new">
-          <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-700 dark:bg-white dark:text-slate-900">تقرير جديد</Button>
-        </Link>
+        <Button asChild size="sm" className="bg-slate-900 text-white hover:bg-slate-700 dark:bg-white dark:text-slate-900">
+          <Link href="/dashboard/reports/new">تقرير جديد</Link>
+        </Button>
       </div>
 
       {/* KPI */}

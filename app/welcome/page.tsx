@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function WelcomePage() {
   return (
-    <main className="bg-slate-100 dark:bg-slate-950">
+    <div className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center py-10">
         <Card className="mx-auto w-full max-w-md text-center shadow-xl">
           <CardContent className="p-10">
@@ -16,14 +16,14 @@ export default function WelcomePage() {
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               حسابك الآن مفعّل. سجّل الدخول للوصول إلى لوحتك وبدء العمل على البرامج.
             </p>
-            <Link href="/login" className="mt-6 block">
-              <Button className="w-full bg-slate-900 font-bold text-white hover:bg-slate-700">
+            <Button asChild className="mt-6 w-full bg-slate-900 font-bold text-white hover:bg-slate-700">
+              <Link href="/login">
                 تسجيل الدخول <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

@@ -2,8 +2,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Loading() {
   return (
-    <main aria-busy="true" aria-label="جارٍ تحميل البرامج">
-      <div className="bg-[#0a1628]">
+    <div aria-busy="true" aria-label="جارٍ تحميل البرامج">
+      <div className="bg-navy">
         <div className="container py-12">
           <Skeleton className="h-6 w-32 rounded-full bg-white/10" />
           <Skeleton className="mt-3 h-9 w-64 bg-white/10" />
@@ -23,6 +23,6 @@ export default function Loading() {
           ))}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

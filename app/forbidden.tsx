@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function Forbidden() {
   return (
-    <main className="bg-slate-100 dark:bg-slate-950">
+    <div className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[60vh] items-center py-10">
         <Card className="mx-auto w-full max-w-md text-center shadow-xl">
           <CardContent className="p-8">
@@ -12,12 +12,12 @@ export default function Forbidden() {
             <h1 className="mt-3 text-xl font-black">غير مصرّح لك بالوصول</h1>
             <p className="mt-2 text-sm text-muted-foreground">هذه الصفحة تتطلب صلاحيات إدارية.</p>
             <div className="mt-6 flex justify-center gap-2">
-              <Link href="/"><Button variant="outline">الرئيسية</Button></Link>
-              <Link href="/contact"><Button>تواصل معنا</Button></Link>
+              <Button asChild variant="outline"><Link href="/">الرئيسية</Link></Button>
+              <Button asChild><Link href="/contact">تواصل معنا</Link></Button>
             </div>
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

@@ -198,11 +198,11 @@ export default async function AdminReports({
                       <span>· {new Date(r.created_at).toLocaleString('ar-EG')}</span>
                     </p>
                   </div>
-                  <Link href={`/reports/${r.id}`} className="shrink-0">
-                    <Button size="sm" variant="outline">
+                  <Button asChild size="sm" variant="outline" className="shrink-0">
+                    <Link href={`/reports/${r.id}`}>
                       <Eye className="ml-1 h-3 w-3" /> عرض
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
 
                 <form action={triageReport.bind(null, r.id)} className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">

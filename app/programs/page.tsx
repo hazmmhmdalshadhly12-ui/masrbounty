@@ -205,8 +205,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const hasActiveFilters = Boolean(q || severityFilter.length || techFilter.length || verifiedOnly || bountyKey !== 'all');
 
   return (
-    <main>
-      <section className="bg-[#0a1628] text-white dark:border-slate-800">
+    <div>
+      <section className="bg-navy text-white dark:border-slate-800">
         <div className="container mx-auto max-w-6xl px-4 py-10 md:py-12">
           <span className="inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
             اختبار مصرح به فقط
@@ -394,11 +394,11 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                 <h2 className="mt-4 font-bold">{q ? `لا نتائج عن “${q}”` : hasActiveFilters ? 'لا برامج تطابق الفلاتر' : 'لا توجد برامج نشطة حاليًا'}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">جرّب تغيير الفلاتر أو البحث بكلمة أخرى — الشركات تضيف برامج جديدة باستمرار.</p>
                 {hasActiveFilters && (
-                  <Link href="/programs" className="mt-4 inline-block">
-                    <Button variant="outline" size="sm">
+                  <Button asChild variant="outline" size="sm" className="mt-4 inline-block">
+                    <Link href="/programs">
                       مسح الفلاتر
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 )}
               </CardContent>
             </Card>
@@ -465,11 +465,11 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                           <span>•</span>
                           <span>{new Date(p.created_at).toLocaleDateString('ar-EG')}</span>
                         </div>
-                        <Link href={`/programs/${p.slug}`} className="mt-4">
-                          <Button variant="outline" className="w-full group-hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600">
+                        <Button asChild variant="outline" className="mt-4 w-full group-hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600">
+                          <Link href={`/programs/${p.slug}`}>
                             عرض التفاصيل <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                          </Button>
-                        </Link>
+                          </Link>
+                        </Button>
                       </CardContent>
                     </Card>
                   );
@@ -529,6 +529,6 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
           )}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

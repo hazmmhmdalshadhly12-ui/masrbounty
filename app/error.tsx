@@ -17,7 +17,7 @@ export default function Err({
   reset: () => void;
 }) {
   return (
-    <main className="bg-slate-100 dark:bg-slate-950">
+    <div className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[60vh] items-center py-10">
         <Card className="mx-auto w-full max-w-md text-center shadow-xl">
           <CardContent className="p-8">
@@ -34,13 +34,13 @@ export default function Err({
               <Button onClick={reset} className="bg-slate-900 text-white hover:bg-slate-700">
                 إعادة المحاولة
               </Button>
-              <Link href="/">
-                <Button variant="outline">الرئيسية</Button>
-              </Link>
+              <Button asChild variant="outline">
+                <Link href="/">الرئيسية</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

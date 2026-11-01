@@ -19,7 +19,7 @@ export default async function Support() {
   const supabase = await createServerClient();
   const { data: tickets } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(50);
   return (
-    <main className="container py-8">
+    <div className="container py-8">
       <h1 className="text-2xl font-bold mb-6">الدعم</h1>
       {!tickets?.length ? <p className="text-muted-foreground">No tickets.</p> : tickets.map((t) => (
         <Card key={t.id} className="mb-3"><CardHeader><CardTitle className="text-base">{t.subject} <Badge>{t.status}</Badge></CardTitle></CardHeader>
@@ -27,6 +27,6 @@ export default async function Support() {
             <form action={reply.bind(null, t.id)} className="flex gap-2"><Input name="body" required placeholder="Reply…" /><Button size="sm" type="submit">Send</Button></form>
           </CardContent></Card>
       ))}
-    </main>
+    </div>
   );
 }

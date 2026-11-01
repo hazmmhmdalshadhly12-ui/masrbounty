@@ -9,7 +9,7 @@ export default async function ResearchersPage() {
   const supabase = await createServerClient();
   const { data } = await supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank').limit(50);
   return (
-    <main>
+    <div>
       <PageHero kicker="مجتمع الصيادين" title="الباحثون" desc="تعرف على نخبة الباحثين الأمنيين في المنصة." />
       <section className="container max-w-3xl py-10">
         {!data?.length ? <p className="text-muted-foreground">No public researchers.</p> :
@@ -27,6 +27,6 @@ export default async function ResearchersPage() {
         <p className="mt-4 text-xs text-muted-foreground">Public profiles live at /researchers/[username].</p>
         <Link href="/leaderboard" className="text-sm underline">Full leaderboard</Link>
       </section>
-    </main>
+    </div>
   );
 }

@@ -14,7 +14,7 @@ const guides = [
 
 export default function Help() {
   return (
-    <main>
+    <div>
       <PageHero kicker="مركز المساعدة" title="الأدلة والشروحات" desc="كل ما تحتاجه لاستخدام المنصة باحتراف — باحثًا أو شركة." />
       <section className="container py-10">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -34,6 +34,6 @@ export default function Help() {
           لم تجد إجابتك؟ <Link href="/contact" className="underline">تواصل معنا</Link> أو راجع <Link href="/faq" className="underline">الأسئلة الشائعة</Link>.
         </p>
       </section>
-    </main>
+    </div>
   );
 }

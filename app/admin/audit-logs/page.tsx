@@ -110,11 +110,11 @@ export default async function AuditLogs({
             <Button size="sm" type="submit" variant="outline">
               تطبيق
             </Button>
-            <Link href="/admin/audit-logs">
-              <Button size="sm" variant="ghost" type="button">
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/admin/audit-logs">
                 مسح
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </form>
           {error && <p className="mt-2 text-sm text-destructive">{error.message}</p>}
           <p className="mt-3 text-xs text-muted-foreground">

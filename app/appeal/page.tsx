@@ -27,7 +27,7 @@ async function submitAppeal(formData: FormData) {
 export default async function Appeal({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const { error, ok } = await searchParams;
   return (
-    <main>
+    <div>
       <PageHero kicker="حق المراجعة" title="الاستئناف على الإيقاف" desc="أُوقف حسابك؟ اشرح موقفك وستعيد الإدارة النظر — كل استئناف موثق بقرار ومبرر." />
       <section className="container max-w-xl py-10">
         <Card>
@@ -49,6 +49,6 @@ export default async function Appeal({ searchParams }: { searchParams: Promise<{
           </CardContent>
         </Card>
       </section>
-    </main>
+    </div>
   );
 }

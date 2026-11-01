@@ -58,6 +58,13 @@ const config: Config = {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
+        navy: {
+          DEFAULT: '#0a1628',
+          50: '#eef3fb',
+          800: '#0f2040',
+          900: '#0a1628',
+          950: '#060e1a',
+        },
         masr: {
           gold: {
             50: '#fefce8',

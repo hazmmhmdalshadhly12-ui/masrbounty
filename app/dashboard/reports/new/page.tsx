@@ -18,8 +18,8 @@ export default async function NewReportPage() {
     (p: { id: string; visibility: string }) => p.visibility === 'public' || invitedIds.includes(p.id)
   );
   return (
-    <main className="py-2">
+    <div className="py-2">
       <ReportCreateForm programs={allowed} />
-    </main>
+    </div>
   );
 }

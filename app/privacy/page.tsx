@@ -11,7 +11,7 @@ const sections: [string, string][] = [
 
 export default function Privacy() {
   return (
-    <main>
+    <div>
       <PageHero kicker="شفافية كاملة" title="سياسة الخصوصية" desc="كيف نتعامل مع بياناتك — باختصار وبدون حشو قانوني." />
       <section className="container max-w-3xl py-10">
         {sections.map(([t, d]) => (
@@ -22,6 +22,6 @@ export default function Privacy() {
         ))}
         <p className="mt-6 text-xs text-muted-foreground">آخر تحديث: 2026</p>
       </section>
-    </main>
+    </div>
   );
 }

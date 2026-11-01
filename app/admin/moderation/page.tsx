@@ -23,7 +23,7 @@ export default async function Moderation() {
   const supabase = await createServerClient();
   const { data } = await supabase.from('moderation_actions').select('*').order('created_at', { ascending: false }).limit(100);
   return (
-    <main className="container py-8 max-w-2xl space-y-6">
+    <div className="container py-8 max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">الإشراف</h1>
       <Card><CardHeader><CardTitle>New action</CardTitle></CardHeader><CardContent>
         <form action={moderate} className="space-y-2">
@@ -37,6 +37,6 @@ export default async function Moderation() {
         </form>
       </CardContent></Card>
       {data?.map((m) => <Card key={m.id}><CardContent className="p-3 text-sm">{m.target_type} — {m.action} — {m.reason}</CardContent></Card>)}
-    </main>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function NotFound() {
   return (
-    <main className="bg-background">
+    <div className="bg-background">
       <div className="container grid min-h-[60vh] items-center py-10">
         <Card className="mx-auto w-full max-w-md text-center">
           <CardContent className="p-10">
@@ -18,20 +18,20 @@ export default function NotFound() {
             <h1 className="mt-1 text-xl font-black">الصفحة غير موجودة</h1>
             <p className="mt-2 text-sm text-muted-foreground">الرابط الذي تبحث عنه غير موجود أو تم نقله.</p>
             <div className="mt-6 flex justify-center gap-2">
-              <Link href="/">
-                <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
+              <Button asChild size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
+                <Link href="/">
                   الرئيسية
-                </Button>
-              </Link>
-              <Link href="/programs">
-                <Button size="sm" variant="outline">
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/programs">
                   تصفح البرامج
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

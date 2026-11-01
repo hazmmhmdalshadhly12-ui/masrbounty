@@ -187,7 +187,7 @@ export function GlobalSearchClient({
                       <Link key={r.id} href={`/researchers/${encodeURIComponent(r.display_name)}`}>
                         <Card className="mb-2 transition-shadow hover:shadow-md">
                           <CardContent className="flex items-center gap-3 p-4">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0a1628] font-black text-amber-400">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy font-black text-amber-400">
                               {r.display_name.charAt(0).toUpperCase()}
                             </span>
                             <span className="min-w-0 flex-1">

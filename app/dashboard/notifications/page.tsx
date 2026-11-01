@@ -12,7 +12,7 @@ import { isInternalLink } from '@/lib/links';
 export default async function NotificationsPage() {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return <main className="container py-12">Login required.</main>;
+  if (!user.user) return <div className="container py-12">Login required.</div>;
   const { data: notifs } = await supabase.from('notifications').select('*').eq('user_id', user.user.id).order('created_at', { ascending: false }).limit(50);
   return (
     <div className="py-2">
