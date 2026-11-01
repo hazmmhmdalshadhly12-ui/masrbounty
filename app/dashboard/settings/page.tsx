@@ -132,7 +132,7 @@ export default async function SettingsPage() {
   const { data: prefs } = await supabase.from('notification_preferences').select('*').eq('user_id', user.user.id).single();
   const ua = (await headers()).get('user-agent') ?? '—';
   return (
-    <main className="container py-8 max-w-2xl space-y-6">
+    <div className="container py-8 max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">الإعدادات</h1>
       <Card><CardHeader><CardTitle>Profile</CardTitle></CardHeader><CardContent>
         <form action={updateProfile} className="space-y-3">
@@ -215,6 +215,6 @@ export default async function SettingsPage() {
           <Button type="submit">Add</Button>
         </form>
       </CardContent></Card>
-    </main>
+    </div>
   );
 }

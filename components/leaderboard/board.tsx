@@ -33,7 +33,7 @@ export function Board({ rows = [], metric = 'reputation', title, className, ...p
         rows.map((r, i) => (
           <Card key={r.researcher_id} className={i < 3 ? 'border-amber-400/60 bg-amber-50 dark:bg-amber-950/20' : ''}>
             <CardContent className="flex items-center gap-4 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0a1628] font-black text-amber-400">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy font-black text-amber-400">
                 {i < 3 ? <Medal className="h-5 w-5" /> : i + 1}
               </span>
               <Avatar name={r.display_name} />

@@ -13,7 +13,7 @@ const sections: [string, string][] = [
 
 export default function Terms() {
   return (
-    <main>
+    <div>
       <PageHero kicker="اتفاق واضح" title="شروط الخدمة" desc="القواعد التي تحكم استخدام المنصة للباحثين والشركات." />
       <section className="container max-w-3xl py-10">
         {sections.map(([t, d]) => (
@@ -24,6 +24,6 @@ export default function Terms() {
         ))}
         <p className="mt-6 text-xs text-muted-foreground">آخر تحديث: 2026 — لأي استفسار: صفحة التواصل.</p>
       </section>
-    </main>
+    </div>
   );
 }

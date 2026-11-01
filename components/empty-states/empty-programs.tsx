@@ -24,11 +24,11 @@ export function EmptyPrograms({
       hint={hint}
       icon={AppWindow}
       action={
-        <Link href={actionHref}>
-          <Button variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm">
+          <Link href={actionHref}>
             {actionLabel}
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       }
     />
   );

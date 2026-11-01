@@ -20,11 +20,11 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             <Button onClick={reset} size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
               إعادة المحاولة
             </Button>
-            <Link href="/admin/reports">
-              <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/reports">
                 التقارير
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

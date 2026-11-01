@@ -9,7 +9,7 @@ export default async function CompaniesPage() {
   const supabase = await createServerClient();
   const { data } = await supabase.from('company_profiles').select('id,name,slug,description,is_verified').order('created_at', { ascending: false }).limit(50);
   return (
-    <main>
+    <div>
       <PageHero kicker="شركاء المنصة" title="الشركات" desc="الشركات التي تثق بباحثينا لتأمين منتجاتها عبر برامج Bug Bounty." />
       <section className="container py-10">
         {!data?.length ? <p className="text-muted-foreground">No companies yet.</p> : (
@@ -18,7 +18,7 @@ export default async function CompaniesPage() {
               <Card key={c.id} className="group transition-all hover:-translate-y-1 hover:shadow-xl">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0a1628] text-amber-400">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-amber-400">
                       <Building2 className="h-5 w-5" />
                     </span>
                     {c.is_verified && <Badge>موثقة ✓</Badge>}
@@ -33,6 +33,6 @@ export default async function CompaniesPage() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

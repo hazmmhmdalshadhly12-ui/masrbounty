@@ -30,7 +30,7 @@ async function openTicket(formData: FormData) {
 export default async function Contact({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const { error, ok } = await searchParams;
   return (
-    <main>
+    <div>
       <PageHero kicker="نسمعك" title="تواصل معنا" desc="دعم فني، استفسارات شركات، أو بلاغ عن إساءة استخدام — نفتح لك تذكرة يتابعها فريقنا." />
       <section className="container max-w-2xl py-10">
         <Card>
@@ -57,6 +57,6 @@ export default async function Contact({ searchParams }: { searchParams: Promise<
           </CardContent>
         </Card>
       </section>
-    </main>
+    </div>
   );
 }

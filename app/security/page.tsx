@@ -5,7 +5,7 @@ const out = ['الهندسة الاجتماعية لموظفي المنصة أو
 
 export default function Security() {
   return (
-    <main>
+    <div>
       <PageHero kicker="الأمن أولًا" title="سياسة الإفصاح المسؤول" desc="اكتشفت ثغرة في المنصة نفسها؟ بلّغنا بمسؤولية وسنكافئك بعد التحقق والإصلاح." />
       <section className="container max-w-3xl py-10 space-y-8">
         <div>
@@ -35,6 +35,6 @@ export default function Security() {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

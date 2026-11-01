@@ -13,7 +13,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           {error.digest && <p className="mt-3 font-mono text-xs text-muted-foreground" dir="ltr">ref: {error.digest}</p>}
           <div className="mt-6 flex justify-center gap-2">
             <Button onClick={reset} size="sm" className="bg-slate-900 text-white hover:bg-slate-700">????? ????????</Button>
-            <Link href="/"><Button variant="outline" size="sm">????????</Button></Link>
+            <Button asChild variant="outline" size="sm"><Link href="/">????????</Link></Button>
           </div>
         </CardContent>
       </Card>

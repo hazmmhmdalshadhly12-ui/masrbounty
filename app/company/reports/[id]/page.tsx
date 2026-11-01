@@ -62,7 +62,7 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
   const supabase = await createServerClient();
   const { id } = await params;
   const { data: report } = await supabase.from('reports').select('*,programs(company_id,response_sla_hours)').eq('id', id).single();
-  if (!report) return <main className="container py-12">Not found.</main>;
+  if (!report) return <div className="container py-12">Not found.</div>;
   const companyId = (report as unknown as { programs: { company_id: string } | null }).programs?.company_id ?? null;
   const [{ data: assignees }, { data: members }, { data: labels }, { data: attached }] = await Promise.all([
     supabase.from('report_assignees').select('user_id,profiles!inner(username)').eq('report_id', id),
@@ -80,7 +80,7 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
   const { data: dups } = await supabase.from('report_duplicates').select('id,duplicate_of').eq('report_id', id);
 
   return (
-    <main className="container py-8 max-w-3xl space-y-6">
+    <div className="container py-8 max-w-3xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">{report.report_number} — {report.title}</h1>
@@ -206,6 +206,6 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
           </form>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

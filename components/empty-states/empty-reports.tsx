@@ -22,9 +22,9 @@ export function EmptyReports({
       hint={hint}
       icon={Inbox}
       action={
-        <Link href={actionHref}>
-          <Button size="sm">{actionLabel}</Button>
-        </Link>
+        <Button asChild size="sm">
+          <Link href={actionHref}>{actionLabel}</Link>
+        </Button>
       }
     />
   );

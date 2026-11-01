@@ -75,7 +75,7 @@ export function DashboardShell({
       <div className="container flex flex-col gap-6 py-6 md:flex-row">
         {/* Sidebar */}
         <aside className="w-full shrink-0 md:w-60">
-          <div className="overflow-hidden rounded-2xl bg-[#0a1628] p-3 text-slate-200 shadow-lg">
+          <div className="overflow-hidden rounded-2xl bg-navy p-3 text-slate-200 shadow-lg">
             <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wider text-amber-400">{title}</p>
             <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
               {links.map((l) => {

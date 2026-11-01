@@ -11,7 +11,7 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
   const supabase = await createServerClient();
   const { slug } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('slug', slug).single();
-  if (!program) return <main className="container py-12">Program not found.</main>;
+  if (!program) return <div className="container py-12">Program not found.</div>;
   const [{ data: assets }, { data: rules }, { data: bounty }, { data: updates }, { data: activity }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', program.id),
     supabase.from('program_rules').select('*').eq('program_id', program.id).order('sort_order'),
@@ -54,7 +54,7 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
 
   const maxBounty = (bounty ?? []).reduce((m: number, b: { max_amount: number }) => Math.max(m, Number(b.max_amount)), 0);
   return (
-    <main>
+    <div>
       <section className="border-b bg-muted/40">
         <div className="container max-w-5xl py-8">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -172,14 +172,14 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
                 <p className="text-xs text-muted-foreground">أعلى مكافأة</p>
                 <p className="text-3xl font-black tabular-nums" dir="ltr">{maxBounty.toLocaleString()} <span className="text-sm font-bold">EGP</span></p>
               </div>
-              <Link href="/dashboard/reports/new" className="block">
-                <Button className="w-full bg-slate-900 font-bold text-white hover:bg-slate-700">تقديم تقرير</Button>
-              </Link>
+              <Button asChild className="w-full bg-slate-900 font-bold text-white hover:bg-slate-700">
+                <Link href="/dashboard/reports/new">تقديم تقرير</Link>
+              </Button>
               <p className="text-[11px] leading-relaxed text-muted-foreground">اختبر فقط الأصول داخل النطاق. أي نشاط خارجه يعرض حسابك للإيقاف.</p>
             </CardContent>
           </Card>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }

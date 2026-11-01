@@ -20,7 +20,7 @@ export default async function CompanyPayments() {
     .reduce((s, a) => s + Number(a.amount), 0);
   const vfNumber = String((vfRow?.value as string | null) ?? '0112417443').replace(/"/g, '');
   return (
-    <main className="container py-8">
+    <div className="container py-8">
       <h1 className="text-2xl font-bold mb-6">المدفوعات</h1>
       <Card className="mb-6 border-amber-400/60">
         <CardHeader><CardTitle>تمويل المنصة (ضمان)</CardTitle></CardHeader>
@@ -45,6 +45,6 @@ export default async function CompanyPayments() {
           </div>
         ))}
       </CardContent></Card>
-    </main>
+    </div>
   );
 }

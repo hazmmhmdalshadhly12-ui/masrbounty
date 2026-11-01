@@ -65,7 +65,7 @@ export default async function HallOfFamePage() {
   const sortedGroups = [...groups.entries()].sort((a, b) => b[1].entries.length - a[1].entries.length);
 
   return (
-    <main dir="rtl" lang="ar">
+    <div dir="rtl" lang="ar">
       <PageHero kicker="تكريم مستحق" title="قاعة المشاهير" desc="باحثون كرّمتهم الشركات علنًا على اكتشافاتهم المميزة — تُعرض فقط التكريمات بموافقة الباحث." />
       <section className="container py-10">
         {!filtered.length ? (
@@ -146,6 +146,6 @@ export default async function HallOfFamePage() {
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

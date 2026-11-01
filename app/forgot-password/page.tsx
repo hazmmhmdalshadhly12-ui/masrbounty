@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function ForgotPassword() {
   return (
-    <main className="bg-slate-100 dark:bg-slate-950">
+    <div className="bg-slate-100 dark:bg-slate-950">
       <div className="container grid min-h-[calc(100vh-4rem)] items-center py-10">
         <Card className="mx-auto w-full max-w-md shadow-xl">
           <CardContent className="p-8">
@@ -17,6 +17,6 @@ export default function ForgotPassword() {
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

@@ -7,7 +7,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const post = posts.find((p) => p.slug === slug);
   if (!post) notFound();
   return (
-    <main className="container max-w-2xl py-12">
+    <div className="container max-w-2xl py-12">
       <p className="text-xs text-muted-foreground">{post.date} — مدونة MasrBounty</p>
       <h1 className="mt-2 text-3xl font-black tracking-tight">{post.title}</h1>
       <div className="mt-8 space-y-5">
@@ -16,6 +16,6 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         ))}
       </div>
       <Link href="/blog" className="mt-10 inline-block text-sm underline">كل المقالات</Link>
-    </main>
+    </div>
   );
 }

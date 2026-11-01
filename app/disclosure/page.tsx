@@ -25,7 +25,7 @@ const timeline = [
 
 export default function Disclosure() {
   return (
-    <main dir="rtl" lang="ar">
+    <div dir="rtl" lang="ar">
       <PageHero
         kicker="إفصاح مسؤول"
         title="سياسة الإفصاح عن الثغرات"
@@ -78,6 +78,6 @@ export default function Disclosure() {
           </p>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

@@ -85,7 +85,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <main dir="rtl" lang="ar">
+    <div dir="rtl" lang="ar">
       <PageHero kicker="دوّر بسرعة" title="البحث" desc="ابحث في البرامج النشطة العامة والباحثين العلنيين — نتائج فورية مع debounce." />
       <section className="container max-w-3xl py-8">
         <GlobalSearchClient initialQ={q} initialType={type} />
@@ -197,6 +197,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           )}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

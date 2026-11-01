@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 export default async function BadgesPage() {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return <main className="container py-12">Login required.</main>;
+  if (!user.user) return <div className="container py-12">Login required.</div>;
   const [{ data: all }, { data: mine }] = await Promise.all([
     supabase.from('badges').select('*'),
     supabase.from('researcher_profiles').select('id').eq('user_id', user.user.id).single(),
@@ -17,7 +17,7 @@ export default async function BadgesPage() {
   const set = new Set(((earned ?? []) as { badge_id: string }[]).map((e) => e.badge_id));
   const totalPoints = ((achievements ?? []) as { points: number }[]).reduce((a, x) => a + Number(x.points), 0);
   return (
-    <main className="container py-8">
+    <div className="container py-8">
       <div className="mb-6 flex items-end justify-between">
         <h1 className="text-2xl font-bold">الشارات والإنجازات</h1>
         <p className="text-sm text-muted-foreground">نقاط الإنجاز: <b className="tabular-nums">{totalPoints}</b></p>
@@ -39,6 +39,6 @@ export default async function BadgesPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {all?.map((b) => <Card key={b.id} className={set.has(b.id) ? 'border-amber-400/60' : 'opacity-60'}><CardHeader><CardTitle className="text-base">{b.name_en}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{b.description_en}</p>{set.has(b.id) ? <Badge className="mt-2">مكتسبة ✓</Badge> : <Badge variant="secondary" className="mt-2">مقفلة</Badge>}</CardContent></Card>)}
       </div>
-    </main>
+    </div>
   );
 }

@@ -61,7 +61,7 @@ async function invite(formData: FormData) {
 export default async function TeamPage() {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return <main className="container py-12">Login required.</main>;
+  if (!user.user) return <div className="container py-12">Login required.</div>;
   const { data: companies } = await supabase.from('company_profiles').select('id,name').eq('owner_id', user.user.id);
   const companyId = companies?.[0]?.id;
   const [{ data: members }, { data: invites }] = companyId ? await Promise.all([
@@ -69,7 +69,7 @@ export default async function TeamPage() {
     supabase.from('company_invitations').select('id,email,role,accepted_at').eq('company_id', companyId),
   ]) : { data: null, invites: null } as never;
   return (
-    <main className="container py-8 max-w-2xl space-y-6">
+    <div className="container py-8 max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">الفريق</h1>
       {!companyId ? <p className="text-muted-foreground">Create a company first.</p> : (
         <>
@@ -86,6 +86,6 @@ export default async function TeamPage() {
           </CardContent></Card>
         </>
       )}
-    </main>
+    </div>
   );
 }

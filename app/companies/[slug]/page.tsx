@@ -7,7 +7,7 @@ export default async function CompanyPublic({ params }: { params: Promise<{ slug
   const supabase = await createServerClient();
   const { slug } = await params;
   const { data: company } = await supabase.from('company_profiles').select('*').eq('slug', slug).single();
-  if (!company) return <main className="container py-12">Company not found.</main>;
+  if (!company) return <div className="container py-12">Company not found.</div>;
   const [{ data: programs }, { data: domains }, trust] = await Promise.all([
     supabase.from('programs').select('id,name,slug,status').eq('company_id', company.id).eq('status', 'active').eq('visibility', 'public'),
     supabase.from('domain_verifications').select('domain').eq('company_id', company.id).eq('status', 'verified'),
@@ -20,7 +20,7 @@ export default async function CompanyPublic({ params }: { params: Promise<{ slug
   const f = trustRow?.factors;
 
   return (
-    <main className="container py-8 max-w-3xl space-y-6">
+    <div className="container py-8 max-w-3xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold">{company.name}</h1>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -49,6 +49,6 @@ export default async function CompanyPublic({ params }: { params: Promise<{ slug
       </div>
       <Card><CardHeader><CardTitle>البرامج النشطة ({programs?.length ?? 0})</CardTitle></CardHeader>
         <CardContent>{!programs?.length ? <p className="text-sm text-muted-foreground">None.</p> : programs.map((p) => <Link key={p.id} href={`/programs/${p.slug}`} className="block border rounded p-2 mb-2 hover:bg-accent">{p.name}</Link>)}</CardContent></Card>
-    </main>
+    </div>
   );
 }

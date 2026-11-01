@@ -32,7 +32,7 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
   // Privacy gate: only public fields are ever shown. Respect is_public strictly.
   if (!rp || !rp.is_public) {
     return (
-      <main dir="rtl" lang="ar" className="container max-w-2xl py-12">
+      <div dir="rtl" lang="ar" className="container max-w-2xl py-12">
         <Card className="text-center">
           <CardContent className="p-10">
             <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground" />
@@ -43,7 +43,7 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
             </Link>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -89,7 +89,7 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
 
   // Only public fields: display_name, avatar, country, website/github/twitter/linkedin, skills, bio, rank, stats, badges, hof
   return (
-    <main dir="rtl" lang="ar" className="container max-w-4xl py-8">
+    <div dir="rtl" lang="ar" className="container max-w-4xl py-8">
       {/* Header */}
       <Card className="overflow-hidden">
         <div className="h-24 bg-gradient-to-l from-slate-900 via-slate-800 to-slate-900" aria-hidden />
@@ -282,6 +282,6 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
       <p className="mt-6 text-center text-xs text-muted-foreground">
         تُعرض فقط الحقول العامة لهذا الباحث احترامًا لإعدادات الخصوصية. الترتيب مأخوذ من <code dir="ltr">researcher_leaderboard</code>.
       </p>
-    </main>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { PageHero } from '@/components/layout/page-hero';
 
 export default function Blog() {
   return (
-    <main>
+    <div>
       <PageHero kicker="المعرفة سلاح" title="المدونة" desc="مقالات عملية في الصيد الأخلاقي وكتابة التقارير." />
       <section className="container max-w-3xl py-10">
         {posts.map((p) => (
@@ -20,6 +20,6 @@ export default function Blog() {
           </Link>
         ))}
       </section>
-    </main>
+    </div>
   );
 }

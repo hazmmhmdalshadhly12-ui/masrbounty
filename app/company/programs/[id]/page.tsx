@@ -139,7 +139,7 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
   const supabase = await createServerClient();
   const { id: programId } = await params;
   const { data: program } = await supabase.from('programs').select('*').eq('id', programId).single();
-  if (!program) return <main className="container py-12">Not found.</main>;
+  if (!program) return <div className="container py-12">Not found.</div>;
   const [{ data: assets }, { data: rules }, { data: bounty }, { data: invited }, { data: updates }] = await Promise.all([
     supabase.from('program_assets').select('*').eq('program_id', programId),
     supabase.from('program_rules').select('*').eq('program_id', programId),
@@ -166,7 +166,7 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
   const showClose = status !== 'closed';
 
   return (
-    <main className="container py-8 max-w-3xl space-y-6">
+    <div className="container py-8 max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{program.name}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -317,6 +317,6 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
           <Button size="sm" type="submit">حفظ النطاق</Button>
         </form>
       </CardContent></Card>
-    </main>
+    </div>
   );
 }

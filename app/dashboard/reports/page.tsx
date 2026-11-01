@@ -11,9 +11,9 @@ export default async function ReportsPage() {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) {
     return (
-      <main className="py-2">
+      <div className="py-2">
         <p className="text-sm">سجّل الدخول أولًا من <Link href="/login" className="underline">هنا</Link>.</p>
-      </main>
+      </div>
     );
   }
   const { data: rp } = await supabase
@@ -21,7 +21,7 @@ export default async function ReportsPage() {
     .select('id')
     .eq('user_id', user.user.id)
     .single();
-  if (!rp) return <main className="py-2 text-sm text-muted-foreground">لا يوجد ملف باحث مرتبط بحسابك.</main>;
+  if (!rp) return <div className="py-2 text-sm text-muted-foreground">لا يوجد ملف باحث مرتبط بحسابك.</div>;
   const { data: reports } = await supabase
     .from('reports')
     .select('id,report_number,title,status,severity,bounty_amount,created_at')
@@ -37,11 +37,11 @@ export default async function ReportsPage() {
         </div>
         <div className="flex gap-2">
           <ExportButton rows={(reports ?? []).map((r) => ({ number: r.report_number, title: r.title, status: r.status, severity: r.severity, bounty: r.bounty_amount }))} filename="my-reports.csv" />
-          <Link href="/dashboard/reports/new">
-            <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
+          <Button asChild size="sm" className="bg-slate-900 text-white hover:bg-slate-700">
+            <Link href="/dashboard/reports/new">
               <Plus className="h-4 w-4" /> تقرير جديد
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
       {!reports?.length ? (

@@ -186,11 +186,11 @@ export default async function AdminPrograms({ searchParams }: { searchParams: Pr
                       <td className="p-2 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('ar-EG')}</td>
                       <td className="p-2">
                         <div className="flex flex-wrap gap-1.5">
-                          <Link href={`/programs/${p.slug}`} target="_blank">
-                            <Button size="sm" variant="outline">
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/programs/${p.slug}`} target="_blank">
                               <Eye className="ml-1 h-3 w-3" /> عرض
-                            </Button>
-                          </Link>
+                            </Link>
+                          </Button>
                           {p.status === 'pending_review' && (
                             <>
                               <form action={programAction.bind(null, p.id, 'approve')} className="flex gap-1">

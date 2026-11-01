@@ -39,11 +39,11 @@ export function ErrorFallback({
               إعادة المحاولة
             </Button>
           )}
-          <Link href={homeHref}>
-            <Button variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm">
+            <Link href={homeHref}>
               الرئيسية
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>

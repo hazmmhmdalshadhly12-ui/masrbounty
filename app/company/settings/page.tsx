@@ -26,7 +26,7 @@ async function saveCompany(formData: FormData) {
 export default async function CompanySettings() {
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return <main className="container py-12">Login required.</main>;
+  if (!user.user) return <div className="container py-12">Login required.</div>;
   const { data: ownedCompany } = await supabase.from('company_profiles').select('*').eq('owner_id', user.user.id).maybeSingle();
   let company = ownedCompany as unknown as { id: string; name: string; slug: string; description: string | null; website: string | null } | null;
   if (!company) {
@@ -67,7 +67,7 @@ export default async function CompanySettings() {
     }
   }
   return (
-    <main className="container py-8 max-w-2xl space-y-6">
+    <div className="container py-8 max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">إعدادات الشركة</h1>
       <Card><CardHeader><CardTitle>Profile</CardTitle></CardHeader><CardContent>
         <form action={saveCompany} className="space-y-3">
@@ -80,6 +80,6 @@ export default async function CompanySettings() {
       </CardContent></Card>
       {company && <DomainsManager companyId={company.id} initialDomains={companyDomains} />}
       {!company && <p className="text-sm text-muted-foreground">أنشئ مؤسستك أولًا من <a href="/company/onboarding" className="underline">صفحة التأهيل</a>.</p>}
-    </main>
+    </div>
   );
 }
