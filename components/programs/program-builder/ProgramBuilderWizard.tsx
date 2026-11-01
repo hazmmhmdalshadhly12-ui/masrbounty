@@ -7,7 +7,8 @@ import type { WizardData } from './types';
 import { wizardSchemas } from './validations';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, UploadCloud, RotateCcw, History } from 'lucide-react';
+import { loadWizardDraftAction, saveWizardDraftAction, clearWizardDraftAction } from './actions';
 import { StepBasic } from './steps/StepBasic';
 import { StepVerification } from './steps/StepVerification';
 import { StepScope } from './steps/StepScope';
@@ -82,10 +83,108 @@ function Stepper({ current }: { current: number }): React.JSX.Element {
   );
 }
 
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+function formatTime(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('ar-EG', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  } catch {
+    return '';
+  }
+}
+
 export function ProgramBuilderWizard(): React.JSX.Element {
-  const { step, data, setStep, next, back, updateBasic, updateScope, updateRules, updateRewards, updateSLA, updateDisclosure } = useWizardStore();
+  const { step, data, setStep, setData, next, back, updateBasic, updateScope, updateRules, updateRewards, updateSLA, updateDisclosure, reset } = useWizardStore();
   const [errors, setErrors] = React.useState<string[]>([]);
   const [createdProgramId, setCreatedProgramId] = React.useState<string | null>(null);
+
+  // ── Backend draft: hydrate on mount + debounced autosave ──
+  const [saveState, setSaveState] = React.useState<SaveState>('idle');
+  const [saveMsg, setSaveMsg] = React.useState<string | null>(null);
+  const [lastSaved, setLastSaved] = React.useState<string | null>(null);
+  const [resumed, setResumed] = React.useState(false);
+  const hydratedRef = React.useRef(false);
+  const snapshotRef = React.useRef('');
+  const seqRef = React.useRef(0);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const res = await loadWizardDraftAction();
+      if (!alive) return;
+      if (res.ok && res.draft) {
+        setData(res.draft.data);
+        setStep(res.draft.step);
+        setResumed(true);
+        setLastSaved(res.draft.updatedAt || null);
+      }
+      hydratedRef.current = true;
+      snapshotRef.current = JSON.stringify({ d: useWizardStore.getState().data, s: useWizardStore.getState().step });
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (createdProgramId) return; // draft consumed — stop autosaving
+    const snap = JSON.stringify({ d: data, s: step });
+    if (snap === snapshotRef.current) return;
+    const seq = ++seqRef.current;
+    setSaveState('saving');
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      const res = await saveWizardDraftAction(data, step);
+      if (seq !== seqRef.current) return; // a newer save superseded this one
+      if (res.ok) {
+        snapshotRef.current = snap;
+        setSaveState('saved');
+        setSaveMsg(null);
+        setLastSaved(res.savedAt);
+      } else {
+        setSaveState('error');
+        setSaveMsg(res.error);
+      }
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [data, step, createdProgramId]);
+
+  // Best-effort flush when the tab is closed/hidden — keeps "exit anytime" honest.
+  React.useEffect(() => {
+    const flush = (): void => {
+      if (!hydratedRef.current || createdProgramId) return;
+      const cur = useWizardStore.getState();
+      const snap = JSON.stringify({ d: cur.data, s: cur.step });
+      if (snap === snapshotRef.current) return;
+      snapshotRef.current = snap;
+      void saveWizardDraftAction(cur.data, cur.step);
+    };
+    const onHide = (): void => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, [createdProgramId]);
+
+  const startFresh = React.useCallback(async () => {
+    await clearWizardDraftAction();
+    snapshotRef.current = '';
+    setResumed(false);
+    setLastSaved(null);
+    setSaveState('idle');
+    reset();
+    setStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [reset, setStep]);
 
   const handleNext = (): void => {
     const slice = getStepSlice(step, data);
@@ -141,6 +240,23 @@ export function ProgramBuilderWizard(): React.JSX.Element {
     <div className="space-y-6">
       <Stepper current={step} />
 
+      {resumed && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+          <span className="flex items-center gap-2">
+            <History className="h-4 w-4 shrink-0" aria-hidden="true" />
+            استأنفنا مسودتك المحفوظة على الخادم{lastSaved ? ` — آخر حفظ ${formatTime(lastSaved)}` : ''} — تابع من حيث توقفت.
+          </span>
+          <button
+            type="button"
+            onClick={() => void startFresh()}
+            className="flex items-center gap-1 rounded-md border border-amber-300 px-2 py-1 text-xs font-medium transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-800 dark:hover:bg-amber-900/40"
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            البدء من جديد
+          </button>
+        </div>
+      )}
+
       {/* Stepper clickable pills for quick jump – visible on desktop */}
       <Card className="p-2">
         <div className="flex flex-wrap gap-1 justify-center max-sm:overflow-x-auto max-sm:flex-nowrap max-sm:justify-start max-sm:pb-1">
@@ -184,6 +300,33 @@ export function ProgramBuilderWizard(): React.JSX.Element {
         </Button>
 
         <div className="flex items-center gap-2 justify-end">
+          <span
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            {saveState === 'saving' && (
+              <>
+                <UploadCloud className="h-3.5 w-3.5 animate-pulse" aria-hidden="true" />
+                جاري الحفظ على الخادم…
+              </>
+            )}
+            {saveState === 'saved' && (
+              <>
+                <UploadCloud className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                محفوظ على الخادم{lastSaved ? ` ${formatTime(lastSaved)}` : ''} ✓
+              </>
+            )}
+            {saveState === 'error' && (
+              <span className="text-destructive">تعذر الحفظ: {saveMsg ?? 'خطأ غير متوقع'}</span>
+            )}
+            {saveState === 'idle' && !resumed && (
+              <>
+                <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
+                الحفظ التلقائي على الخادم مفعّل
+              </>
+            )}
+          </span>
           {createdProgramId && step === 9 && (
             <a href={`/company/programs/${createdProgramId}`} className="text-xs text-primary hover:underline hidden sm:inline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               عرض البرنامج
@@ -201,10 +344,7 @@ export function ProgramBuilderWizard(): React.JSX.Element {
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        يتم حفظ البيانات محليًا أثناء التنقل بين الخطوات — لا يُنشأ البرنامج إلا في خطوة النشر بعد التحقق عبر{' '}
-        <code dir="ltr" className="rounded bg-muted px-1 py-0.5">
-          checkPublishReadiness
-        </code>
+        تقدمك يُحفظ تلقائيًا في حسابك على الخادم — اخرج في أي وقت وارجع وستكمل من نفس الخطوة، وتوثيق الدومين يبقى محفوظًا. لا يُنشأ البرنامج إلا في خطوة النشر بعد التحقق عبر checkPublishReadiness.
       </p>
     </div>
   );

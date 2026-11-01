@@ -1563,6 +1563,44 @@ CREATE POLICY "cve_read" ON public.company_verification_events FOR SELECT USING 
 DROP POLICY IF EXISTS "cve_insert" ON public.company_verification_events;
 CREATE POLICY "cve_insert" ON public.company_verification_events FOR INSERT WITH CHECK (public.has_role('admin') OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid()) OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=company_verification_events.company_id AND user_id=auth.uid()) OR auth.uid()=actor_id);
 
+-- 16.1b PROGRAM DRAFTS — server-side wizard autosave (one active draft per company)
+-- Lets a company exit the "create program" wizard at any step and resume later:
+-- the whole WizardData JSON is stored here, hydrated by loadWizardDraftAction,
+-- cleared by clearWizardDraftAction after the program is created/published.
+CREATE TABLE IF NOT EXISTS public.program_drafts (
+  company_id UUID PRIMARY KEY REFERENCES public.company_profiles(id) ON DELETE CASCADE,
+  data JSONB NOT NULL,
+  step INT NOT NULL DEFAULT 1 CHECK (step BETWEEN 1 AND 9),
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_program_drafts_updated ON public.program_drafts(updated_at);
+DROP TRIGGER IF EXISTS trg_touch_program_drafts ON public.program_drafts;
+CREATE TRIGGER trg_touch_program_drafts BEFORE UPDATE ON public.program_drafts FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+ALTER TABLE public.program_drafts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "pd_read" ON public.program_drafts;
+CREATE POLICY "pd_read" ON public.program_drafts FOR SELECT USING (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin') OR public.has_role('moderator')
+    OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=program_drafts.company_id AND user_id=auth.uid())
+  )
+);
+DROP POLICY IF EXISTS "pd_write" ON public.program_drafts;
+CREATE POLICY "pd_write" ON public.program_drafts FOR ALL USING (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin')
+    OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=program_drafts.company_id AND user_id=auth.uid())
+  )
+) WITH CHECK (
+  auth.role() = 'authenticated' AND (
+    public.has_role('admin')
+    OR EXISTS(SELECT 1 FROM public.company_profiles WHERE id=company_id AND owner_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.company_members WHERE company_id=program_drafts.company_id AND user_id=auth.uid())
+  )
+);
+
 -- 16.2 PROGRAM LIFECYCLE FIELDS
 ALTER TABLE public.programs ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
 ALTER TABLE public.programs ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;

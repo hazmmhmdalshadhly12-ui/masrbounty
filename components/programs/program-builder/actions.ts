@@ -7,6 +7,7 @@ import { checkPublishReadiness } from '@/features/programs/services';
 import type { WizardData } from './types';
 import { randomHex, sha256Hex, isValidVerificationToken } from '@/lib/security/edge-crypto';
 import { hasVerificationTxt } from '@/lib/security/dns-txt';
+import { sanitizeWizardDraft, draftFitsBudget, DRAFT_MAX_JSON_CHARS } from './draft-sanitize';
 
 type ActionResult = { ok: true; programId: string } | { ok: false; error: string };
 
@@ -275,5 +276,127 @@ export async function publishWizardProgramAction(programId: string): Promise<Act
     return { ok: true, programId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'فشل النشر' };
+  }
+}
+
+/* ── Wizard draft persistence (backend autosave — resume anytime) ─────────
+ * One active draft per company in program_drafts (masrbounty.sql §16.1b).
+ * RLS: owner/member/admin only. The payload is sanitized server-side before
+ * it touches the database; nothing is trusted from the client. */
+
+export type SaveDraftResult = { ok: true; savedAt: string } | { ok: false; error: string };
+export type LoadDraftResult =
+  | { ok: true; draft: { data: WizardData; step: number; updatedAt: string } | null }
+  | { ok: false; error: string };
+
+/** Autosave the whole wizard state (debounced client-side). */
+export async function saveWizardDraftAction(data: WizardData, step: number): Promise<SaveDraftResult> {
+  try {
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return { ok: false, error: 'انتهت الجلسة — سجّل الدخول لحفظ المسودة' };
+    const companyId = await resolveCompanyId(supabase, uid);
+    if (!companyId) return { ok: false, error: 'أنشئ ملف الشركة أولاً لحفظ المسودة' };
+
+    const clean = sanitizeWizardDraft(data);
+    if (!clean) return { ok: false, error: 'بيانات المسودة غير صالحة' };
+    if (!draftFitsBudget(clean)) {
+      return { ok: false, error: `حجم المسودة يتجاوز الحد (${Math.round(DRAFT_MAX_JSON_CHARS / 1000)}KB) — اختصر النصوص الطويلة` };
+    }
+    const safeStep = Number.isInteger(step) ? Math.max(1, Math.min(9, step)) : 1;
+
+    const { error } = await supabase
+      .from('program_drafts')
+      .upsert({ company_id: companyId, data: clean, step: safeStep }, { onConflict: 'company_id' });
+    if (error) return { ok: false, error: 'فشل حفظ المسودة: ' + error.message };
+    return { ok: true, savedAt: new Date().toISOString() };
+  } catch (e) {
+    return { ok: false, error: 'فشل حفظ المسودة: ' + (e instanceof Error ? e.message : 'خطأ غير متوقع') };
+  }
+}
+
+/** Load the company's active draft (null when there is none). */
+export async function loadWizardDraftAction(): Promise<LoadDraftResult> {
+  try {
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return { ok: true, draft: null };
+    const companyId = await resolveCompanyId(supabase, uid);
+    if (!companyId) return { ok: true, draft: null };
+    const { data: row, error } = await supabase
+      .from('program_drafts')
+      .select('data, step, updated_at')
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (error) return { ok: false, error: 'فشل قراءة المسودة: ' + error.message };
+    if (!row) return { ok: true, draft: null };
+    const clean = sanitizeWizardDraft((row as { data: unknown }).data);
+    if (!clean) {
+      // Corrupt/legacy shape — drop it instead of hydrating broken state.
+      await supabase.from('program_drafts').delete().eq('company_id', companyId);
+      return { ok: true, draft: null };
+    }
+    const step = Number((row as { step: number }).step) || 1;
+    return {
+      ok: true,
+      draft: { data: clean, step: Math.max(1, Math.min(9, step)), updatedAt: String((row as { updated_at: string }).updated_at ?? '') },
+    };
+  } catch (e) {
+    return { ok: false, error: 'فشل قراءة المسودة: ' + (e instanceof Error ? e.message : 'خطأ غير متوقع') };
+  }
+}
+
+/** Delete the active draft (called after the program is created/published). */
+export async function clearWizardDraftAction(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return { ok: false, error: 'انتهت الجلسة' };
+    const companyId = await resolveCompanyId(supabase, uid);
+    if (!companyId) return { ok: true };
+    const { error } = await supabase.from('program_drafts').delete().eq('company_id', companyId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'خطأ غير متوقع' };
+  }
+}
+
+/**
+ * Verified domains for the signed-in company — StepVerification hydrates from
+ * this so an already-verified domain shows "موثّق" immediately, with no
+ * re-verification, even on a fresh wizard session.
+ */
+export async function getVerifiedDomainsAction(): Promise<{
+  ok: boolean;
+  domains?: { domain: string; status: string; token: string | null; expiresAt: string | null }[];
+  error?: string;
+}> {
+  try {
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return { ok: false, error: 'انتهت الجلسة' };
+    const companyId = await resolveCompanyId(supabase, uid);
+    if (!companyId) return { ok: true, domains: [] };
+    const { data, error } = await supabase
+      .from('company_domains')
+      .select('domain, status, verification_token_plain, expires_at')
+      .eq('company_id', companyId)
+      .order('verified_at', { ascending: false, nullsFirst: false })
+      .limit(20);
+    if (error) return { ok: false, error: 'فشل قراءة الدومينات: ' + error.message };
+    const domains = (data as { domain: string; status: string; verification_token_plain: string | null; expires_at: string | null }[] | null)?.map((r) => ({
+      domain: r.domain,
+      status: r.status,
+      token: r.verification_token_plain,
+      expiresAt: r.expires_at,
+    })) ?? [];
+    return { ok: true, domains };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'خطأ غير متوقع' };
   }
 }

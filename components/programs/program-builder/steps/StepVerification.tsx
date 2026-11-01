@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw, Globe } from 'lucide-react';
-import { createVerificationTokenAction, verifyDomainFileAction, verifyDomainTxtAction } from '../actions';
+import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw, Globe, BadgeCheck } from 'lucide-react';
+import { createVerificationTokenAction, verifyDomainFileAction, verifyDomainTxtAction, getVerifiedDomainsAction } from '../actions';
 
 type VerifyMethod = 'dns' | 'file';
+type ServerDomain = { domain: string; status: string; token: string | null; expiresAt: string | null };
 
 export function StepVerification({ errors }: { errors: string[] }): React.JSX.Element {
   const { data, updateVerification } = useWizardStore();
@@ -18,6 +19,41 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [ok, setOk] = React.useState<boolean | null>(null);
+  const [serverDomains, setServerDomains] = React.useState<ServerDomain[]>([]);
+  const hydratedRef = React.useRef(false);
+
+  // Hydrate from the backend: an already-verified domain (company_domains,
+  // status=verified) shows "موثّق" immediately — no re-verification needed,
+  // even on a fresh wizard session. If the domain is empty, prefill the
+  // company's most recent verified domain (one less thing to type).
+  React.useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    (async () => {
+      const res = await getVerifiedDomainsAction();
+      if (!res.ok || !res.domains) return;
+      setServerDomains(res.domains);
+      const verifiedRows = res.domains.filter((d) => d.status === 'verified' && d.token);
+      if (verifiedRows.length === 0) return;
+      const cur = useWizardStore.getState().data.verification;
+      const match = verifiedRows.find((d) => d.domain === cur.domain);
+      if (match) {
+        updateVerification({
+          verified: true,
+          token: match.token ?? cur.token,
+          sentence: match.token ? `masrbounty-verification=${match.token}` : cur.sentence,
+        });
+      } else if (!cur.domain) {
+        const first = verifiedRows[0];
+        updateVerification({
+          domain: first.domain,
+          verified: true,
+          token: first.token ?? '',
+          sentence: first.token ? `masrbounty-verification=${first.token}` : '',
+        });
+      }
+    })();
+  }, [updateVerification]);
 
   const domainValid = /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.domain.trim());
 
@@ -120,7 +156,10 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
               value={v.domain}
               onChange={(e) => {
                 const d = e.target.value.trim().toLowerCase();
-                updateVerification({ domain: d, verified: false });
+                // Keep the verified badge while the domain still matches a
+                // server-verified row — only a real change un-verifies.
+                const stillVerified = serverDomains.some((s) => s.status === 'verified' && s.domain === d && s.token);
+                updateVerification({ domain: d, verified: stillVerified });
               }}
               onBlur={ensureToken}
               className="font-mono"
@@ -253,6 +292,11 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                 ) : (
                   <Badge variant="secondary" className="gap-1">
                     <AlertTriangle className="h-3.5 w-3.5" /> بانتظار التحقق
+                  </Badge>
+                )}
+                {!v.verified && serverDomains.some((s) => s.status === 'verified') && (
+                  <Badge variant="outline" className="gap-1 text-emerald-700 border-emerald-300">
+                    <BadgeCheck className="h-3.5 w-3.5" /> لديك دومينات موثقة في حسابك
                   </Badge>
                 )}
                 {msg && <span className={`text-sm ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>{msg}</span>}

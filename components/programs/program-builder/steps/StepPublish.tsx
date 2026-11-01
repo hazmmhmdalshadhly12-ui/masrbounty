@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertTriangle, Loader2, Rocket } from 'lucide-react';
 import type { WizardData } from '../types';
-import { createWizardProgramAction, checkWizardReadinessAction, publishWizardProgramAction } from '../actions';
+import { createWizardProgramAction, checkWizardReadinessAction, publishWizardProgramAction, clearWizardDraftAction } from '../actions';
 
 type Phase = 'idle' | 'creating' | 'checking' | 'publishing' | 'done' | 'error';
 
@@ -32,6 +32,8 @@ export function StepPublish({
     }
     setProgramId(res.programId);
     onCreated?.(res.programId);
+    // The wizard draft is consumed — the program now exists as a real draft row.
+    try { await clearWizardDraftAction(); } catch { /* non-fatal */ }
     setPhase('checking');
     const readiness = await checkWizardReadinessAction(res.programId);
     if (readiness.error) {
@@ -58,6 +60,7 @@ export function StepPublish({
       setPhase('error');
       return;
     }
+    try { await clearWizardDraftAction(); } catch { /* non-fatal */ }
     setPhase('done');
     // navigate to program page
     window.location.href = `/company/programs/${programId}`;
