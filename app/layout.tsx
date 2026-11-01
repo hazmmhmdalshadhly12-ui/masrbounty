@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: { default: 'MasrBounty', template: '%s | MasrBounty' },
   description: 'MasrBounty — منصة مصرية لبرامج مكافآت الثغرات. اختبارات أمنية مصرح بها، تقارير منهجية، ومكافآت شفافة.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://masrbounty.vercel.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://masrbounty.vercel.app'),
   applicationName: 'MasrBounty',
   keywords: ['bug bounty', 'مكافآت الثغرات', 'أمن المعلومات', 'اختبار الاختراق', 'Egypt', 'مصر'],
   openGraph: {
