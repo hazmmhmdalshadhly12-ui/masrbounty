@@ -60,7 +60,7 @@
 - **Jest + React Testing Library** (اختبارات وحدة وتكامل)
 - **Playwright** (اختبارات E2E)
 - **GitHub Actions** (CI/CD Pipeline)
-- **Vercel** (نشر سلس مع معاينة)
+- **Cloudflare Pages** (نشر تلقائي بعد نجاح الـ CI — راجع [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md))
 
 ## 📁 هيكل المشروع
 
@@ -273,7 +273,7 @@ npm run test:coverage
 
 | الملف | الوصف |
 |--------|---------|
-| [DEPLOYMENT.md](DEPLOYMENT.md) | النشر على Vercel، الإنتاج |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | إعداد الإنتاج (Supabase)، والنشر في [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md) |
 | [SUPABASE_SETUP.md](SUPABASE_SETUP.md) | إعداد Supabase خطوة بخطوة |
 | [GITHUB_SETUP.md](GITHUB_SETUP.md) | إعداد GitHub، Actions، Secrets |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | إرشادات المساهمة |

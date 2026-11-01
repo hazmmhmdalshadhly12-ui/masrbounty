@@ -2,6 +2,8 @@
 
 ## نظرة عامة
 
+> **ملاحظة:** النشر الرسمي حاليًا على **Cloudflare Pages** — راجع [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md). أقسام Vercel أدناه للمرجعية فقط.
+
 هذا الدليل يغطي نشر MasrBounty على **Vercel** مع **Supabase** كمنصة خلفية.
 
 ## المتطلبات المسبقة

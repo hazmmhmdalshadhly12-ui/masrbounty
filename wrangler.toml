@@ -1,0 +1,5 @@
+# Cloudflare Pages config (used by `wrangler pages deploy` and Git-connected builds)
+name = "masrbounty"
+pages_build_output_dir = ".vercel/output/static"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]

@@ -13,7 +13,7 @@
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
     "pages:build": "next-on-pages",
-    "pages:deploy": "npx wrangler pages deploy .vercel/output/static",
+    "pages:deploy": "wrangler pages deploy",
     "db:generate": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > types/supabase.ts",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
