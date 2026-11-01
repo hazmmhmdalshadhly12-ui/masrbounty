@@ -60,7 +60,7 @@
 - **Jest + React Testing Library** (اختبارات وحدة وتكامل)
 - **Playwright** (اختبارات E2E)
 - **GitHub Actions** (CI/CD Pipeline)
-- **Cloudflare Pages** (نشر تلقائي بعد نجاح الـ CI — راجع [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md))
+- **Cloudflare Pages** (نشر تلقائي من GitHub على masrbounty.online — راجع [CLOUDFLARE_SETUP.md](CLOUDFLARE_SETUP.md))
 
 ## 📁 هيكل المشروع
 

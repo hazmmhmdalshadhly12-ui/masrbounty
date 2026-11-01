@@ -13,6 +13,8 @@ test('programs page renders', async ({ page }) => {
 
 test('login page has form', async ({ page }) => {
   await page.goto('/login');
-  await expect(page.locator('input[name="email"]')).toBeVisible();
-  await expect(page.locator('input[name="password"]')).toBeVisible();
+  // `:visible` + first(): during streaming SSR the form can briefly exist twice
+  // (hidden Suspense boundary + swapped-in content), which trips strict mode.
+  await expect(page.locator('input[name="email"]:visible').first()).toBeVisible();
+  await expect(page.locator('input[name="password"]:visible').first()).toBeVisible();
 });
