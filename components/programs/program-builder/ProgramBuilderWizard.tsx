@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight, Check, UploadCloud, RotateCcw, History } from 'lucide-react';
 import { loadWizardDraftAction, saveWizardDraftAction, clearWizardDraftAction } from './actions';
+import { friendlyActionError } from './action-errors';
 import { StepBasic } from './steps/StepBasic';
 import { StepVerification } from './steps/StepVerification';
 import { StepScope } from './steps/StepScope';
@@ -137,16 +138,22 @@ export function ProgramBuilderWizard(): React.JSX.Element {
     setSaveState('saving');
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
-      const res = await saveWizardDraftAction(data, step);
-      if (seq !== seqRef.current) return; // a newer save superseded this one
-      if (res.ok) {
-        snapshotRef.current = snap;
-        setSaveState('saved');
-        setSaveMsg(null);
-        setLastSaved(res.savedAt);
-      } else {
+      try {
+        const res = await saveWizardDraftAction(data, step);
+        if (seq !== seqRef.current) return; // a newer save superseded this one
+        if (res.ok) {
+          snapshotRef.current = snap;
+          setSaveState('saved');
+          setSaveMsg(null);
+          setLastSaved(res.savedAt);
+        } else {
+          setSaveState('error');
+          setSaveMsg(res.error);
+        }
+      } catch (e) {
+        if (seq !== seqRef.current) return;
         setSaveState('error');
-        setSaveMsg(res.error);
+        setSaveMsg(friendlyActionError(e));
       }
     }, 1000);
     return () => {
@@ -162,7 +169,9 @@ export function ProgramBuilderWizard(): React.JSX.Element {
       const snap = JSON.stringify({ d: cur.data, s: cur.step });
       if (snap === snapshotRef.current) return;
       snapshotRef.current = snap;
-      void saveWizardDraftAction(cur.data, cur.step);
+      saveWizardDraftAction(cur.data, cur.step).catch(() => {
+        /* best-effort flush — nothing sensible to show while unloading */
+      });
     };
     const onHide = (): void => {
       if (document.visibilityState === 'hidden') flush();

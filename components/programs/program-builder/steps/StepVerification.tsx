@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw, Globe, BadgeCheck } from 'lucide-react';
 import { createVerificationTokenAction, verifyDomainFileAction, verifyDomainTxtAction, getVerifiedDomainsAction } from '../actions';
+import { friendlyActionError } from '../action-errors';
 
 type VerifyMethod = 'dns' | 'file';
 type ServerDomain = { domain: string; status: string; token: string | null; expiresAt: string | null };
@@ -74,10 +75,15 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
     setBusy(true);
     setMsg(null);
     setOk(null);
-    const got = await ensureToken();
-    if (!got) {
+    try {
+      const got = await ensureToken();
+      if (!got) {
+        setOk(false);
+        setMsg('تعذّر توليد رمز التحقق — تأكد من صيغة الدومين (مثال: example.com) ومن تسجيل دخولك بملف شركة مكتمل، ثم أعد المحاولة');
+      }
+    } catch (e) {
       setOk(false);
-      setMsg('تعذّر توليد رمز التحقق — تأكد من صيغة الدومين (مثال: example.com) ومن تسجيل دخولك بملف شركة مكتمل، ثم أعد المحاولة');
+      setMsg(friendlyActionError(e));
     }
     setBusy(false);
   }
@@ -110,7 +116,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       }
     } catch (e) {
       setOk(false);
-      setMsg(e instanceof Error ? e.message : 'فشل التحقق');
+      setMsg(friendlyActionError(e));
     } finally {
       setBusy(false);
     }

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertTriangle, Loader2, Rocket } from 'lucide-react';
 import type { WizardData } from '../types';
 import { createWizardProgramAction, checkWizardReadinessAction, publishWizardProgramAction, clearWizardDraftAction } from '../actions';
+import { friendlyActionError } from '../action-errors';
 
 type Phase = 'idle' | 'creating' | 'checking' | 'publishing' | 'done' | 'error';
 
@@ -24,7 +25,14 @@ export function StepPublish({
   const handleCreate = async () => {
     setError(null);
     setPhase('creating');
-    const res = await createWizardProgramAction(data);
+    let res: Awaited<ReturnType<typeof createWizardProgramAction>>;
+    try {
+      res = await createWizardProgramAction(data);
+    } catch (e) {
+      setError(friendlyActionError(e));
+      setPhase('error');
+      return;
+    }
     if (!res.ok) {
       setError(res.error);
       setPhase('error');
@@ -35,7 +43,14 @@ export function StepPublish({
     // The wizard draft is consumed — the program now exists as a real draft row.
     try { await clearWizardDraftAction(); } catch { /* non-fatal */ }
     setPhase('checking');
-    const readiness = await checkWizardReadinessAction(res.programId);
+    let readiness: Awaited<ReturnType<typeof checkWizardReadinessAction>>;
+    try {
+      readiness = await checkWizardReadinessAction(res.programId);
+    } catch (e) {
+      setError(friendlyActionError(e));
+      setPhase('error');
+      return;
+    }
     if (readiness.error) {
       setError(readiness.error);
       setPhase('error');
@@ -54,7 +69,14 @@ export function StepPublish({
     if (!programId) return;
     setPhase('publishing');
     setError(null);
-    const res = await publishWizardProgramAction(programId);
+    let res: Awaited<ReturnType<typeof publishWizardProgramAction>>;
+    try {
+      res = await publishWizardProgramAction(programId);
+    } catch (e) {
+      setError(friendlyActionError(e));
+      setPhase('error');
+      return;
+    }
     if (!res.ok) {
       setError(res.error);
       setPhase('error');
