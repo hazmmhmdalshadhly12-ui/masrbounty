@@ -125,10 +125,51 @@ export async function createWizardProgramAction(payload: WizardData): Promise<Ac
 }
 
 export async function createVerificationTokenAction(domain: string): Promise<{ token: string; sentence: string } | null> {
-  const d = domain.trim().toLowerCase();
-  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return null;
-  const token = randomHex(16);
-  return { token, sentence: `masrbounty-verification=${token}` };
+  try {
+    const d = domain.trim().toLowerCase();
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return null;
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return null;
+    let companyId: string | null = null;
+    const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
+    if (owned) companyId = (owned as { id: string }).id;
+    else {
+      const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
+      if (mem) companyId = (mem as { company_id: string }).company_id;
+    }
+    if (!companyId) return null;
+    // Reuse the stored token for this company+domain so the file the company
+    // already deployed keeps working after a page refresh / new wizard session.
+    const { data: existing } = await supabase
+      .from('company_domains')
+      .select('verification_token_plain, status')
+      .eq('company_id', companyId)
+      .eq('domain', d)
+      .maybeSingle();
+    const existingToken = (existing as { verification_token_plain: string | null; status: string } | null)?.verification_token_plain ?? null;
+    const existingStatus = (existing as { status: string } | null)?.status ?? '';
+    if (existingToken && existingStatus !== 'expired' && isValidVerificationToken(existingToken)) {
+      return { token: existingToken, sentence: `masrbounty-verification=${existingToken}` };
+    }
+    // No usable token yet — create a pending row so the token survives reloads.
+    const token = randomHex(16);
+    const hash = await sha256Hex(token);
+    const { error } = await supabase.from('company_domains').upsert({
+      company_id: companyId,
+      domain: d,
+      verification_token_plain: token,
+      verification_token_hash: hash,
+      status: 'pending',
+      verified_at: null,
+      expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+    }, { onConflict: 'company_id,domain' });
+    if (error) return null;
+    return { token, sentence: `masrbounty-verification=${token}` };
+  } catch {
+    return null;
+  }
 }
 
 export async function verifyDomainFileAction(domain: string, token: string): Promise<{ verified: boolean; error?: string }> {

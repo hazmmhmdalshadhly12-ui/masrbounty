@@ -38,7 +38,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
     const got = await ensureToken();
     if (!got) {
       setOk(false);
-      setMsg('تعذّر توليد رمز التحقق — تأكد من صيغة الدومين (مثال: example.com) ثم أعد المحاولة');
+      setMsg('تعذّر توليد رمز التحقق — تأكد من صيغة الدومين (مثال: example.com) ومن تسجيل دخولك بملف شركة مكتمل، ثم أعد المحاولة');
     }
     setBusy(false);
   }
