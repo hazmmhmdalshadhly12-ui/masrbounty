@@ -634,6 +634,27 @@ CREATE OR REPLACE FUNCTION public.is_company_member(p_company UUID, p_user UUID)
 BEGIN RETURN EXISTS(SELECT 1 FROM public.company_members WHERE company_id=p_company AND user_id=p_user); END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.has_role(p_role TEXT) RETURNS BOOLEAN AS $$
 BEGIN RETURN EXISTS(SELECT 1 FROM public.user_roles WHERE user_id=auth.uid() AND role::TEXT=p_role); END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Single visibility rule for programs: public-active for all, private only for
+-- invited researchers, owning team, staff, or creator. Used by every policy.
+-- (Defined HERE — before the RLS policies that call it — so the file runs in
+--  a single transaction in the Supabase SQL Editor without "function does
+--  not exist" errors.)
+CREATE OR REPLACE FUNCTION public.can_view_program(p_program UUID, p_user UUID) RETURNS BOOLEAN AS $$
+DECLARE v_status TEXT; v_vis TEXT; v_company UUID; v_creator UUID;
+BEGIN
+  SELECT status::TEXT, visibility::TEXT, company_id, created_by
+    INTO v_status, v_vis, v_company, v_creator FROM public.programs WHERE id = p_program;
+  IF NOT FOUND THEN RETURN false; END IF;
+  IF v_status = 'active' AND v_vis = 'public' THEN RETURN true; END IF;
+  IF p_user IS NULL THEN RETURN false; END IF;
+  IF v_creator = p_user THEN RETURN true; END IF;
+  IF public.is_company_member(v_company, p_user) THEN RETURN true; END IF;
+  IF public.has_role('admin') OR public.has_role('moderator') THEN RETURN true; END IF;
+  RETURN EXISTS(
+    SELECT 1 FROM public.program_researchers pr
+    JOIN public.researcher_profiles rp ON rp.id = pr.researcher_id
+    WHERE pr.program_id = p_program AND rp.user_id = p_user AND pr.status = 'accepted');
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.audit_insert() RETURNS TRIGGER AS $$
 BEGIN INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata) VALUES (auth.uid(), 'create', TG_TABLE_NAME, NEW.id, to_jsonb(NEW)); RETURN NEW; END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Default report number from sequence (safe, prevents duplicates)
@@ -1227,24 +1248,8 @@ CREATE POLICY "re_insert" ON public.report_events FOR INSERT WITH CHECK (
   ) OR public.has_role('admin') OR public.has_role('moderator'));
 
 -- Conversation invites: self-join or existing member (or admin). No arbitrary additions.
--- Single visibility rule for programs: public-active for all, private only for
--- invited researchers, owning team, staff, or creator. Used by every policy.
-CREATE OR REPLACE FUNCTION public.can_view_program(p_program UUID, p_user UUID) RETURNS BOOLEAN AS $$
-DECLARE v_status TEXT; v_vis TEXT; v_company UUID; v_creator UUID;
-BEGIN
-  SELECT status::TEXT, visibility::TEXT, company_id, created_by
-    INTO v_status, v_vis, v_company, v_creator FROM public.programs WHERE id = p_program;
-  IF NOT FOUND THEN RETURN false; END IF;
-  IF v_status = 'active' AND v_vis = 'public' THEN RETURN true; END IF;
-  IF p_user IS NULL THEN RETURN false; END IF;
-  IF v_creator = p_user THEN RETURN true; END IF;
-  IF public.is_company_member(v_company, p_user) THEN RETURN true; END IF;
-  IF public.has_role('admin') OR public.has_role('moderator') THEN RETURN true; END IF;
-  RETURN EXISTS(
-    SELECT 1 FROM public.program_researchers pr
-    JOIN public.researcher_profiles rp ON rp.id = pr.researcher_id
-    WHERE pr.program_id = p_program AND rp.user_id = p_user AND pr.status = 'accepted');
-END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+-- (can_view_program is defined in section 5 — FUNCTIONS — above, so the
+--  policies below can reference it safely in a single transaction.)
 
 CREATE OR REPLACE FUNCTION public.is_conversation_member(p_conv UUID, p_user UUID) RETURNS BOOLEAN AS $$
 BEGIN RETURN EXISTS(SELECT 1 FROM public.conversation_members WHERE conversation_id = p_conv AND user_id = p_user); END;
@@ -2281,12 +2286,13 @@ RETURNS TABLE (
   accepted_count BIGINT,
   total_awarded NUMERIC
 ) AS $$
-  SELECT rp.id, rp.user_id, rp.username, rp.display_name, rp.avatar_url,
+  SELECT rp.id, rp.user_id, pr.username, rp.display_name, pr.avatar_url,
          COUNT(r.id)::BIGINT,
          COUNT(r.id) FILTER (WHERE r.status IN ('accepted','resolved'))::BIGINT,
          COALESCE(SUM(r.bounty_amount) FILTER (WHERE r.status IN ('accepted','resolved')), 0)
   FROM public.reports r
   JOIN public.researcher_profiles rp ON rp.id = r.researcher_id
+  JOIN public.profiles pr ON pr.id = rp.user_id
   JOIN public.programs p ON p.id = r.program_id
   WHERE p.company_id = p_company
     AND (
@@ -2294,7 +2300,7 @@ RETURNS TABLE (
       OR EXISTS(SELECT 1 FROM public.company_profiles cp WHERE cp.id = p_company AND cp.owner_id = auth.uid())
       OR EXISTS(SELECT 1 FROM public.company_members cm WHERE cm.company_id = p_company AND cm.user_id = auth.uid())
     )
-  GROUP BY rp.id, rp.user_id, rp.username, rp.display_name, rp.avatar_url
+  GROUP BY rp.id, rp.user_id, pr.username, rp.display_name, pr.avatar_url
   ORDER BY COUNT(r.id) DESC
   LIMIT 100;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;

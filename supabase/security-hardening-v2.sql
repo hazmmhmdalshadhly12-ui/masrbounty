@@ -382,12 +382,13 @@ RETURNS TABLE (
   accepted_count BIGINT,
   total_awarded NUMERIC
 ) AS $$
-  SELECT rp.id, rp.user_id, rp.username, rp.display_name, rp.avatar_url,
+  SELECT rp.id, rp.user_id, pr.username, rp.display_name, pr.avatar_url,
          COUNT(r.id)::BIGINT,
          COUNT(r.id) FILTER (WHERE r.status IN ('accepted','resolved'))::BIGINT,
          COALESCE(SUM(r.bounty_amount) FILTER (WHERE r.status IN ('accepted','resolved')), 0)
   FROM public.reports r
   JOIN public.researcher_profiles rp ON rp.id = r.researcher_id
+  JOIN public.profiles pr ON pr.id = rp.user_id
   JOIN public.programs p ON p.id = r.program_id
   WHERE p.company_id = p_company
     AND (
@@ -395,7 +396,7 @@ RETURNS TABLE (
       OR EXISTS(SELECT 1 FROM public.company_profiles cp WHERE cp.id = p_company AND cp.owner_id = auth.uid())
       OR EXISTS(SELECT 1 FROM public.company_members cm WHERE cm.company_id = p_company AND cm.user_id = auth.uid())
     )
-  GROUP BY rp.id, rp.user_id, rp.username, rp.display_name, rp.avatar_url
+  GROUP BY rp.id, rp.user_id, pr.username, rp.display_name, pr.avatar_url
   ORDER BY COUNT(r.id) DESC
   LIMIT 100;
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, pg_temp;
