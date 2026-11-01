@@ -87,44 +87,43 @@ export default async function AdminHome() {
 
   const totalPendingVerification = domainPendingCount + companyVerifPendingCount;
 
-  // Chart data
-  const [{ data: reportRows }, { data: programRows }, { data: severityRows }, { data: monthlyRows }] = await Promise.all([
-    supabase.from('reports').select('status').limit(5000),
-    supabase.from('programs').select('status').limit(5000),
-    supabase.from('reports').select('severity').limit(5000),
-    supabase.from('reports').select('created_at').order('created_at', { ascending: true }).limit(5000),
+  // Chart data — exact DB-side counts (head:true) per enum value instead of
+  // pulling up to 5000 rows per dimension and aggregating in JS.
+  const REPORT_STATUSES = ['draft', 'submitted', 'triaged', 'informative', 'duplicate', 'not_applicable', 'accepted', 'resolved', 'closed'];
+  const PROGRAM_STATUSES = ['draft', 'pending_review', 'active', 'paused', 'closed'];
+  const SEVERITIES = ['informational', 'low', 'medium', 'high', 'critical'];
+
+  const countEq = async (table: 'reports' | 'programs', col: 'status' | 'severity', v: string): Promise<number> => {
+    const r = await supabase.from(table).select('id', { count: 'exact', head: true }).eq(col, v);
+    return r.count ?? 0;
+  };
+
+  const [reportStatusCounts, programStatusCounts, severityCounts] = await Promise.all([
+    Promise.all(REPORT_STATUSES.map((s) => countEq('reports', 'status', s))),
+    Promise.all(PROGRAM_STATUSES.map((s) => countEq('programs', 'status', s))),
+    Promise.all(SEVERITIES.map((s) => countEq('reports', 'severity', s))),
   ]);
 
-  const reportsByStatus = Object.entries(
-    (reportRows ?? []).reduce<Record<string, number>>((acc, r: { status: string }) => {
-      acc[r.status] = (acc[r.status] ?? 0) + 1;
-      return acc;
-    }, {})
-  ).map(([name, value]) => ({ name: labelArStatus[name] ?? name, value }));
+  const reportsByStatus = REPORT_STATUSES.map((s, i) => ({ name: labelArStatus[s] ?? s, value: reportStatusCounts[i] }));
+  const programsByStatus = PROGRAM_STATUSES.map((s, i) => ({ name: labelArStatus[s] ?? s, value: programStatusCounts[i] }));
+  const severityData = SEVERITIES.map((s, i) => ({ name: labelArStatus[s] ?? s, value: severityCounts[i] }));
 
-  const programsByStatus = Object.entries(
-    (programRows ?? []).reduce<Record<string, number>>((acc, r: { status: string }) => {
-      acc[r.status] = (acc[r.status] ?? 0) + 1;
-      return acc;
-    }, {})
-  ).map(([name, value]) => ({ name: labelArStatus[name] ?? name, value }));
-
-  const severityData = Object.entries(
-    (severityRows ?? []).reduce<Record<string, number>>((acc, r: { severity: string }) => {
-      acc[r.severity] = (acc[r.severity] ?? 0) + 1;
-      return acc;
-    }, {})
-  ).map(([name, value]) => ({ name: labelArStatus[name] ?? name, value }));
-
-  const monthlyMap: Record<string, number> = {};
-  for (const r of (monthlyRows ?? []) as { created_at: string }[]) {
-    const m = r.created_at.slice(0, 7);
-    monthlyMap[m] = (monthlyMap[m] ?? 0) + 1;
-  }
-  const monthlyData = Object.entries(monthlyMap)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-8)
-    .map(([month, count]) => ({ month, count }));
+  // Last 8 months — one exact count per month window
+  const now = new Date();
+  const monthStart = (offset: number) =>
+    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1)).toISOString().slice(0, 10);
+  const monthRanges = Array.from({ length: 8 }, (_, i) => ({ start: monthStart(i - 7), end: monthStart(i - 6) }));
+  const monthlyCounts = await Promise.all(
+    monthRanges.map((r) =>
+      supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', r.start)
+        .lt('created_at', r.end)
+        .then((res) => res.count ?? 0)
+    )
+  );
+  const monthlyData = monthRanges.map((r, i) => ({ month: r.start.slice(0, 7), count: monthlyCounts[i] }));
 
   // Recent activity
   const [{ data: recentAudit }, { data: recentReports }, { data: recentModeration }] = await Promise.all([

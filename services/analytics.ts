@@ -240,21 +240,10 @@ export async function getCompanyAnalytics(client?: Db): Promise<ServiceResult<Co
       for (const r of rows) {
         const cur = byResearcher.get(r.researcher_id) ?? { reports: 0, total_earned: 0 };
         cur.reports += 1;
+        // bounty_amount on the report already reflects the net award — no
+        // second bounty_awards fetch needed here
         cur.total_earned += Number(r.bounty_amount ?? 0);
         byResearcher.set(r.researcher_id, cur);
-      }
-      // augment with awards earnings
-      if (awards) {
-        // need report→researcher map for awards: fetch reports for award reports already in rows, but we have researcher_id per report
-        // For simplicity, earnings already counted via bounty_amount; also add award sum per researcher via join
-        const { data: awardReports } = await db.from('bounty_awards').select('amount,report_id').limit(2000);
-        const reportToResearcher = new Map(rows.map((r) => [r.id, r.researcher_id]));
-        for (const ar of (awardReports ?? []) as { amount: number | string; report_id: string }[]) {
-          const rid = reportToResearcher.get(ar.report_id);
-          if (!rid) continue;
-          const cur = byResearcher.get(rid);
-          if (cur) cur.total_earned = Math.max(cur.total_earned, cur.total_earned); // keep as is; bounty_amount already reflects net
-        }
       }
       topResearchers = [...byResearcher.entries()]
         .map(([researcher_id, v]) => ({ researcher_id, display_name: nameMap.get(researcher_id) ?? researcher_id.slice(0, 8), reports: v.reports, total_earned: v.total_earned }))

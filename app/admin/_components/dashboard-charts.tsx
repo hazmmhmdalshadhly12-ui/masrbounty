@@ -2,7 +2,11 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 
-const COLORS = ['#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#06b6d4', '#a855f7'];
+// Brand-aligned palette: Deep Navy / Professional Blue / Emerald / Amber / Neutral Gray
+const COLORS = ['#0f172a', '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#0891b2', '#7c3aed'];
+const BLUE = '#2563eb';
+const EMERALD = '#10b981';
+const AMBER = '#f59e0b';
 
 export function ReportsByStatusChart({ data }: { data: { name: string; value: number }[] }) {
   if (!data.length) return <p className="py-8 text-center text-sm text-muted-foreground">لا توجد بيانات</p>;
@@ -13,7 +17,7 @@ export function ReportsByStatusChart({ data }: { data: { name: string; value: nu
         <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={50} />
         <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
         <Tooltip />
-        <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+        <Bar dataKey="value" fill={BLUE} radius={[6, 6, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -45,7 +49,7 @@ export function SeverityChart({ data }: { data: { name: string; value: number }[
         <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
         <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={70} />
         <Tooltip />
-        <Bar dataKey="value" fill="#f59e0b" radius={[0, 6, 6, 0]} />
+        <Bar dataKey="value" fill={AMBER} radius={[0, 6, 6, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -60,7 +64,7 @@ export function MonthlyReportsChart({ data }: { data: { month: string; count: nu
         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
         <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
         <Tooltip />
-        <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="count" stroke={EMERALD} strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );

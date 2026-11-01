@@ -195,7 +195,12 @@ export default async function VerificationCenter({
       .eq('status', 'pending')
       .order('created_at')
       .limit(50),
-    supabase.from('kyc_reviews').select('id,researcher_id,status,document_path,created_at').eq('status', 'pending').order('created_at').limit(50),
+    supabase
+      .from('kyc_reviews')
+      .select('id,researcher_id,status,document_path,created_at,researcher_profiles(display_name,username)')
+      .eq('status', 'pending')
+      .order('created_at')
+      .limit(50),
     supabase.from('appeals').select('*').eq('status', 'open').order('created_at').limit(50),
     supabase.from('suspicious_events').select('*').eq('status', 'open').order('created_at', { ascending: false }).limit(50),
   ]);
@@ -218,6 +223,20 @@ export default async function VerificationCenter({
     company_id: string;
     company_profiles: { name: string; slug: string } | null;
   }[];
+
+  // KYC document links: private bucket → short-lived signed URLs (10 min).
+  // Staff (admin/moderator) pass the iddoc_select RLS policy, so the server
+  // client's own JWT authorizes these — no service-role needed.
+  const kycDocUrls = new Map<string, string>();
+  for (const k of (kyc ?? []) as unknown as { id: string; document_path: string | null }[]) {
+    if (!k.document_path) continue;
+    try {
+      const { data } = await supabase.storage.from('identity-documents').createSignedUrl(k.document_path, 600);
+      if (data?.signedUrl) kycDocUrls.set(k.id, data.signedUrl);
+    } catch {
+      /* unsigned — reviewer sees the path only */
+    }
+  }
 
   const tabs = [
     { key: 'domains', label: `النطاقات (${pendingDomains.length})`, icon: Globe },
@@ -362,20 +381,53 @@ export default async function VerificationCenter({
             {!(kyc ?? []).length ? (
               <p className="text-sm text-muted-foreground">لا يوجد.</p>
             ) : (
-              kyc!.map((k: { id: string; researcher_id: string; document_path: string | null }) => (
-                <form key={k.id} className="mb-3 flex flex-wrap items-center gap-2 border-b pb-3 text-sm">
-                  <span dir="ltr" className="font-mono text-xs">
-                    {k.document_path ?? '—'}
-                  </span>
-                  <Input name={`knote_${k.id}`} placeholder="ملاحظة" className="h-9 max-w-xs" />
-                  <Button size="sm" type="submit" formAction={decideKyc.bind(null, k.id, k.researcher_id, true)}>
-                    اعتماد + شارة
-                  </Button>
-                  <Button size="sm" variant="outline" type="submit" formAction={decideKyc.bind(null, k.id, k.researcher_id, false)}>
-                    رفض
-                  </Button>
+              kyc!.map((k) => {
+                const row = k as unknown as {
+                  id: string;
+                  researcher_id: string;
+                  document_path: string | null;
+                  researcher_profiles: { display_name: string; username: string } | null;
+                };
+                return (
+                <form key={row.id} className="mb-3 space-y-2 border-b pb-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold">
+                      {row.researcher_profiles?.display_name ?? '—'}
+                      {row.researcher_profiles?.username && (
+                        <span className="ml-1 font-normal text-muted-foreground" dir="ltr">
+                          @{row.researcher_profiles.username}
+                        </span>
+                      )}
+                    </span>
+                    {row.document_path && (
+                      kycDocUrls.has(row.id) ? (
+                        <a
+                          href={kycDocUrls.get(row.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium underline-offset-4 hover:underline"
+                        >
+                          عرض المستند ↗
+                        </a>
+                      ) : (
+                        <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground" dir="ltr">
+                          {row.document_path}
+                        </span>
+                      )
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input name={`knote_${row.id}`} placeholder="ملاحظة" className="h-9 max-w-xs" />
+                    <Button size="sm" type="submit" formAction={decideKyc.bind(null, row.id, row.researcher_id, true)}>
+                      اعتماد + شارة
+                    </Button>
+                    <Button size="sm" variant="outline" type="submit" formAction={decideKyc.bind(null, row.id, row.researcher_id, false)}>
+                      رفض
+                    </Button>
+                  </div>
                 </form>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>

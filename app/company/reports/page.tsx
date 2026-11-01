@@ -1,5 +1,6 @@
 import { Inbox } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Card, CardContent } from '@/components/ui/card';
 import { TriageInbox } from '@/components/company/triage-inbox';
 import { getSLAStatus } from '@/lib/sla';
@@ -39,23 +40,31 @@ export default async function CompanyReports({
     .order('created_at', { ascending: false })
     .limit(200);
 
-  // Also try report_overview enrichment for researcher/program names where available
-  const { data: overview } = await supabase.from('report_overview').select('*').order('created_at', { ascending: false }).limit(200);
-  const overviewMap = new Map<string, { researcher_name: string; program_name: string }>();
-  for (const o of (overview ?? []) as { id: string; researcher_name: string; program_name: string }[]) {
-    overviewMap.set(o.id, o);
-  }
-
   const reports = ((rawReports ?? []) as {
     id: string; report_number: string; title: string; status: string; severity: string; affected_asset: string; asset_id: string | null; program_id: string; created_at: string; submitted_at: string | null; researcher_id: string;
-  }[]).map((r) => ({
+  }[]);
+  const reportIds = reports.map((r) => r.id);
+
+  // report_overview enrichment for researcher/program names — scoped to THIS
+  // page's report ids (no blind 200-row scan of the view)
+  const overviewMap = new Map<string, { researcher_name: string; program_name: string }>();
+  if (reportIds.length) {
+    const { data: overview } = await supabase
+      .from('report_overview')
+      .select('id, researcher_name, program_name')
+      .in('id', reportIds);
+    for (const o of (overview ?? []) as { id: string; researcher_name: string; program_name: string }[]) {
+      overviewMap.set(o.id, o);
+    }
+  }
+
+  const enriched = reports.map((r) => ({
     ...r,
     researcher_name: overviewMap.get(r.id)?.researcher_name ?? r.researcher_id.slice(0, 8),
     program_name: overviewMap.get(r.id)?.program_name ?? '',
   }));
 
   // Assignees map
-  const reportIds = reports.map((r) => r.id);
   const assigneeMap: Record<string, { user_id: string; profiles: { username: string } }[]> = {};
   if (reportIds.length) {
     const { data: assignees } = await supabase
@@ -95,25 +104,41 @@ export default async function CompanyReports({
   }
 
   // Best-effort SLA warning notifications (company inbox view)
-  // Notifies assignees (or all company members if unassigned) when report is at-risk/overdue
+  // Notifies assignees (or all company members if unassigned) when report is
+  // at-risk/overdue — DEDUPED: each (user, report) pair is notified at most
+  // once per 24h so refreshing the inbox never floods in-app notifications.
   try {
-    const warnings = reports.filter((r) => {
+    const warnings = enriched.filter((r) => {
       const s = getSLAStatus({ status: r.status, created_at: r.created_at, submitted_at: r.submitted_at } as never);
       return s === 'at_risk' || s === 'overdue';
     }).slice(0, 10);
-    for (const w of warnings) {
-      const sla = getSLAStatus({ status: w.status, created_at: w.created_at, submitted_at: w.submitted_at } as never);
-      const targets = (assigneeMap[w.id] ?? []).map((a) => a.user_id);
-      const fallback = members.map((m) => m.user_id);
-      const recipients = targets.length ? targets : fallback.slice(0, 5);
-      for (const uid of recipients) {
-        // fire-and-forget, never throw
-        void notify(supabase, uid, {
-          type: 'system',
-          title: sla === 'overdue' ? `تنبيه SLA متجاوز: ${w.report_number}` : `تنبيه SLA قارب الانتهاء: ${w.report_number}`,
-          body: `${w.title} — الحالة ${w.status}`,
-          link: `/company/reports/${w.id}`,
-        });
+    if (warnings.length) {
+      const slaLinks = warnings.map((w) => `/company/reports/${w.id}`);
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      let already = new Set<string>();
+      try {
+        const { data: recent } = await createAdminClient()
+          .from('notifications')
+          .select('user_id,link')
+          .in('link', slaLinks)
+          .gte('created_at', cutoff);
+        already = new Set(((recent ?? []) as { user_id: string; link: string }[]).map((n) => `${n.user_id}|${n.link}`));
+      } catch { /* admin client unavailable — skip dedupe, still notify */ }
+      for (const w of warnings) {
+        const sla = getSLAStatus({ status: w.status, created_at: w.created_at, submitted_at: w.submitted_at } as never);
+        const targets = (assigneeMap[w.id] ?? []).map((a) => a.user_id);
+        const fallback = members.map((m) => m.user_id);
+        const recipients = targets.length ? targets : fallback.slice(0, 5);
+        for (const uid of recipients) {
+          const link = `/company/reports/${w.id}`;
+          if (already.has(`${uid}|${link}`)) continue; // تم التنبيه خلال 24 ساعة
+          void notify(supabase, uid, {
+            type: 'system',
+            title: sla === 'overdue' ? `تنبيه SLA متجاوز: ${w.report_number}` : `تنبيه SLA قارب الانتهاء: ${w.report_number}`,
+            body: `${w.title} — الحالة ${w.status}`,
+            link,
+          });
+        }
       }
     }
   } catch {
@@ -142,7 +167,7 @@ export default async function CompanyReports({
         <h1 className="text-xl font-black tracking-tight">التقارير الواردة — صندوق الفرز</h1>
         <p className="mt-1 text-sm text-muted-foreground">فلترة بالحالة/الخطورة/الأصل/المكلف/SLA، بحث بالعنوان/الرقم، وترتيب حسب الأحدث أو الخطورة أو SLA. المؤشرات: 🟢 ضمن المهلة 🟡 قارب الانتهاء 🔴 متجاوز.</p>
       </div>
-      <TriageInbox reports={reports} assigneeMap={assigneeMap} members={members} assets={assets} />
+      <TriageInbox reports={enriched} assigneeMap={assigneeMap} members={members} assets={assets} />
     </div>
   );
 }

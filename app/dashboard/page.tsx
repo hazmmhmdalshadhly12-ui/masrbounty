@@ -28,30 +28,32 @@ export default async function DashboardPage() {
 
   const researcherId = (rp as { id: string; display_name: string }).id;
 
+  // Wallet fetched ONCE — its id feeds the transactions query below.
+  const { data: wallet } = await supabase
+    .from('wallets')
+    .select('id,balance,pending_balance,total_earned')
+    .eq('researcher_id', researcherId)
+    .maybeSingle();
+  const walletId = (wallet as { id: string } | null)?.id ?? null;
+
   const [
     { data: stats },
     { data: rep },
-    { data: wallet },
     { data: recent },
-    { data: walletRow },
     { data: txnsRaw },
     { data: awardsRaw },
     { data: badgesRaw },
     { data: leaderboardTop },
     { data: myRankRow },
+    { count: submittedCount },
   ] = await Promise.all([
     supabase.from('researcher_stats').select('*').eq('researcher_id', researcherId).single(),
     supabase.from('researcher_reputation').select('score').eq('researcher_id', researcherId).single(),
-    supabase.from('wallets').select('balance,pending_balance,total_earned').eq('researcher_id', researcherId).single(),
     supabase.from('reports').select('id,report_number,title,status,severity,created_at').eq('researcher_id', researcherId).order('created_at', { ascending: false }).limit(5),
-    supabase.from('wallets').select('id').eq('researcher_id', researcherId).maybeSingle(),
-    // wallet_transactions via wallet_id; fetch if we have wallet id else empty
+    // Earnings source for the chart — wallet id is already known (no duplicate wallets fetch)
     (async () => {
-      // we need wallet id first; fetch via separate query fallback
-      const { data: w } = await supabase.from('wallets').select('id').eq('researcher_id', researcherId).maybeSingle();
-      const wid = (w as { id: string } | null)?.id;
-      if (!wid) return { data: [] as unknown[] };
-      const { data } = await supabase.from('wallet_transactions').select('amount,created_at,type').eq('wallet_id', wid).order('created_at', { ascending: false }).limit(100);
+      if (!walletId) return { data: [] as unknown[] };
+      const { data } = await supabase.from('wallet_transactions').select('amount,created_at,type').eq('wallet_id', walletId).order('created_at', { ascending: false }).limit(100);
       return { data: data ?? [] };
     })(),
     (async () => {
@@ -70,6 +72,8 @@ export default async function DashboardPage() {
     supabase.from('researcher_badges').select('id,awarded_at,badges(id,code,name_ar,name_en,icon)').eq('researcher_id', researcherId).order('awarded_at', { ascending: false }).limit(20),
     supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank,total_earned').order('score', { ascending: false }).limit(5),
     supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank').eq('researcher_id', researcherId).maybeSingle(),
+    // Exact "submitted" count = non-draft reports (KPI لا يخلط المسودات بالإجمالي)
+    supabase.from('reports').select('id', { count: 'exact', head: true }).eq('researcher_id', researcherId).neq('status', 'draft'),
   ]);
 
   // earnings: prefer wallet_transactions bounty/award, fallback to bounty_awards
@@ -91,8 +95,9 @@ export default async function DashboardPage() {
 
   const total = (stats as { total_reports?: number } | null)?.total_reports ?? 0;
   const accepted = (stats as { accepted_reports?: number } | null)?.accepted_reports ?? 0;
-  const submitted = total; // total_reports is submitted+others; keep separate if needed via query but use total for now; pending shows draft not counted
-  const acceptance = total > 0 ? Math.round((accepted / total) * 100) : 0;
+  // عدّاد حقيقي للتقارير المقدّمة (غير المسودات) — لا يعتمد على الإجمالي
+  const submitted = submittedCount ?? total;
+  const acceptance = submitted > 0 ? Math.round((accepted / submitted) * 100) : 0;
   const totalEarned = Number((wallet as { total_earned?: number | string } | null)?.total_earned ?? (stats as { total_earned?: number | string } | null)?.total_earned ?? 0);
   const reputationScore = Number((rep as { score?: number } | null)?.score ?? 0);
   const reputationRank = (myRankRow as { rank?: number } | null)?.rank ?? null;
@@ -107,8 +112,6 @@ export default async function DashboardPage() {
     { label: 'إجمالي الأرباح', value: `${totalEarned.toLocaleString('ar-EG')} EGP`, sub: `الرصيد ${Number((wallet as { balance?: number | string } | null)?.balance ?? 0).toLocaleString('ar-EG')} EGP`, href: '/dashboard/wallet', icon: Wallet },
     { label: 'السمعة — الترتيب', value: reputationRank ? `#${reputationRank}` : `${reputationScore} نقطة`, sub: `${reputationScore} نقطة سمعة`, href: '/leaderboard', icon: Trophy },
   ];
-
-  void walletRow; // keep for typecheck side-effect if needed
 
   return (
     <div className="py-2" dir="rtl">
