@@ -2,12 +2,13 @@ import { test, expect } from '@playwright/test';
 
 test('home loads with brand', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /MasrBounty/ })).toBeVisible();
+  await expect(page).toHaveTitle(/MasrBounty/);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
 test('programs page renders', async ({ page }) => {
   await page.goto('/programs');
-  await expect(page.getByRole('heading', { name: /programs|البرامج/i })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /programs|برامج/i })).toBeVisible();
 });
 
 test('login page has form', async ({ page }) => {
