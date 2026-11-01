@@ -6,12 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
-import { createVerificationTokenAction, verifyDomainFileAction } from '../actions';
+import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw, Globe } from 'lucide-react';
+import { createVerificationTokenAction, verifyDomainFileAction, verifyDomainTxtAction } from '../actions';
+
+type VerifyMethod = 'dns' | 'file';
 
 export function StepVerification({ errors }: { errors: string[] }): React.JSX.Element {
   const { data, updateVerification } = useWizardStore();
   const v = data.verification;
+  const [method, setMethod] = React.useState<VerifyMethod>('dns');
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
   const [ok, setOk] = React.useState<boolean | null>(null);
@@ -48,14 +51,26 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
     setMsg(null);
     setOk(null);
     try {
-      const res = await verifyDomainFileAction(v.domain, v.token);
-      if (res.verified) {
-        updateVerification({ verified: true });
-        setOk(true);
-        setMsg('تم التحقق بنجاح — ملكية الدومين مؤكدة ✓');
+      if (method === 'dns') {
+        const res = await verifyDomainTxtAction(v.domain, v.token);
+        if (res.verified) {
+          updateVerification({ verified: true });
+          setOk(true);
+          setMsg(`تم التحقق بنجاح عبر سجل DNS${res.host ? ` (${res.host})` : ''} — ملكية الدومين مؤكدة ✓`);
+        } else {
+          setOk(false);
+          setMsg(res.error ?? 'لم يتم العثور على سجل TXT — تأكد من المضيف والقيمة وأعد المحاولة');
+        }
       } else {
-        setOk(false);
-        setMsg(res.error ?? 'الملف غير موجود أو الجملة غير مطابقة — تأكد من المسار والمحتوى');
+        const res = await verifyDomainFileAction(v.domain, v.token);
+        if (res.verified) {
+          updateVerification({ verified: true });
+          setOk(true);
+          setMsg('تم التحقق بنجاح — ملكية الدومين مؤكدة ✓');
+        } else {
+          setOk(false);
+          setMsg(res.error ?? 'الملف غير موجود أو الجملة غير مطابقة — تأكد من المسار والمحتوى');
+        }
       }
     } catch (e) {
       setOk(false);
@@ -67,13 +82,20 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
 
   const fileUrl = v.domain ? `https://${v.domain}${v.filePath}` : '';
   const sentence = v.sentence || (v.token ? `masrbounty-verification=${v.token}` : '');
+  const txtHost = v.domain ? `_masrbounty.${v.domain}` : '_masrbounty.example.com';
+
+  function copy(text: string, label: string): void {
+    void navigator.clipboard.writeText(text);
+    setOk(null);
+    setMsg(`تم نسخ ${label}`);
+  }
 
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-black">إثبات ملكية الدومين</h3>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          ضع ملفًا نصيًا في موقعك يحتوي جملة التحقق — سنقرأه للتحقق من ملكيتك (بدون DNS).
+          أضف سجل DNS من نوع TXT عند مزوّد الدومين الخاص بك — لا نقرأ موقعك ولا نحتاج رفع أي ملف.
         </p>
       </div>
 
@@ -86,7 +108,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" />خطوة التحقق</CardTitle>
-          <CardDescription>أدخل دومين شركتك، ثم أنشئ الملف بالمكان المحدد</CardDescription>
+          <CardDescription>أدخل دومين شركتك، ثم أضف سجل TXT بالإعدادات الظاهرة</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -108,45 +130,109 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
 
           {v.domain && (
             <>
-              <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-                <p className="text-sm font-bold">١) أنشئ هذا الملف على موقعك:</p>
-                <div className="flex items-center gap-2 rounded-md bg-background border px-3 py-2 text-sm font-mono" dir="ltr">
-                  <span className="flex-1 truncate">{fileUrl || `https://example.com${v.filePath}`}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => navigator.clipboard.writeText(fileUrl)}
-                    aria-label="نسخ المسار"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  {fileUrl && (
-                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </div>
+              {/* method toggle — DNS TXT is the primary method */}
+              <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="طريقة التحقق">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={method === 'dns'}
+                  onClick={() => { setMethod('dns'); setMsg(null); setOk(null); }}
+                  className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${method === 'dns' ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'}`}
+                >
+                  <Globe className="h-4 w-4" />
+                  سجل DNS (TXT) — موصى بها
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={method === 'file'}
+                  onClick={() => { setMethod('file'); setMsg(null); setOk(null); }}
+                  className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${method === 'file' ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'}`}
+                >
+                  ملف على الموقع (بديل)
+                </button>
+              </div>
 
-                <p className="text-sm font-bold pt-2">٢) محتوى الملف — جملة واحدة بالضبط:</p>
-                <div className="flex items-center gap-2 rounded-md bg-slate-950 text-amber-300 border border-slate-800 px-3 py-3 text-sm font-mono" dir="ltr">
-                  <span className="flex-1 break-all">{sentence || 'masrbounty-verification=— سيظهر بعد إدخال الدومين —'}</span>
-                  {sentence && (
+              {method === 'dns' ? (
+                <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+                  <p className="text-sm font-bold">١) أضف سجلًا جديدًا في لوحة تحكم DNS عند مزوّد الدومين:</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="grid grid-cols-[90px_1fr_auto] items-center gap-2 rounded-md bg-background border px-3 py-2" dir="ltr">
+                      <span className="text-xs font-bold text-muted-foreground uppercase">Type</span>
+                      <span className="font-mono">TXT</span>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => copy('TXT', 'النوع')} aria-label="نسخ النوع">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-[90px_1fr_auto] items-center gap-2 rounded-md bg-background border px-3 py-2" dir="ltr">
+                      <span className="text-xs font-bold text-muted-foreground uppercase">Host / Name</span>
+                      <span className="font-mono break-all">{txtHost}</span>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => copy(txtHost, 'اسم المضيف')} aria-label="نسخ اسم المضيف">
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-[90px_1fr_auto] items-center gap-2 rounded-md bg-slate-950 text-amber-300 border border-slate-800 px-3 py-2" dir="ltr">
+                      <span className="text-xs font-bold uppercase opacity-80">Value</span>
+                      <span className="font-mono break-all">{sentence || 'masrbounty-verification=— سيظهر بعد إنشاء الرمز —'}</span>
+                      {sentence && (
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-amber-300 hover:text-amber-200 hover:bg-white/10" onClick={() => copy(sentence, 'القيمة')} aria-label="نسخ القيمة">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-[90px_1fr] items-center gap-2 rounded-md bg-background border px-3 py-2" dir="ltr">
+                      <span className="text-xs font-bold text-muted-foreground uppercase">TTL</span>
+                      <span className="font-mono">Auto (أو 3600)</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    بعض لوحات التحكم تطلب Host فقط بدون الدومين — اكتب <code dir="ltr">_masrbounty</code>. القيمة تُضاف كما هي بدون علامات تنصيص.
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    ملاحظة: انتشار DNS قد يستغرق من دقائق إلى 48 ساعة حسب المزوّد — لو فشل التحقق انتظر قليلًا وأعد المحاولة.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+                  <p className="text-sm font-bold">١) أنشئ هذا الملف على موقعك:</p>
+                  <div className="flex items-center gap-2 rounded-md bg-background border px-3 py-2 text-sm font-mono" dir="ltr">
+                    <span className="flex-1 truncate">{fileUrl || `https://example.com${v.filePath}`}</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 shrink-0 text-amber-300 hover:text-amber-200 hover:bg-white/10"
-                      onClick={() => navigator.clipboard.writeText(sentence)}
-                      aria-label="نسخ الجملة"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => copy(fileUrl, 'المسار')}
+                      aria-label="نسخ المسار"
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
-                  )}
+                    {fileUrl && (
+                      <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+
+                  <p className="text-sm font-bold pt-2">٢) محتوى الملف — جملة واحدة بالضبط:</p>
+                  <div className="flex items-center gap-2 rounded-md bg-slate-950 text-amber-300 border border-slate-800 px-3 py-3 text-sm font-mono" dir="ltr">
+                    <span className="flex-1 break-all">{sentence || 'masrbounty-verification=— سيظهر بعد إدخال الدومين —'}</span>
+                    {sentence && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-amber-300 hover:text-amber-200 hover:bg-white/10"
+                        onClick={() => copy(sentence, 'الجملة')}
+                        aria-label="نسخ الجملة"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">الملف يجب أن يكون نصًا عاديًا (text/plain) ويحتوي الجملة كما هي — بدون HTML.</p>
                 </div>
-                <p className="text-xs text-muted-foreground">الملف يجب أن يكون نصًا عاديًا (text/plain) ويحتوي الجملة كما هي — بدون HTML.</p>
-              </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-3">
                 {!v.token ? (
@@ -157,7 +243,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                 ) : (
                   <Button type="button" onClick={onVerify} disabled={busy} className="gap-2">
                     {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                    تحقق الآن
+                    {method === 'dns' ? 'تحقق من سجل DNS' : 'تحقق الآن'}
                   </Button>
                 )}
                 {v.verified ? (
@@ -180,7 +266,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       </Card>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        بعد التحقق بنجاح يمكنك المتابعة. الملف يبقى للمراجعة الدورية — لا تحذفه.
+        بعد التحقق بنجاح يمكنك المتابعة. {method === 'dns' ? 'سجل TXT يبقى للمراجعة الدورية — لا تحذفه.' : 'الملف يبقى للمراجعة الدورية — لا تحذفه.'}
       </p>
     </div>
   );

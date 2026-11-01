@@ -6,8 +6,49 @@ import { slugify } from '@/utils/slug';
 import { checkPublishReadiness } from '@/features/programs/services';
 import type { WizardData } from './types';
 import { randomHex, sha256Hex, isValidVerificationToken } from '@/lib/security/edge-crypto';
+import { hasVerificationTxt } from '@/lib/security/dns-txt';
 
 type ActionResult = { ok: true; programId: string } | { ok: false; error: string };
+
+/** Resolve the caller's company id (owner or member) or null. */
+async function resolveCompanyId(supabase: Awaited<ReturnType<typeof createServerClient>>, uid: string): Promise<string | null> {
+  const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
+  if (owned) return (owned as { id: string }).id;
+  const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
+  return (mem as { company_id: string } | null)?.company_id ?? null;
+}
+
+/**
+ * Persist a successful domain verification into company_domains (status=verified).
+ * Real schema (masrbounty.sql §16.1): verification_token_plain / verification_token_hash — there is NO `token` column.
+ * checkPublishReadiness reads this row, so errors must be surfaced, never swallowed.
+ */
+async function persistVerifiedDomain(d: string, token: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const supabase = await createServerClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return { ok: false, error: 'انتهت الجلسة — سجّل الدخول ثم أعد التحقق' };
+    const companyId = await resolveCompanyId(supabase, uid);
+    if (!companyId) return { ok: false, error: 'لم يتم العثور على شركة مرتبطة بحسابك — أكمل إنشاء ملف الشركة أولاً' };
+    const hash = await sha256Hex(token);
+    const { error: upErr } = await supabase.from('company_domains').upsert({
+      company_id: companyId,
+      domain: d,
+      verification_token_plain: token,
+      verification_token_hash: hash,
+      status: 'verified',
+      verified_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+    }, { onConflict: 'company_id,domain' });
+    // Do NOT swallow persistence errors: a silent failure would deadlock the
+    // wizard (verified in UI, missing in DB → publish gate refuses forever).
+    if (upErr) return { ok: false, error: 'تم التحقق بنجاح لكن فشل حفظ التوثيق: ' + upErr.message };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: 'فشل حفظ التوثيق: ' + (e instanceof Error ? e.message : 'خطأ غير متوقع') };
+  }
+}
 
 export async function createWizardProgramAction(payload: WizardData): Promise<ActionResult> {
   try {
@@ -132,13 +173,7 @@ export async function createVerificationTokenAction(domain: string): Promise<{ t
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth.user?.id;
     if (!uid) return null;
-    let companyId: string | null = null;
-    const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
-    if (owned) companyId = (owned as { id: string }).id;
-    else {
-      const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
-      if (mem) companyId = (mem as { company_id: string }).company_id;
-    }
+    const companyId = await resolveCompanyId(supabase, uid);
     if (!companyId) return null;
     // Reuse the stored token for this company+domain so the file the company
     // already deployed keeps working after a page refresh / new wizard session.
@@ -193,40 +228,34 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
     }
   }
   if (!found) return { verified: false, error: 'الملف غير موجود أو لا يحتوي الجملة — تأكد من https://' + d + '/.well-known/masrbounty-verification.txt' };
-  // Persist verification so publish gate passes — create/update company_domains as verified.
-  // Real schema (masrbounty.sql §16.1): verification_token_plain / verification_token_hash — there is NO `token` column.
-  try {
-    const supabase = await createServerClient();
-    const { data: auth } = await supabase.auth.getUser();
-    const uid = auth.user?.id;
-    if (!uid) return { verified: false, error: 'انتهت الجلسة — سجّل الدخول ثم أعد التحقق' };
-    let companyId: string | null = null;
-    const { data: owned } = await supabase.from('company_profiles').select('id').eq('owner_id', uid).maybeSingle();
-    if (owned) companyId = (owned as { id: string }).id;
-    else {
-      const { data: mem } = await supabase.from('company_members').select('company_id').eq('user_id', uid).limit(1).maybeSingle();
-      if (mem) companyId = (mem as { company_id: string }).company_id;
-    }
-    if (!companyId) return { verified: false, error: 'لم يتم العثور على شركة مرتبطة بحسابك — أكمل إنشاء ملف الشركة أولاً' };
-    const hash = await sha256Hex(token);
-    const { error: upErr } = await supabase.from('company_domains').upsert({
-      company_id: companyId,
-      domain: d,
-      verification_token_plain: token,
-      verification_token_hash: hash,
-      status: 'verified',
-      verified_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
-    }, { onConflict: 'company_id,domain' });
-    // Do NOT swallow persistence errors: checkPublishReadiness reads this row,
-    // so a silent failure would deadlock the wizard (verified in UI, missing in DB).
-    if (upErr) {
-      return { verified: false, error: 'تم التحقق من الملف لكن فشل حفظ التوثيق: ' + upErr.message };
-    }
-  } catch (e) {
-    return { verified: false, error: 'فشل حفظ التوثيق: ' + (e instanceof Error ? e.message : 'خطأ غير متوقع') };
+  const saved = await persistVerifiedDomain(d, token);
+  return saved.ok ? { verified: true } : { verified: false, error: saved.error };
+}
+
+/**
+ * DNS TXT verification (primary method): the company adds a TXT record on
+ * `_masrbounty.<domain>` (or the apex) containing `masrbounty-verification=<token>`.
+ * Resolution uses DNS-over-HTTPS (RFC 8484) via lib/security/dns-txt.
+ */
+export async function verifyDomainTxtAction(domain: string, token: string): Promise<{ verified: boolean; error?: string; host?: string }> {
+  const d = domain.trim().toLowerCase();
+  if (!d || !token) return { verified: false, error: 'الدومين والرمز مطلوبان' };
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return { verified: false, error: 'الدومين غير صالح' };
+  if (!isValidVerificationToken(token)) return { verified: false, error: 'رمز التحقق غير صالح — أنشئ رمزًا جديدًا' };
+  const res = await hasVerificationTxt(d, token);
+  if (!res.found) {
+    return {
+      verified: false,
+      error:
+        'لم يتم العثور على سجل TXT بالرمز — تأكد من إضافة السجل على المضيف ' +
+        `_masrbounty.${d}` +
+        ' بالقيمة masrbounty-verification=' +
+        token +
+        ' (قد يستغرق انتشار DNS من دقائق إلى 48 ساعة — أعد المحاولة بعد قليل)',
+    };
   }
-  return { verified: true };
+  const saved = await persistVerifiedDomain(d, token);
+  return saved.ok ? { verified: true, host: res.host } : { verified: false, error: saved.error };
 }
 
 export async function checkWizardReadinessAction(programId: string): Promise<{ ready: boolean; missing: string[]; error?: string }> {
