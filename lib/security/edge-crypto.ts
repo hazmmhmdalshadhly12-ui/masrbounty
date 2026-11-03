@@ -29,3 +29,21 @@ export const VERIFICATION_TOKEN_RE = /^[a-f0-9]{32}$/;
 export function isValidVerificationToken(token: unknown): token is string {
   return typeof token === 'string' && VERIFICATION_TOKEN_RE.test(token);
 }
+
+/**
+ * Constant-time string equality for secrets (webhook shared secret etc.).
+ * Compares SHA-256 digests so running time does not depend on where the
+ * strings first differ; fixed digest length also removes length leaks.
+ */
+export async function timingSafeEqualStrings(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [da, db] = await Promise.all([
+    globalThis.crypto.subtle.digest('SHA-256', enc.encode(a)),
+    globalThis.crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ]);
+  const va = new Uint8Array(da);
+  const vb = new Uint8Array(db);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= (va[i] as number) ^ (vb[i] as number);
+  return diff === 0;
+}

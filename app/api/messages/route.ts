@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
 
 export async function GET(req: Request) {
   try {
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
         .limit(limit);
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      if (error) { logServerError('messages', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
       return NextResponse.json({ ok: true, items: data ?? [] });
     }
 
@@ -49,9 +50,9 @@ export async function GET(req: Request) {
       .in('id', ids)
       .order('updated_at', { ascending: false })
       .limit(limit);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) { logServerError('messages', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
 
 export async function GET(req: Request) {
   try {
@@ -12,9 +13,9 @@ export async function GET(req: Request) {
       .select('researcher_id,display_name,score,accepted_reports,resolved_reports,total_earned,rank')
       .order('score', { ascending: false })
       .limit(limit);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) { logServerError('leaderboard', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

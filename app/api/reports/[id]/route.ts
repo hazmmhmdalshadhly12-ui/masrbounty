@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,7 +24,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .or(`id.eq.${key},report_number.eq.${key}`)
       .maybeSingle();
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) { logServerError('reports/[id]', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     if (!data) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
 
     const reportId = (data as { id: string }).id;
@@ -36,6 +37,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json({ ok: true, item: data, events: events ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

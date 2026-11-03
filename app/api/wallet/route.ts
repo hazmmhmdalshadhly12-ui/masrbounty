@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
 
 export async function GET(req: Request) {
   try {
@@ -39,6 +40,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, wallet, transactions: transactions ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

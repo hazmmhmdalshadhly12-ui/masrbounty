@@ -3,8 +3,22 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { escapeLike } from '@/utils/search';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
+import { rateLimit, limits } from '@/lib/rate-limit';
 
 export async function GET(req: Request) {
+  // Public endpoint: bound abuse per IP (per-isolate window; Redis/Upstash
+  // behind the same interface for multi-instance scale).
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('cf-connecting-ip') ||
+    'unknown';
+  if (!rateLimit(`api-search:${ip}`, limits.api.max, limits.api.windowMs).ok) {
+    return NextResponse.json(
+      { ok: false, error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    );
+  }
   try {
     const q = (new URL(req.url).searchParams.get('q') ?? '').trim();
     if (q.length < 2) {
@@ -30,10 +44,11 @@ export async function GET(req: Request) {
         .limit(10),
     ]);
 
-    if (pError) return NextResponse.json({ ok: false, error: pError.message }, { status: 500 });
-    if (rError) return NextResponse.json({ ok: false, error: rError.message }, { status: 500 });
+    if (pError) { logServerError('search', pError.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
+    if (rError) { logServerError('search', rError.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, query: q, programs: programs ?? [], researchers: researchers ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    logServerError('search', e);
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

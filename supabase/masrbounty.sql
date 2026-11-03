@@ -891,9 +891,27 @@ DROP POLICY IF EXISTS "pset_write" ON public.platform_settings; CREATE POLICY "p
 -- 10. STORAGE
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars','avatars', true), ('company-logos','company-logos', true), ('report-attachments','report-attachments', false) ON CONFLICT (id) DO NOTHING;
 DROP POLICY IF EXISTS "avatars_public" ON storage.objects; CREATE POLICY "avatars_public" ON storage.objects FOR SELECT USING (bucket_id='avatars');
-DROP POLICY IF EXISTS "avatars_upload" ON storage.objects; CREATE POLICY "avatars_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='avatars' AND auth.role()='authenticated');
+DROP POLICY IF EXISTS "avatars_upload" ON storage.objects; CREATE POLICY "avatars_upload" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id='avatars' AND auth.role()='authenticated' AND (storage.foldername(name))[1] = auth.uid()::text
+);
+DROP POLICY IF EXISTS "avatars_update" ON storage.objects; CREATE POLICY "avatars_update" ON storage.objects FOR UPDATE USING (
+  bucket_id='avatars' AND auth.role()='authenticated' AND (storage.foldername(name))[1] = auth.uid()::text
+);
 DROP POLICY IF EXISTS "logos_public" ON storage.objects; CREATE POLICY "logos_public" ON storage.objects FOR SELECT USING (bucket_id='company-logos');
-DROP POLICY IF EXISTS "logos_upload" ON storage.objects; CREATE POLICY "logos_upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id='company-logos' AND auth.role()='authenticated');
+DROP POLICY IF EXISTS "logos_upload" ON storage.objects; CREATE POLICY "logos_upload" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id='company-logos' AND auth.role()='authenticated' AND EXISTS(
+    SELECT 1 FROM public.company_profiles cp
+    WHERE (storage.foldername(name))[1] = cp.id::text
+      AND (cp.owner_id = auth.uid() OR public.is_company_member(cp.id, auth.uid()))
+  )
+);
+DROP POLICY IF EXISTS "logos_update" ON storage.objects; CREATE POLICY "logos_update" ON storage.objects FOR UPDATE USING (
+  bucket_id='company-logos' AND auth.role()='authenticated' AND EXISTS(
+    SELECT 1 FROM public.company_profiles cp
+    WHERE (storage.foldername(name))[1] = cp.id::text
+      AND (cp.owner_id = auth.uid() OR public.is_company_member(cp.id, auth.uid()))
+  )
+);
 DROP POLICY IF EXISTS "attach_private" ON storage.objects; CREATE POLICY "attach_private" ON storage.objects FOR SELECT USING (
   bucket_id='report-attachments' AND auth.role()='authenticated' AND (
     public.has_role('admin') OR public.has_role('moderator') OR EXISTS(
@@ -2342,3 +2360,42 @@ RETURNS TABLE (
   ORDER BY COUNT(r.id) DESC
   LIMIT 100;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ------------------------------------------------------------
+-- 16.3 STORAGE UPLOAD PATH-BINDING (production hardening)
+-- avatars/company-logos previously allowed ANY authenticated user to insert
+-- at ANY path in the bucket (path squatting / overwriting neighbors once an
+-- UPDATE policy is ever added). Bind writes to owner folders:
+--   avatars/<user_id>/...        -> only that user
+--   company-logos/<company_id>/. -> owner or company member only
+-- Public read stays as-is (both buckets are public by design).
+-- Idempotent: safe to re-run. Run once in Supabase SQL Editor.
+-- ------------------------------------------------------------
+DROP POLICY IF EXISTS "avatars_upload" ON storage.objects;
+CREATE POLICY "avatars_upload" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id = 'avatars' AND auth.role() = 'authenticated'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+DROP POLICY IF EXISTS "avatars_update" ON storage.objects;
+CREATE POLICY "avatars_update" ON storage.objects FOR UPDATE USING (
+  bucket_id = 'avatars' AND auth.role() = 'authenticated'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+DROP POLICY IF EXISTS "logos_upload" ON storage.objects;
+CREATE POLICY "logos_upload" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id = 'company-logos' AND auth.role() = 'authenticated'
+  AND EXISTS(
+    SELECT 1 FROM public.company_profiles cp
+    WHERE (storage.foldername(name))[1] = cp.id::text
+      AND (cp.owner_id = auth.uid() OR public.is_company_member(cp.id, auth.uid()))
+  )
+);
+DROP POLICY IF EXISTS "logos_update" ON storage.objects;
+CREATE POLICY "logos_update" ON storage.objects FOR UPDATE USING (
+  bucket_id = 'company-logos' AND auth.role() = 'authenticated'
+  AND EXISTS(
+    SELECT 1 FROM public.company_profiles cp
+    WHERE (storage.foldername(name))[1] = cp.id::text
+      AND (cp.owner_id = auth.uid() OR public.is_company_member(cp.id, auth.uid()))
+  )
+);

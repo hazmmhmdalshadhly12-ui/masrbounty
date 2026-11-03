@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
+import { timingSafeEqualStrings } from '@/lib/security/edge-crypto';
 
 export async function GET() {
   return NextResponse.json({ ok: true, api: 'webhooks/supabase' });
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
 
   const provided =
     req.headers.get('x-supabase-webhook-secret') ?? req.headers.get('x-webhook-secret') ?? '';
-  if (provided !== secret) {
+  if (!(await timingSafeEqualStrings(provided, secret))) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 

@@ -5,6 +5,26 @@ import type { NextRequest } from 'next/server';
 const PROTECTED = [/^\/dashboard/, /^\/company/, /^\/admin/, /^\/profile$/, /^\/settings$/, /^\/programs\/create/];
 const AUTH_PAGES = new Set(['/login', '/register']);
 
+/**
+ * API paths a guest (no session) may reach:
+ * - health: uptime probe
+ * - programs / search / leaderboard: public read-only data (routes still
+ *   enforce RLS; only GET/HEAD/OPTIONS pass without a session)
+ * - webhooks: server-to-server, authenticated by shared secret inside the
+ *   route itself — must never require a user cookie.
+ * Exported for tests.
+ */
+export function isPublicApiPath(pathname: string, method: string): boolean {
+  // Defense in depth: traversal/backslash confusion never matches the list,
+  // even if an upstream proxy normalizes differently than the regexes.
+  if (pathname.includes('..') || pathname.includes('\\')) return false;
+  if (pathname === '/api/health') return true;
+  const readOnly = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+  if (readOnly && /^(\/api\/programs(\/.*)?|\/api\/search|\/api\/leaderboard)$/.test(pathname)) return true;
+  if (pathname.startsWith('/api/webhooks/')) return true;
+  return false;
+}
+
 /** Internal paths only: /x, /x/y. Rejects //, \, protocols, external, api. */
 export function isSafeNext(value: string | null): string | null {
   if (!value) return null;
@@ -57,8 +77,10 @@ export async function middleware(req: NextRequest) {
     .getAll()
     .some((c) => c.name.includes('-auth-token') && c.value.length > 8);
 
-  // Lock API (except health) behind login at the edge; deep authZ stays in RLS
-  if (pathname.startsWith('/api/') && pathname !== '/api/health') {
+  // API routing: guests may use public read-only endpoints and authorized
+  // webhooks; everything else requires a session cookie (deep identity checks
+  // happen in each route via getUser() + RLS — never the cookie alone).
+  if (pathname.startsWith('/api/') && !isPublicApiPath(pathname, req.method)) {
     if (!hasCookie) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
     return NextResponse.next();
   }

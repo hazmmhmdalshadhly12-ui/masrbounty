@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
 
 const ALLOWED_STATUS = new Set(['open', 'under_review', 'resolved', 'rejected']);
 
@@ -25,9 +26,9 @@ export async function GET(req: Request) {
     if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) { logServerError('disputes', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

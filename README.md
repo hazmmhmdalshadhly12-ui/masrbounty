@@ -1,9 +1,9 @@
 # MasrBounty
 
-[![Next.js](https://img.shields.io/badge/Next.js-14.1.3-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.4-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-2.39.7-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com/)
+[![Supabase](https://img.shields.io/badge/Supabase--js-2.115-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 منصة **Bug Bounty** مصرية احترافية مستوحاة من HackerOne، مبنية بهوية وتصميم وتجربة مستخدم مصرية مستقلة.
@@ -35,7 +35,7 @@
 ## 🛠 التقنيات المستخدمة
 
 ### Frontend
-- **Next.js 14** (App Router, Server Components, Server Actions)
+- **Next.js 15** (App Router, Server Components, Server Actions, Edge Middleware)
 - **TypeScript 5** (Strict mode, مسارات مطلقة)
 - **React 18** (Hooks, Suspense, Concurrent Features)
 - **Tailwind CSS 3** (CSS Variables, Dark Mode, RTL Support)
@@ -264,10 +264,11 @@ npm run test:coverage
 ```
 
 ### أنواع الاختبارات
-- **Unit**: دوال مساعدة، Hooks، Schemas
+- **Unit**: دوال مساعدة، Hooks، Schemas، Bootstrap
 - **Integration**: Server Actions، API Routes، Database
-- **Security**: RLS Policies، Authorization، Input Validation
-- **E2E**: تدفقات المستخدم الكاملة
+- **Security**: RLS Policies، Authorization، Input Validation، Webhook Auth، Storage Policies، CI Integrity
+- **E2E**: تدفقات المستخدم الكاملة (Playwright)
+- **Live RLS** (`tests/integration/rls-live.test.ts`): اختبارات RLS فعلية ضد بيئة اختبار حقيقية بحسابات متعددة — تُشغَّل تلقائيًا فقط عند توفير `RLS_TEST_URL` و`RLS_TEST_ANON_KEY` وبيانات حسابات الاختبار (بيئة اختبار مخصصة، لا إنتاج أبدًا). بدونها تُتجاوز (`skipped`) ولا يُدّعى نجاحها.
 
 ## 📚 الوثائق
 
@@ -283,14 +284,16 @@ npm run test:coverage
 ## 🔒 الأمان
 
 - **RLS على جميع الجداول** - لا تعتمد على حماية Frontend فقط
-- **Server-side Authorization** - التحقق من الصلاحيات في Server Actions
+- **Server-side Authorization** - التحقق من الصلاحيات في Server Actions (getUser() موثوق، لا الأدوار المُرسلة من المتصفح)
 - **Zod Validation** - التحقق من جميع المدخلات
-- **Secure Cookies** - HttpOnly, SameSite, Secure
-- **CSP Headers** - Content Security Policy
-- **Rate Limiting** - حماية من إساءة الاستخدام
-- **File Upload Validation** - أنواع، أحجام، مسح فيروسات
+- **Secure Cookies** - SameSite, Secure (HttpOnly متعمدًا لأن @supabase/ssr يقرأها من العميل — موثّق في `lib/supabase/cookies.ts`)
+- **CSP Headers** - Content Security Policy (لاحظ: `unsafe-inline` في script-src قرار موثّق بسبب next-on-pages — انظر PRODUCTION_READINESS_REPORT.md)
+- **Rate Limiting** - Server Actions وAPI الحساسة (login/register/reports/upload/verify-domain/search/programs)
+- **File Upload Validation** - أنواع MIME، magic bytes، امتدادات محظورة، حد 10MB، سياسات تخزين مربوطة بمسار المالك
+- **Webhook Auth** - مقارنة زمنية-ثابتة (timing-safe) للسر
 - **Audit Logging** - تتبع جميع الإجراءات الحساسة
 - **No Secrets in Client** - Service Role Key فقط على الخادم
+- **خطأ مُصفّى** - رسائل 5xx عامة للعميل؛ التفاصيل في سجلات الخادم فقط
 
 ## 🤝 المساهمة
 

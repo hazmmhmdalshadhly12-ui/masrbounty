@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
 
-// Strict CSP: same-origin + Supabase endpoints + no inline scripts (Next needs 'unsafe-inline' for styles only)
+// CSP: same-origin + Supabase endpoints. script-src keeps 'unsafe-inline' BY
+// DOCUMENTED DECISION: the Cloudflare Pages target (next-on-pages) prerenders
+// static routes at build time, so per-request nonces cannot cover them — a
+// nonce-CSP here would block Next's bootstrap scripts on every static page.
+// Migrating to a nonce-based strict CSP requires the Node.js runtime
+// (Vercel/self-hosted); see PRODUCTION_READINESS_REPORT.md §8.
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
@@ -44,6 +49,9 @@ const nextConfig = {
         { key: 'X-DNS-Prefetch-Control', value: 'off' },
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        { key: 'X-XSS-Protection', value: '0' },
+        { key: 'Origin-Agent-Cluster', value: '?1' },
+        { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
         { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },

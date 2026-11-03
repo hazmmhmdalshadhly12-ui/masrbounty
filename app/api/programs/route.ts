@@ -2,10 +2,23 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
+import { rateLimit, limits } from '@/lib/rate-limit';
 
 const ALLOWED_STATUS = new Set(['active', 'paused', 'closed']);
 
 export async function GET(req: Request) {
+  // Public endpoint: per-IP abuse bound (per-isolate; Redis behind same interface).
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('cf-connecting-ip') ||
+    'unknown';
+  if (!rateLimit(`api-programs:${ip}`, limits.api.max, limits.api.windowMs).ok) {
+    return NextResponse.json(
+      { ok: false, error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': '60' } }
+    );
+  }
   try {
     const sb = await createServerClient();
     const url = new URL(req.url);
@@ -29,9 +42,10 @@ export async function GET(req: Request) {
     }
 
     const { data, error } = await query;
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) { logServerError('programs', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    logServerError('programs', e);
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }

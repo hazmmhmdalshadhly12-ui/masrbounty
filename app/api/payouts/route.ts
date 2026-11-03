@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { logServerError, serverErrorMessage } from '@/lib/api/errors';
 
 async function researcherIdFor(sb: Awaited<ReturnType<typeof createServerClient>>, userId: string) {
   const { data, error } = await sb.from('researcher_profiles').select('id').eq('user_id', userId).maybeSingle();
@@ -31,10 +32,10 @@ export async function GET(req: Request) {
       .eq('researcher_id', researcherId)
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    if (error) { logServerError('payouts', error.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, items: data ?? [] });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'unexpected' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }
 
@@ -91,11 +92,14 @@ export async function POST(req: Request) {
       .insert({ researcher_id: researcherId, amount, payment_method_id: paymentMethodId })
       .select('id,amount,status,payment_method_id,created_at')
       .single();
-    if (cError) return NextResponse.json({ ok: false, error: cError.message }, { status: 500 });
+    if (cError) { logServerError('payouts', cError.message); return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 }); }
     return NextResponse.json({ ok: true, item: created }, { status: 201 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unexpected';
-    const status = msg === 'researcher profile not found' ? 404 : 500;
-    return NextResponse.json({ ok: false, error: msg }, { status });
+    if (msg === 'researcher profile not found') {
+      return NextResponse.json({ ok: false, error: msg }, { status: 404 });
+    }
+    logServerError('payouts', e);
+    return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }
