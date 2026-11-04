@@ -6,6 +6,7 @@ export interface NavItem {
 
 export const nav: NavItem[] = [
   { href: '/programs', ar: 'البرامج', en: 'Programs' },
+  { href: '/academy', ar: 'الأكاديمية', en: 'Academy' },
   { href: '/researchers', ar: 'الباحثون', en: 'Researchers' },
   { href: '/companies', ar: 'الشركات', en: 'Companies' },
   { href: '/leaderboard', ar: 'المتصدرين', en: 'Leaderboard' },
