@@ -6,6 +6,7 @@ const links = [
   { href: '/dashboard/reports', label: 'تقاريري', icon: 'reports' },
   { href: '/dashboard/reports/new', label: 'تقرير جديد', icon: 'new' },
   { href: '/dashboard/programs', label: 'برامجي المحفوظة', icon: 'saved' },
+  { href: '/dashboard/learning', label: 'التعلم', icon: 'learning' },
   { href: '/dashboard/wallet', label: 'المحفظة', icon: 'wallet' },
   { href: '/dashboard/payments', label: 'المدفوعات', icon: 'payments' },
   { href: '/dashboard/badges', label: 'الشارات', icon: 'badges' },

@@ -22,6 +22,10 @@ import {
   Gavel,
   ScrollText,
   LifeBuoy,
+  GraduationCap,
+  Sparkles,
+  FileBadge,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -46,6 +50,11 @@ const icons: Record<string, LucideIcon> = {
   audit: ScrollText,
   support: LifeBuoy,
   verification: ShieldCheck,
+  learning: GraduationCap,
+  academy: GraduationCap,
+  ai: Sparkles,
+  certificates: FileBadge,
+  limits: Gauge,
 };
 
 export interface ShellLink {
