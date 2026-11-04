@@ -34,6 +34,7 @@ export async function createReportAction(formData: FormData) {
     reproduction_steps: formData.get('reproduction_steps'),
     remediation: formData.get('remediation') || undefined,
     cvss_score: formData.get('cvss_score') || undefined,
+    cwe: formData.get('cwe') || undefined,
   };
   const parsed = reportSchema.safeParse(raw);
   if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid report');

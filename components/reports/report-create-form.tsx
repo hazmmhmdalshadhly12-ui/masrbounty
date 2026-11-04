@@ -8,15 +8,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CvssCalculator } from '@/components/reports/cvss-calculator';
+import { AiReportAssistant } from '@/components/reports/ai-report-assistant';
 
 const DRAFT_KEY = 'masrbounty-report-draft';
 const MIN = { title: 10, summary: 20, description: 30, impact: 20, reproduction_steps: 20 } as const;
 
-type Fields = Record<'program_id' | 'title' | 'summary' | 'vulnerability_type' | 'severity' | 'affected_asset' | 'description' | 'impact' | 'reproduction_steps' | 'remediation' | 'cvss_score', string>;
+type Fields = Record<'program_id' | 'title' | 'summary' | 'vulnerability_type' | 'severity' | 'affected_asset' | 'description' | 'impact' | 'reproduction_steps' | 'remediation' | 'cvss_score' | 'cwe', string>;
 
 const EMPTY: Fields = {
   program_id: '', title: '', summary: '', vulnerability_type: '', severity: 'medium',
-  affected_asset: '', description: '', impact: '', reproduction_steps: '', remediation: '', cvss_score: '',
+  affected_asset: '', description: '', impact: '', reproduction_steps: '', remediation: '', cvss_score: '', cwe: '',
 };
 
 const STEPS = ['البرنامج', 'الثغرة', 'التفاصيل', 'الأثر', 'الأدلة', 'المراجعة'] as const;
@@ -176,8 +177,26 @@ export function ReportCreateForm({ programs }: { programs: { id: string; name: s
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label htmlFor="f-cvss">CVSS (0–10)</Label><Input id="f-cvss" name="cvss_score" type="number" min={0} max={10} step={0.1} dir="ltr" value={fields.cvss_score} onChange={set('cvss_score')} className="mt-1" /></div>
-                  <div><Label htmlFor="f-fix">الإصلاح المقترح (اختياري)</Label><Textarea id="f-fix" name="remediation" value={fields.remediation} onChange={set('remediation')} className="mt-1" rows={2} /></div>
+                  <div>
+                    <Label htmlFor="f-cwe">CWE (اختياري)</Label>
+                    <Input id="f-cwe" name="cwe" list="cwe-list" dir="ltr" value={fields.cwe} onChange={set('cwe')} placeholder="CWE-79" className="mt-1" />
+                    <datalist id="cwe-list">
+                      <option value="CWE-79">XSS</option>
+                      <option value="CWE-89">SQL Injection</option>
+                      <option value="CWE-639">IDOR</option>
+                      <option value="CWE-285">Improper Authorization</option>
+                      <option value="CWE-287">Improper Authentication</option>
+                      <option value="CWE-22">Path Traversal</option>
+                      <option value="CWE-78">Command Injection</option>
+                      <option value="CWE-434">Unrestricted Upload</option>
+                      <option value="CWE-611">XXE</option>
+                      <option value="CWE-918">SSRF</option>
+                      <option value="CWE-352">CSRF</option>
+                      <option value="CWE-307">Missing Rate Limit</option>
+                    </datalist>
+                  </div>
                 </div>
+                <div><Label htmlFor="f-fix">الإصلاح المقترح (اختياري)</Label><Textarea id="f-fix" name="remediation" value={fields.remediation} onChange={set('remediation')} className="mt-1" rows={2} /></div>
                 <p className="rounded-md bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
                   بعد إنشاء المسودة ستتمكن من إرفاق لقطات الشاشة وملفات الإثبات (PNG/JPG/PDF حتى 10MB) من صفحة التقرير.
                 </p>
@@ -225,8 +244,26 @@ export function ReportCreateForm({ programs }: { programs: { id: string; name: s
           </form>
         </CardContent>
       </Card>
-      <div className="lg:sticky lg:top-20 lg:self-start">
+      <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
         <CvssCalculator onPick={(s) => { setFields((f) => ({ ...f, cvss_score: String(s) })); setDirty(true); }} />
+        <AiReportAssistant
+          fields={{
+            title: fields.title,
+            summary: fields.summary,
+            vulnerability_type: fields.vulnerability_type,
+            severity: fields.severity,
+            affected_asset: fields.affected_asset,
+            description: fields.description,
+            impact: fields.impact,
+            reproduction_steps: fields.reproduction_steps,
+            remediation: fields.remediation,
+            cvss_score: fields.cvss_score,
+          }}
+          onApply={(k, v) => {
+            setFields((f) => ({ ...f, [k]: v }));
+            setDirty(true);
+          }}
+        />
       </div>
     </div>
   );

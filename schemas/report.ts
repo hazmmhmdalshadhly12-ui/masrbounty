@@ -12,6 +12,11 @@ export const reportSchema = z.object({
   reproduction_steps: z.string().min(20),
   remediation: z.string().optional(),
   cvss_score: z.coerce.number().min(0).max(10).optional(),
+  cwe: z
+    .string()
+    .trim()
+    .regex(/^CWE-\d{1,4}$/i, 'صيغة CWE غير صحيحة (مثال: CWE-79)')
+    .optional(),
 });
 
 export type ReportInput = z.infer<typeof reportSchema>;
