@@ -183,7 +183,26 @@ export async function checkPublishReadiness(
   }
 
   if (!hasVerifiedDomain) {
-    missing.push('الشركة تحتاج دومين موثّق (لم يتم التحقق من أي دومين — status=verified)');
+    // Is a domain stuck in the review queue? Give a specific, actionable message.
+    let awaitingDomain: string | null = null;
+    try {
+      const { data: awaiting } = await supabase
+        .from('company_domains')
+        .select('domain')
+        .eq('company_id', p.company_id)
+        .eq('status', 'awaiting_approval')
+        .limit(1);
+      awaitingDomain = (awaiting as { domain: string }[] | null)?.[0]?.domain ?? null;
+    } catch {
+      /* table may not exist yet */
+    }
+    if (awaitingDomain) {
+      missing.push(
+        `النطاق ${awaitingDomain} اجتاز الفحص التقني وهو بانتظار موافقة مشرف أو أدمن المنصة — سيُشعرون تلقائيًا عند الاعتماد، وبعدها يمكن النشر`
+      );
+    } else {
+      missing.push('الشركة تحتاج دومين موثّق ومعتمد من الإدارة (لم يتم التحقق من أي دومين — status=verified)');
+    }
   }
 
   // b) required fields

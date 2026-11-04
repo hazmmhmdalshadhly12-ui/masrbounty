@@ -71,6 +71,30 @@ describe('lib/ai/client — aiChat', () => {
     expect(res.ok).toBe(true);
   });
 
+  it('retries: 0 performs exactly ONE attempt on transient failures (non-idempotent generations)', async () => {
+    let calls = 0;
+    global.fetch = jest.fn().mockImplementation(async () => {
+      calls += 1;
+      return { ok: false, status: 429, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    const res = await aiChat({ messages: [{ role: 'user', content: 'x' }], retries: 0 });
+    expect(calls).toBe(1);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe('rate_limited');
+  });
+
+  it('caps retries at 3 even when a caller asks for more', async () => {
+    let calls = 0;
+    global.fetch = jest.fn().mockImplementation(async () => {
+      calls += 1;
+      return { ok: false, status: 500, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    const res = await aiChat({ messages: [{ role: 'user', content: 'x' }], retries: 99 });
+    expect(calls).toBe(4); // 1 initial + 3 retries
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe('upstream_error');
+  });
+
   it('maps persistent 5xx to upstream_error with a generic message (no key, no URL)', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
     const res = await aiChat({ messages: [{ role: 'user', content: 'x' }] });

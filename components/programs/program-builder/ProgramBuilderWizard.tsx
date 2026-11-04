@@ -25,17 +25,17 @@ function getStepSlice(step: number, data: WizardData): unknown {
     case 1:
       return data.basic;
     case 2:
-      return data.verification;
-    case 3:
       return data.scope;
-    case 4:
+    case 3:
       return data.rules;
-    case 5:
+    case 4:
       return data.rewards;
-    case 6:
+    case 5:
       return data.sla;
-    case 7:
+    case 6:
       return data.disclosure;
+    case 8:
+      return data.verification;
     default:
       return undefined;
   }
@@ -292,13 +292,13 @@ export function ProgramBuilderWizard(): React.JSX.Element {
 
       <div className="min-h-[320px]">
         {step === 1 && <StepBasic data={data.basic} onChange={updateBasic} errors={errors} />}
-        {step === 2 && <StepVerification errors={errors} />}
-        {step === 3 && <StepScope data={data.scope} onChange={updateScope} errors={errors} />}
-        {step === 4 && <StepRules data={data.rules} onChange={updateRules} errors={errors} />}
-        {step === 5 && <StepRewards data={data.rewards} onChange={updateRewards} errors={errors} />}
-        {step === 6 && <StepSLA data={data.sla} onChange={updateSLA} errors={errors} />}
-        {step === 7 && <StepDisclosure data={data.disclosure} onChange={updateDisclosure} errors={errors} />}
-        {step === 8 && <StepPreview data={data} />}
+        {step === 2 && <StepScope data={data.scope} onChange={updateScope} errors={errors} />}
+        {step === 3 && <StepRules data={data.rules} onChange={updateRules} errors={errors} />}
+        {step === 4 && <StepRewards data={data.rewards} onChange={updateRewards} errors={errors} />}
+        {step === 5 && <StepSLA data={data.sla} onChange={updateSLA} errors={errors} />}
+        {step === 6 && <StepDisclosure data={data.disclosure} onChange={updateDisclosure} errors={errors} />}
+        {step === 7 && <StepPreview data={data} />}
+        {step === 8 && <StepVerification errors={errors} />}
         {step === 9 && <StepPublish data={data} onCreated={setCreatedProgramId} />}
       </div>
 
@@ -353,7 +353,7 @@ export function ProgramBuilderWizard(): React.JSX.Element {
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        تقدمك يُحفظ تلقائيًا في حسابك على الخادم — اخرج في أي وقت وارجع وستكمل من نفس الخطوة، وتوثيق الدومين يبقى محفوظًا. لا يُنشأ البرنامج إلا في خطوة النشر بعد التحقق عبر checkPublishReadiness.
+        تقدمك يُحفظ تلقائيًا في حسابك على الخادم — اخرج في أي وقت وارجع وستكمل من نفس الخطوة. تأكيد الدومين هو الخطوة ٨ (اختيار أخير — اختياري أثناء الإنشاء ومطلوب قبل النشر)، ولا يُنشأ البرنامج إلا في خطوة النشر بعد التحقق عبر checkPublishReadiness.
       </p>
     </div>
   );

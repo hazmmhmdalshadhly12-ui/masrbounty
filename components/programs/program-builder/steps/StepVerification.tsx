@@ -13,6 +13,14 @@ import { friendlyActionError } from '../action-errors';
 type VerifyMethod = 'dns' | 'file';
 type ServerDomain = { domain: string; status: string; token: string | null; expiresAt: string | null };
 
+/**
+ * Domain confirmation — intentionally the LAST wizard step (step 8 of 9).
+ * It is OPTIONAL during creation (you may skip it and come back later), but
+ * publishing requires a verified AND admin-approved domain (see
+ * checkPublishReadiness). After the technical DNS/file check passes, the
+ * domain enters status='awaiting_approval' and a supervisor (مشرف) or admin
+ * must approve it from /admin/verification before it becomes 'verified'.
+ */
 export function StepVerification({ errors }: { errors: string[] }): React.JSX.Element {
   const { data, updateVerification } = useWizardStore();
   const v = data.verification;
@@ -23,10 +31,10 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
   const [serverDomains, setServerDomains] = React.useState<ServerDomain[]>([]);
   const hydratedRef = React.useRef(false);
 
-  // Hydrate from the backend: an already-verified domain (company_domains,
-  // status=verified) shows "موثّق" immediately — no re-verification needed,
-  // even on a fresh wizard session. If the domain is empty, prefill the
-  // company's most recent verified domain (one less thing to type).
+  // Hydrate from the backend: a verified domain (company_domains,
+  // status=verified) shows "موثّق" immediately; a technically-checked domain
+  // awaiting admin approval (status=awaiting_approval) shows the review badge.
+  // If the domain is empty, prefill the company's most recent row.
   React.useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
@@ -35,23 +43,36 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       if (!res.ok || !res.domains) return;
       setServerDomains(res.domains);
       const verifiedRows = res.domains.filter((d) => d.status === 'verified' && d.token);
-      if (verifiedRows.length === 0) return;
+      const pendingRows = res.domains.filter((d) => d.status === 'awaiting_approval' && d.token);
       const cur = useWizardStore.getState().data.verification;
-      const match = verifiedRows.find((d) => d.domain === cur.domain);
-      if (match) {
+      const vMatch = verifiedRows.find((d) => d.domain === cur.domain);
+      if (vMatch) {
         updateVerification({
           verified: true,
-          token: match.token ?? cur.token,
-          sentence: match.token ? `masrbounty-verification=${match.token}` : cur.sentence,
+          token: vMatch.token ?? cur.token,
+          sentence: vMatch.token ? `masrbounty-verification=${vMatch.token}` : cur.sentence,
         });
-      } else if (!cur.domain) {
-        const first = verifiedRows[0];
+        return;
+      }
+      const pMatch = pendingRows.find((d) => d.domain === cur.domain);
+      if (pMatch) {
         updateVerification({
-          domain: first.domain,
-          verified: true,
-          token: first.token ?? '',
-          sentence: first.token ? `masrbounty-verification=${first.token}` : '',
+          verified: false,
+          token: pMatch.token ?? cur.token,
+          sentence: pMatch.token ? `masrbounty-verification=${pMatch.token}` : cur.sentence,
         });
+        return;
+      }
+      if (!cur.domain) {
+        const first = verifiedRows[0] ?? pendingRows[0];
+        if (first) {
+          updateVerification({
+            domain: first.domain,
+            verified: first.status === 'verified',
+            token: first.token ?? '',
+            sentence: first.token ? `masrbounty-verification=${first.token}` : '',
+          });
+        }
       }
     })();
   }, [updateVerification]);
@@ -99,9 +120,9 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       if (method === 'dns') {
         const res = await verifyDomainTxtAction(v.domain, v.token);
         if (res.verified) {
-          updateVerification({ verified: true });
+          updateVerification({ verified: false });
           setOk(true);
-          setMsg(`تم التحقق بنجاح عبر سجل DNS${res.host ? ` (${res.host})` : ''} — ملكية الدومين مؤكدة ✓`);
+          setMsg(`نجح الفحص التقني عبر سجل DNS${res.host ? ` (${res.host})` : ''} ✓ — أُرسل الطلب لموافقة مشرف أو أدمن المنصة، وسيعتمد التوثيق بعد مراجعتهم`);
         } else {
           setOk(false);
           setMsg(res.error ?? 'لم يتم العثور على سجل TXT — تأكد من المضيف والقيمة وأعد المحاولة');
@@ -109,9 +130,9 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       } else {
         const res = await verifyDomainFileAction(v.domain, v.token);
         if (res.verified) {
-          updateVerification({ verified: true });
+          updateVerification({ verified: false });
           setOk(true);
-          setMsg('تم التحقق بنجاح — ملكية الدومين مؤكدة ✓');
+          setMsg('نجح الفحص التقني للملف ✓ — أُرسل الطلب لموافقة مشرف أو أدمن المنصة، وسيعتمد التوثيق بعد مراجعتهم');
         } else {
           setOk(false);
           setMsg(res.error ?? 'الملف غير موجود أو الجملة غير مطابقة — تأكد من المسار والمحتوى');
@@ -124,6 +145,11 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       setBusy(false);
     }
   }
+
+  // Server status for the CURRENT domain — drives the review-state badge.
+  const currentServerStatus =
+    serverDomains.find((s) => s.domain === v.domain.trim().toLowerCase())?.status ?? null;
+  const awaitingApproval = !v.verified && currentServerStatus === 'awaiting_approval';
 
   const fileUrl = v.domain && v.token ? `https://${v.domain}/${v.token}.txt` : '';
   const sentence = v.sentence || (v.token ? `masrbounty-verification=${v.token}` : '');
@@ -138,9 +164,9 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-black">إثبات ملكية الدومين</h3>
+        <h3 className="text-lg font-black">تأكيد الدومين — آخر اختيار قبل النشر</h3>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          أضف سجل DNS من نوع TXT عند مزوّد الدومين الخاص بك — لا نقرأ موقعك ولا نحتاج رفع أي ملف.
+          هذه الخطوة اختيارية أثناء الإنشاء — يمكنك تخطيها وإكمالها لاحقًا، لكن النشر يتطلب دومين موثق ومعتمد من الإدارة. بعد نجاح الفحص التقني يراجع الطلب مشرف أو مدير المنصة قبل اعتماد التوثيق نهائيًا.
         </p>
       </div>
 
@@ -308,6 +334,10 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                   <Badge variant="default" className="gap-1 bg-emerald-600 hover:bg-emerald-600">
                     <CheckCircle className="h-3.5 w-3.5" /> موثّق
                   </Badge>
+                ) : awaitingApproval ? (
+                  <Badge variant="default" className="gap-1 bg-amber-500 hover:bg-amber-500">
+                    <ShieldCheck className="h-3.5 w-3.5" /> تم الفحص — بانتظار موافقة الإدارة
+                  </Badge>
                 ) : (
                   <Badge variant="secondary" className="gap-1">
                     <AlertTriangle className="h-3.5 w-3.5" /> بانتظار التحقق
@@ -329,7 +359,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
       </Card>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        بعد التحقق بنجاح يمكنك المتابعة. {method === 'dns' ? 'سجل TXT يبقى للمراجعة الدورية — لا تحذفه.' : 'الملف يبقى للمراجعة الدورية — لا تحذفه.'}
+        بعد نجاح الفحص التقني يُرسل الطلب تلقائيًا لموافقة مشرف أو أدمن المنصة، ويصلك إشعار عند الاعتماد — يمكنك المتابعة إلى خطوة النشر والنشر لن يكتمل إلا بعد الاعتماد. {method === 'dns' ? 'سجل TXT يبقى للمراجعة الدورية — لا تحذفه.' : 'الملف يبقى للمراجعة الدورية — لا تحذفه.'}
       </p>
     </div>
   );

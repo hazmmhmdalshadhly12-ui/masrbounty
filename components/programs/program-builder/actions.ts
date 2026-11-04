@@ -20,9 +20,11 @@ async function resolveCompanyId(supabase: Awaited<ReturnType<typeof createServer
 }
 
 /**
- * Persist a successful domain verification into company_domains (status=verified).
- * Real schema (masrbounty.sql §16.1): verification_token_plain / verification_token_hash — there is NO `token` column.
- * checkPublishReadiness reads this row, so errors must be surfaced, never swallowed.
+ * Persist a successful technical domain verification into company_domains with
+ * status='awaiting_approval' — the DNS/file proof is recorded, but the domain
+ * only becomes 'verified' (and publishable) after a supervisor (مشرف) or admin
+ * approves it from /admin/verification. checkPublishReadiness reads this row,
+ * so errors must be surfaced, never swallowed.
  */
 async function persistVerifiedDomain(d: string, token: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
@@ -38,8 +40,12 @@ async function persistVerifiedDomain(d: string, token: string): Promise<{ ok: tr
       domain: d,
       verification_token_plain: token,
       verification_token_hash: hash,
-      status: 'verified',
-      verified_at: new Date().toISOString(),
+      // NOT verified yet — staff (admin/moderator) must approve from the
+      // verification center. The publish gate requires status='verified'.
+      status: 'awaiting_approval',
+      technical_check_passed: true,
+      checked_at: new Date().toISOString(),
+      verified_at: null,
       expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
     }, { onConflict: 'company_id,domain' });
     // Do NOT swallow persistence errors: a silent failure would deadlock the

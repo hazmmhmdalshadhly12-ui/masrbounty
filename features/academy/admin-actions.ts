@@ -310,15 +310,23 @@ const AI_LESSON_TOPICS_HINT =
   'أساسيات اختبار الاختراق، HTTP/HTTPS، DNS، الشبكات، OWASP Top 10، اكتشاف الثغرات، كتابة تقارير Bug Bounty، XSS في بيئة آمنة، SQL Injection في مختبر محلي، Broken Access Control، IDOR تعليمي، Authentication Testing، أمن API، أساسيات Linux، أساسيات Burp Suite، تحليل نتائج الفحص.';
 
 /**
- * Generate an educational lesson draft with AI (admin-only).
+ * Generate an educational lesson draft with AI (staff: admin/moderator).
  * The lesson is saved as an UNPUBLISHED draft flagged generated_by_ai —
  * a staff member must review it, mark it reviewed, and only then publish.
+ *
+ * Anti-duplicate guards (the "it generates again" bug):
+ *  1. Topic dedupe — if this course already has an UNREVIEWED AI draft whose
+ *     creation request carried the same topic within the last 10 minutes,
+ *     return that existing draft instead of burning another generation;
+ *  2. Zero silent retries — lesson generation is non-idempotent, so a lost
+ *     response no longer re-runs the whole completion (which used to look like
+ *     the generator "coming around again" and could double-charge tokens).
  */
 export async function generateLessonAiAction(
   courseId: string,
   topic: string,
   level: 'beginner' | 'intermediate' | 'advanced'
-): Promise<{ ok: boolean; lessonId?: string; error?: string; setupHint?: boolean }> {
+): Promise<{ ok: boolean; lessonId?: string; error?: string; setupHint?: boolean; deduped?: boolean }> {
   try {
     const { supabase, user } = await requireStaff();
     const cleanTopic = topic.trim().slice(0, 200);
@@ -329,6 +337,27 @@ export async function generateLessonAiAction(
       .eq('id', courseId)
       .maybeSingle();
     if (!course) return { ok: false, error: 'الدورة غير موجودة' };
+
+    // (1) Topic dedupe: a recent unreviewed AI draft for the same topic in the
+    // same course is returned as-is instead of generating a duplicate.
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: dup } = await supabase
+      .from('academy_lessons')
+      .select('id')
+      .eq('course_id', courseId)
+      .eq('generated_by_ai', true)
+      .eq('ai_reviewed', false)
+      .eq('ai_topic', cleanTopic)
+      .gte('created_at', tenMinutesAgo)
+      .limit(1);
+    const dupHit = (dup as { id: string }[] | null)?.[0] ?? null;
+    if (dupHit) {
+      return {
+        ok: true,
+        lessonId: dupHit.id,
+        deduped: true,
+      };
+    }
 
     const systemPrompt = [
       'أنت مدرّس أمن سيبراني محترف تكتب دروسًا تعليمية بالعربية للمبتدئين في منصة Bug Bounty.',
@@ -351,6 +380,7 @@ export async function generateLessonAiAction(
       maxTokens: 3500,
       temperature: 0.5,
       jsonMode: true,
+      retries: 0, // (2) non-idempotent — never silently re-run the generation
     });
     if (!res.ok) return { ok: false, error: res.message, setupHint: res.code === 'not_configured' };
 
@@ -395,6 +425,7 @@ export async function generateLessonAiAction(
         is_published: false,
         generated_by_ai: true,
         ai_reviewed: false,
+        ai_topic: cleanTopic,
         quiz_pass_score: 70,
         quiz: quizValidated ?? null,
       })

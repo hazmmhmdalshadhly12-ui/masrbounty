@@ -154,6 +154,13 @@ export type AiRunParams = {
   maxTokens?: number;
   temperature?: number;
   jsonMode?: boolean;
+  /**
+   * Silent transient-failure retries inside the AI client. Default 1.
+   * Non-idempotent generations (lesson creation) must pass 0 — a retry can
+   * produce a second completed generation upstream after the first attempt
+   * already succeeded, which the user experiences as duplicate/looping output.
+   */
+  retries?: number;
 };
 
 /** Run one gated, quota-checked, logged AI request. */
@@ -225,6 +232,7 @@ export async function runAiFeature(params: AiRunParams): Promise<AiRunResult> {
     maxTokens: params.maxTokens,
     temperature: params.temperature,
     jsonMode: params.jsonMode,
+    retries: params.retries,
     model,
   });
 

@@ -78,21 +78,30 @@ export const disclosureSchema = z.object({
 });
 
 export const verificationSchema = z.object({
-  domain: z.string().trim().min(3, 'الدومين مطلوب').regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'صيغة الدومين غير صحيحة (مثال: example.com)'),
-  filePath: z.string().trim().min(1).default('/.well-known/masrbounty-verification.txt'),
-  sentence: z.string().trim().min(10),
-  verified: z.boolean().refine((v) => v === true, { message: 'يجب إثبات ملكية الدومين قبل المتابعة — ضع الملف ثم اضغط تحقق' }),
-  token: z.string().trim().min(8),
+  domain: z
+    .string()
+    .trim()
+    .max(253)
+    .refine((v) => !v || /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v), {
+      message: 'صيغة الدومين غير صحيحة (مثال: example.com)',
+    }),
+  filePath: z.string().trim().max(500).default('/.well-known/masrbounty-verification.txt'),
+  sentence: z.string().trim().max(500).default(''),
+  // Optional + non-blocking: domain confirmation is now the LAST wizard step
+  // and may be skipped during creation. The publish gate (checkPublishReadiness)
+  // remains the single source of truth that a verified + approved domain exists.
+  verified: z.boolean().default(false),
+  token: z.string().trim().max(100).default(''),
 });
 
 export const wizardSchemas = {
   1: basicSchema,
-  2: verificationSchema,
-  3: scopeSchema,
-  4: rulesSchema,
-  5: rewardsSchema,
-  6: slaSchema,
-  7: disclosureSchema,
+  2: scopeSchema,
+  3: rulesSchema,
+  4: rewardsSchema,
+  5: slaSchema,
+  6: disclosureSchema,
+  8: verificationSchema,
 } as const;
 
 export function validateStep(step: number, data: unknown): { ok: boolean; errors?: string[] } {
