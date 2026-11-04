@@ -3,6 +3,7 @@ import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 const links = [
   { href: '/admin', label: 'نظرة عامة', icon: 'dashboard' },
+  { href: '/admin/analytics', label: 'التقارير والتحليلات', icon: 'reports' },
   { href: '/admin/users', label: 'المستخدمون', icon: 'team' },
   { href: '/admin/companies', label: 'الشركات', icon: 'companies' },
   { href: '/admin/programs', label: 'البرامج', icon: 'programs' },

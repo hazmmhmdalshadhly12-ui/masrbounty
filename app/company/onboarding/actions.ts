@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
 import { slugify } from '@/utils/slug';
+import { isValidCompanySize } from '@/lib/auth/onboarding';
 import { requestCompanyDomain, verifyCompanyDomain, deleteCompanyDomain } from '@/services/verification';
 
 export type ActionResult<T = unknown> = { ok: boolean; error?: string; data?: T };
@@ -17,6 +18,8 @@ export async function createOrganizationAction(formData: FormData): Promise<Acti
     const slug = slugify(rawSlug || name);
     const description = String(formData.get('description') ?? '').trim();
     const website = String(formData.get('website') ?? '').trim();
+    const rawSize = String(formData.get('size') ?? '').trim();
+    const size = isValidCompanySize(rawSize) ? rawSize : null;
     if (!name || name.length < 2) return { ok: false, error: 'اسم الشركة مطلوب (حرفين على الأقل)' };
     if (!slug || slug.length < 3) return { ok: false, error: 'المعرّف (slug) غير صالح' };
     // prevent duplicate onboarding
@@ -27,7 +30,7 @@ export async function createOrganizationAction(formData: FormData): Promise<Acti
 
     const { data: inserted, error } = await supabase
       .from('company_profiles')
-      .insert({ owner_id: auth.user.id, name, slug, description: description || null, website: website || null })
+      .insert({ owner_id: auth.user.id, name, slug, description: description || null, website: website || null, size })
       .select('id')
       .single();
     if (error || !inserted) {

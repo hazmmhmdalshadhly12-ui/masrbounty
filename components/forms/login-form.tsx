@@ -58,6 +58,11 @@ export function LoginForm({ next = '' }: { next?: string }) {
           role: (data.user.user_metadata?.role as string) ?? undefined,
           full_name: (data.user.user_metadata?.full_name as string) ?? undefined,
           phone: (data.user.user_metadata?.phone as string) ?? undefined,
+          // Registration-wizard answers (applied only on first row creation)
+          experience_level: (data.user.user_metadata?.experience_level as string) ?? undefined,
+          skills: (data.user.user_metadata?.skills as string) ?? undefined,
+          github: (data.user.user_metadata?.github as string) ?? undefined,
+          website: (data.user.user_metadata?.website as string) ?? undefined,
         });
       }
       if (!hasSessionCookie()) {

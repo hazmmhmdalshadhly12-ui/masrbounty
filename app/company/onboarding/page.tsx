@@ -53,6 +53,15 @@ export default async function CompanyOnboardingPage({
     if (first.company_profiles) company = first.company_profiles;
   }
 
+  // Registration-wizard prefill (?name=&website=&size=&desc=) — only used on
+  // step 1 for a fresh org; values are trimmed and length-capped server-side.
+  const prefill = {
+    name: (qs['name'] ?? '').trim().slice(0, 120) || undefined,
+    website: (qs['website'] ?? '').trim().slice(0, 300) || undefined,
+    size: (qs['size'] ?? '').trim().slice(0, 12) || undefined,
+    description: (qs['desc'] ?? '').trim().slice(0, 1000) || undefined,
+  };
+
   let domains: Array<DomainRow & { token: string }> = [];
   let isVerified = false;
 
@@ -155,7 +164,7 @@ export default async function CompanyOnboardingPage({
         </Card>
       )}
 
-      <OnboardingWizard company={company} domains={wizardDomains} currentStep={currentStep} isVerified={isVerified} />
+      <OnboardingWizard company={company} domains={wizardDomains} currentStep={currentStep} isVerified={isVerified} prefill={prefill} />
 
       {/* quick nav for existing company */}
       {company && (

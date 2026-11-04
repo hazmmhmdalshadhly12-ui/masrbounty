@@ -134,12 +134,12 @@ export default async function SettingsPage() {
   return (
     <div className="container py-8 max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">الإعدادات</h1>
-      <Card><CardHeader><CardTitle>Profile</CardTitle></CardHeader><CardContent>
+      <Card><CardHeader><CardTitle>الملف الشخصي</CardTitle></CardHeader><CardContent>
         <form action={updateProfile} className="space-y-3">
-          <div><Label>Full name</Label><Input name="full_name" defaultValue={profile?.full_name ?? ''} /></div>
-          <div><Label>Bio</Label><Input name="bio" defaultValue={profile?.bio ?? ''} /></div>
-          <div><Label>Locale</Label><select name="locale" defaultValue={profile?.locale ?? 'ar'} className="h-10 border rounded-md px-3 w-full"><option value="ar">العربية</option><option value="en">English</option></select></div>
-          <Button type="submit">Save</Button>
+          <div><Label>الاسم الكامل</Label><Input name="full_name" defaultValue={profile?.full_name ?? ''} /></div>
+          <div><Label>النبذة</Label><Input name="bio" defaultValue={profile?.bio ?? ''} /></div>
+          <div><Label>لغة الواجهة</Label><select name="locale" defaultValue={profile?.locale ?? 'ar'} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-slate-700 dark:bg-slate-900/50"><option value="ar">العربية</option><option value="en">English</option></select></div>
+          <Button type="submit">حفظ</Button>
         </form>
       </CardContent></Card>
       {rp && (
@@ -206,13 +206,13 @@ export default async function SettingsPage() {
         </form>
         <p className="mt-2 text-xs text-muted-foreground">يحذف الحساب وملفك وجميع بياناتك المرتبطة. لا يمكن التراجع.</p>
       </CardContent></Card>
-      <Card><CardHeader><CardTitle>Payment methods</CardTitle></CardHeader><CardContent className="space-y-3">
+      <Card><CardHeader><CardTitle>وسائل الاستلام</CardTitle></CardHeader><CardContent className="space-y-3">
         {methods?.map((m) => <p key={m.id} className="text-sm border rounded p-2">{m.label} ({m.type})</p>)}
         <form action={addMethod} className="flex gap-2">
-          <select name="type" className="h-10 border rounded-md px-2"><option value="vodafone_cash">فودافون كاش</option><option value="instapay">انستاباي</option><option value="bank">حساب بنكي</option><option value="other">أخرى</option></select>
+          <select name="type" className="flex h-10 rounded-md border border-input bg-background px-2 text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-slate-700 dark:bg-slate-900/50"><option value="vodafone_cash">فودافون كاش</option><option value="instapay">انستاباي</option><option value="bank">حساب بنكي</option><option value="other">أخرى</option></select>
           <Input name="label" required placeholder="اسم مميز (مثال: رقمي الأساسي)" />
           <Input name="account" required placeholder="رقم المحفظة / الحساب" dir="ltr" />
-          <Button type="submit">Add</Button>
+          <Button type="submit">إضافة</Button>
         </form>
       </CardContent></Card>
     </div>

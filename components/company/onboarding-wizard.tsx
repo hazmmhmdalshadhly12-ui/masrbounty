@@ -37,11 +37,20 @@ type WizardCompany = {
   slug: string;
 } | null;
 
+export type WizardPrefill = {
+  name?: string;
+  website?: string;
+  size?: string;
+  description?: string;
+};
+
 interface Props {
   company: WizardCompany;
   domains: WizardDomain[];
   currentStep: number; // 1..4
   isVerified: boolean;
+  /** Registration-wizard answers, prefilling step 1 for fresh orgs. */
+  prefill?: WizardPrefill;
 }
 
 const steps = [
@@ -114,7 +123,7 @@ function TxtCopy({ value }: { value: string }) {
   );
 }
 
-export function OnboardingWizard({ company, domains, currentStep, isVerified }: Props) {
+export function OnboardingWizard({ company, domains, currentStep, isVerified, prefill }: Props) {
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
   const primaryDomain = domains[0] ?? null;
@@ -186,10 +195,23 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified }: 
               }}
               className="space-y-3"
             >
-              <Input name="name" required placeholder="اسم الشركة (مثال: ماسر باونتي)" />
+              <Input name="name" required placeholder="اسم الشركة (مثال: ماسر باونتي)" defaultValue={prefill?.name ?? ''} maxLength={120} />
               <Input name="slug" required placeholder="المعرّف (slug) — مثال: masrbounty" dir="ltr" />
-              <Input name="description" placeholder="نبذة مختصرة عن الشركة (اختياري)" />
-              <Input name="website" placeholder="الموقع (https://…)" dir="ltr" />
+              <Input name="description" placeholder="نبذة مختصرة عن الشركة (اختياري)" defaultValue={prefill?.description ?? ''} maxLength={1000} />
+              <Input name="website" placeholder="الموقع (https://…)" dir="ltr" defaultValue={prefill?.website ?? ''} maxLength={300} />
+              <select
+                name="size"
+                defaultValue={prefill?.size ?? ''}
+                aria-label="حجم الشركة"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-slate-700 dark:bg-slate-900/50"
+              >
+                <option value="">حجم الشركة (اختياري)</option>
+                {['1-10', '11-50', '51-200', '201-1000', '1000+'].map((s) => (
+                  <option key={s} value={s}>
+                    {s} موظف
+                  </option>
+                ))}
+              </select>
               <Button type="submit" disabled={pendingAction === 'create'} className="w-full">
                 {pendingAction === 'create' && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                 إنشاء المؤسسة
