@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/shared/page-header';
-import { Users, ShieldAlert, UserCog, Search } from 'lucide-react';
+import { ExportButton } from '@/components/shared/export-button';
+import { Users, ShieldAlert, UserCog, Search, Pencil } from 'lucide-react';
 import { escapeLike } from '@/utils/search';
 
 export const dynamic = 'force-dynamic';
@@ -83,6 +85,22 @@ async function removeRole(userId: string, role: string) {
   revalidatePath('/admin/users');
 }
 
+async function editProfile(userId: string, formData: FormData) {
+  'use server';
+  const { supabase, me } = await requireAdminRole();
+  const fullName = String(formData.get(`full_name_${userId}`) ?? '').trim().slice(0, 100);
+  const bio = String(formData.get(`bio_${userId}`) ?? '').trim().slice(0, 1000);
+  if (fullName && fullName.length < 2) throw new Error('الاسم قصير جدًا');
+  const patch: Record<string, string> = {};
+  if (fullName) patch.full_name = fullName;
+  if (bio) patch.bio = bio;
+  if (!Object.keys(patch).length) return;
+  const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  if (error) throw new Error(error.message);
+  await logAudit('moderate', 'profiles', userId, { edited: Object.keys(patch), by: me.id }, me.id);
+  revalidatePath('/admin/users');
+}
+
 export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ q?: string; role?: string; active?: string }> }) {
   await requireAdminRole();
   const { q = '', role = '', active = '' } = await searchParams;
@@ -94,7 +112,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
     ids = (rr ?? []).map((r: { user_id: string }) => r.user_id);
   }
 
-  let query = supabase.from('profiles').select('id,username,full_name,is_active,created_at').order('created_at', { ascending: false }).limit(100);
+  let query = supabase.from('profiles').select('id,username,full_name,bio,is_active,created_at').order('created_at', { ascending: false }).limit(100);
   if (q.trim()) {
     // search username or full_name
     query = query.or(`username.ilike.%${escapeLike(q.trim())}%,full_name.ilike.%${escapeLike(q.trim())}%`);
@@ -156,7 +174,19 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
         </Card>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">{users.length} مستخدم — الأحدث أولًا</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{users.length} مستخدم — الأحدث أولًا</p>
+            <ExportButton
+              rows={users.map((u) => ({
+                username: u.username,
+                full_name: u.full_name ?? '',
+                roles: (rolesMap[u.id] ?? []).join('|'),
+                status: u.is_active ? 'نشط' : 'موقوف',
+                created_at: String(u.created_at).slice(0, 10),
+              }))}
+              filename="masrbounty-users.csv"
+            />
+          </div>
           {users.map((u) => {
             const roles = rolesMap[u.id] ?? [];
             return (
@@ -188,6 +218,25 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                     </div>
 
                     <div className="flex flex-col gap-2 lg:w-[420px] lg:shrink-0">
+                      <details className="rounded-lg border bg-muted/30">
+                        <summary className="flex min-h-[44px] cursor-pointer items-center gap-1.5 px-3 py-2 text-xs font-bold [&::-webkit-details-marker]:hidden">
+                          <Pencil className="h-3.5 w-3.5" />
+                          تعديل الملف الشخصي
+                        </summary>
+                        <form action={editProfile.bind(null, u.id)} className="space-y-2 border-t p-3">
+                          <label className="block text-[11px] font-medium text-muted-foreground" htmlFor={`fn-${u.id}`}>
+                            الاسم الكامل
+                          </label>
+                          <Input id={`fn-${u.id}`} name={`full_name_${u.id}`} defaultValue={u.full_name ?? ''} maxLength={100} className="h-8 text-xs" />
+                          <label className="block text-[11px] font-medium text-muted-foreground" htmlFor={`bio-${u.id}`}>
+                            النبذة
+                          </label>
+                          <Textarea id={`bio-${u.id}`} name={`bio_${u.id}`} defaultValue={u.bio ?? ''} maxLength={1000} rows={2} className="text-xs" />
+                          <Button size="sm" variant="outline" type="submit" className="w-full">
+                            <UserCog className="ml-1 h-3 w-3" /> حفظ التعديل (يسجَّل في التدقيق)
+                          </Button>
+                        </form>
+                      </details>
                       <form action={setActive.bind(null, u.id, !u.is_active)} className="flex gap-2">
                         <Input name={`reason_${u.id}`} placeholder={u.is_active ? 'سبب الإيقاف' : 'سبب التفعيل'} className="h-8 flex-1 text-xs" />
                         <Button size="sm" variant={u.is_active ? 'destructive' : 'default'} type="submit" className="shrink-0">

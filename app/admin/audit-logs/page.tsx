@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/page-header';
+import { ExportButton } from '@/components/shared/export-button';
 import { ScrollText, Lock, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
@@ -65,6 +66,30 @@ export default async function AuditLogs({
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  // CSV export rows: same filters, no pagination, capped at 500.
+  let exportQuery = supabase.from('audit_logs').select('action,entity,entity_id,actor_id,created_at').order('created_at', { ascending: false }).limit(500);
+  if (action && (ACTIONS as readonly string[]).includes(action)) exportQuery = exportQuery.eq('action', action);
+  if (entity.trim()) exportQuery = exportQuery.ilike('entity', `%${entity.trim().replace(/[%_\\]/g, '\\$&')}%`);
+  if (from) {
+    const f = new Date(from);
+    if (!isNaN(f.getTime())) exportQuery = exportQuery.gte('created_at', f.toISOString());
+  }
+  if (to) {
+    const t = new Date(to);
+    if (!isNaN(t.getTime())) {
+      t.setHours(23, 59, 59, 999);
+      exportQuery = exportQuery.lte('created_at', t.toISOString());
+    }
+  }
+  const { data: exportRows } = await exportQuery;
+  const csvRows = ((exportRows ?? []) as typeof rows).map((l) => ({
+    created_at: l.created_at,
+    action: actionAr[l.action] ?? l.action,
+    entity: l.entity,
+    entity_id: l.entity_id ?? '',
+    actor_id: l.actor_id ?? 'system',
+  }));
+
   const buildHref = (p: number) => {
     const sp = new URLSearchParams();
     if (action) sp.set('action', action);
@@ -115,6 +140,9 @@ export default async function AuditLogs({
                 مسح
               </Link>
             </Button>
+            <span className="ml-auto">
+              <ExportButton rows={csvRows} filename="masrbounty-audit-logs.csv" />
+            </span>
           </form>
           {error && <p className="mt-2 text-sm text-destructive">{error.message}</p>}
           <p className="mt-3 text-xs text-muted-foreground">
