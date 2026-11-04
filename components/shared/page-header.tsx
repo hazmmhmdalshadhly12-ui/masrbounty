@@ -14,8 +14,8 @@ export function PageHeader({
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950">
-          <Icon className="h-5 w-5" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy text-amber-400 shadow-card dark:bg-amber-400 dark:text-navy-900">
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
           <h1 className="text-xl font-black tracking-tight">{title}</h1>

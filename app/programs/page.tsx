@@ -206,13 +206,16 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div>
-      <section className="bg-navy text-white dark:border-slate-800">
-        <div className="container mx-auto max-w-6xl px-4 py-10 md:py-12">
-          <span className="inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
+      <section className="relative overflow-hidden border-b border-navy-800/60 bg-navy text-white">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-px hairline-x" />
+        <div className="container relative mx-auto max-w-6xl px-4 py-10 md:py-12">
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-amber-400" />
             اختبار مصرح به فقط
           </span>
           <h1 className="mt-3 text-3xl font-black md:text-4xl">برامج Bug Bounty</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300 md:text-base">
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-navy-100/85 md:text-base">
             اختر برنامجًا، اقرأ نطاقه وقواعده جيدًا، ثم ابدأ الصيد داخل الحدود المصرح بها فقط. تُعرض فقط البرامج العامة النشطة.
           </p>
 
@@ -227,14 +230,14 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
             {raw.max ? <input type="hidden" name="max" value={raw.max} /> : null}
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-100/60" aria-hidden="true" />
                 <Input
                   name="q"
                   defaultValue={q}
                   placeholder="ابحث باسم البرنامج أو الوصف…"
                   aria-label="البحث في البرامج"
                   dir="auto"
-                  className="h-10 border-slate-700 bg-white/10 ps-9 text-start text-white placeholder:text-slate-400 focus-visible:ring-amber-400"
+                  className="h-11 border-white/15 bg-white/10 ps-9 text-start text-white shadow-none placeholder:text-navy-100/50 hover:border-white/25 focus-visible:border-amber-400/60 focus-visible:ring-amber-400/50"
                 />
               </div>
               <div className="flex gap-2">
@@ -242,7 +245,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                   name="sort"
                   defaultValue={sort}
                   aria-label="الترتيب"
-                  className="h-10 rounded-md border border-slate-700 bg-white/10 px-3 text-sm text-white"
+                  className="h-11 cursor-pointer rounded-lg border border-white/15 bg-white/10 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
                 >
                   <option value="new" className="text-black">
                     الأحدث
@@ -257,14 +260,14 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                     أبجدي
                   </option>
                 </select>
-                <Button type="submit" variant="outline" className="border-slate-600 text-white hover:bg-white/10">
+                <Button type="submit" variant="outline" className="h-11 border-white/20 bg-white/5 px-5 font-bold text-white hover:border-amber-400/50 hover:bg-white/10 hover:text-amber-200">
                   بحث
                 </Button>
               </div>
             </div>
           </form>
 
-          <p className="mt-3 text-xs text-slate-400">
+          <p className="mt-3 text-xs text-navy-100/60">
             {total} برنامج {hasActiveFilters ? '— مُفلتر' : ''} • الترتيب: {sort === 'reward' ? 'الأعلى مكافأة' : sort === 'old' ? 'الأقدم' : sort === 'name' ? 'أبجدي' : 'الأحدث'}
           </p>
         </div>
@@ -298,7 +301,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                         href={buildHref(baseParams, { bounty: b.value, page: '1', min: null, max: null })}
                         className={cn(
                           'rounded-md border px-3 py-2 text-sm transition-colors',
-                          active ? 'border-slate-900 bg-slate-900 font-bold text-white dark:bg-slate-100 dark:text-slate-900' : 'hover:bg-muted'
+                          active ? 'border-navy-900 bg-navy-900 font-bold text-white shadow-card dark:border-navy-100 dark:bg-navy-100 dark:text-navy-900' : 'hover:bg-muted'
                         )}
                       >
                         {b.label}
@@ -371,7 +374,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                   <span
                     className={cn(
                       'inline-block h-4 w-4 rounded-full bg-white shadow transition-transform',
-                      verifiedOnly ? 'translate-x-6' : 'translate-x-1'
+                      verifiedOnly ? 'translate-x-6 rtl:-translate-x-6' : 'translate-x-1 rtl:-translate-x-1'
                     )}
                   />
                 </Link>
@@ -412,10 +415,10 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                   const severitySet = severitiesByProgram.get(p.id);
                   const techSet = techByProgram.get(p.id);
                   return (
-                    <Card key={p.id} className="group flex flex-col rounded-lg border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-slate-600">
+                    <Card key={p.id} className="group flex flex-col">
                       <CardContent className="flex flex-1 flex-col p-5">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-muted dark:border-slate-700 dark:bg-slate-800">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-muted">
                             {p.logo_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={p.logo_url} alt="" width={40} height={40} loading="lazy" decoding="async" className="h-10 w-10 rounded-lg object-cover" />
@@ -424,7 +427,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                             )}
                           </span>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="secondary" className="dark:bg-slate-800 dark:text-slate-200">عام</Badge>
+                            <Badge variant="secondary">عام</Badge>
                             {company?.is_verified && (
                               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
                                 <Building2 className="h-3 w-3" /> موثقة
@@ -442,19 +445,19 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                         {!!severitySet?.size && (
                           <div className="mt-3 flex flex-wrap gap-1">
                             {[...severitySet].slice(0, 3).map((s) => (
-                              <Badge key={s} variant="outline" className="border-amber-200 bg-amber-50 text-[11px] capitalize text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                              <Badge key={s} variant="warning" className="text-[11px] capitalize">
                                 {s}
                               </Badge>
                             ))}
                             {techSet && [...techSet].slice(0, 2).map((t) => (
-                              <Badge key={t} variant="secondary" className="text-[11px] uppercase tracking-wide dark:bg-slate-800">
+                              <Badge key={t} variant="secondary" className="text-[11px] uppercase tracking-wide">
                                 {t}
                               </Badge>
                             ))}
                           </div>
                         )}
                         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-bold text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-50 px-2.5 py-0.5 font-bold text-amber-800 dark:border-amber-400/25 dark:bg-amber-950/40 dark:text-amber-300">
                             حتى{' '}
                             <b className="tabular-nums" dir="ltr">
                               {max.toLocaleString()} EGP
@@ -465,9 +468,9 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                           <span>•</span>
                           <span>{new Date(p.created_at).toLocaleDateString('ar-EG')}</span>
                         </div>
-                        <Button asChild variant="outline" className="mt-4 w-full group-hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600">
+                        <Button asChild variant="outline" className="mt-4 w-full font-bold group-hover:border-primary/50 group-hover:text-primary">
                           <Link href={`/programs/${p.slug}`}>
-                            عرض التفاصيل <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                            عرض التفاصيل <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
                           </Link>
                         </Button>
                       </CardContent>
@@ -506,7 +509,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
                         href={buildHref(baseParams, { page: String(n), q: q || null, sort: sort !== 'new' ? sort : null })}
                         className={cn(
                           'flex h-9 w-9 items-center justify-center rounded-md border text-sm',
-                          active ? 'border-slate-900 bg-slate-900 font-bold text-white dark:bg-slate-100 dark:text-slate-900' : 'hover:bg-muted'
+                          active ? 'border-navy-900 bg-navy-900 font-bold text-white shadow-card dark:border-navy-100 dark:bg-navy-100 dark:text-navy-900' : 'hover:bg-muted'
                         )}
                       >
                         {n}

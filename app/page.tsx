@@ -1,10 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, FileSearch, Wallet, Trophy, Building2, Lock, ArrowLeft, CheckCircle2, Crosshair, FileCheck2, Banknote } from 'lucide-react';
 import { HeroVisual } from '@/components/home/hero-visual';
 import { HeroStats } from '@/components/home/hero-stats';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { createServerClient } from '@/lib/supabase/server';
 
 const features = [
@@ -17,9 +16,9 @@ const features = [
 ];
 
 const steps = [
-  ['01', 'اختر البرنامج', 'راجع النطاق والقواعد ونطاقات المكافآت قبل أن تبدأ'],
-  ['02', 'وثّق الثغرة', 'أرسل تقريرًا منهجيًا: الأثر، خطوات الاستنساخ، والمقترح العلاجي'],
-  ['03', 'استلم مكافأتك', 'عند القبول تُقيّد المكافأة في محفظتك وتطلب سحبها متى شئت'],
+  { n: '01', icon: Crosshair, title: 'اختر البرنامج', desc: 'راجع النطاق والقواعد ونطاقات المكافآت قبل أن تبدأ' },
+  { n: '02', icon: FileCheck2, title: 'وثّق الثغرة', desc: 'أرسل تقريرًا منهجيًا: الأثر، خطوات الاستنساخ، والمقترح العلاجي' },
+  { n: '03', icon: Banknote, title: 'استلم مكافأتك', desc: 'عند القبول تُقيّد المكافأة في محفظتك وتطلب سحبها متى شئت' },
 ];
 
 const severities = [
@@ -81,47 +80,49 @@ export default async function Home() {
 
   return (
     <div>
-      {/* HERO */}
-      <section className="relative overflow-hidden border-b border-slate-800 bg-navy text-white">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
-          style={{
-            backgroundImage: 'linear-gradient(to left, rgb(148 163 184 / 0.3) 1px, transparent 1px), linear-gradient(to bottom, rgb(148 163 184 / 0.3) 1px, transparent 1px)',
-            backgroundSize: '44px 44px',
-          }}
-        />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-bl from-amber-500/[0.06] via-transparent to-transparent" />
-        <div className="container relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-2">
-          <div className="max-w-3xl">
-            <p className="flex items-center gap-3 text-sm font-bold tracking-wide text-amber-400">
-              <span className="inline-block h-px w-10 bg-amber-400" />
+      {/* ================= HERO ================= */}
+      <section className="relative overflow-hidden border-b border-navy-800/60 bg-navy text-white">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 start-[-10rem] h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-px hairline-x" />
+        <div className="container relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="max-w-3xl animate-fade-up">
+            <p className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3.5 py-1.5 text-xs font-bold tracking-wide text-amber-300">
+              <span aria-hidden="true" className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
+              </span>
               منصة مصرية لبرامج مكافآت الثغرات
             </p>
-            <h1 className="mt-5 text-4xl font-black leading-[1.25] tracking-tight md:text-5xl">
-              اكتشف الثغرات. احم الشركات.
+            <h1 className="mt-6 text-4xl font-black leading-[1.3] tracking-tight md:text-5xl">
+              اكتشف الثغرات. احمِ الشركات.
               <br />
-              <span className="text-slate-400">اكسب المكافآت.</span>
+              <span className="text-gradient-gold">اكسب المكافآت.</span>
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-300">
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-navy-100/90">
               اختبارات أمنية مصرح بها فقط — تقارير منهجية، تقييم شفاف، ومستحقات تصل لأصحابها.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-amber-400 font-black text-slate-950 shadow-sm hover:bg-amber-300 hover:shadow-md active:scale-[0.98]">
-                <Link href="/programs">
-                  استكشف البرامج
-                </Link>
+              <Button asChild size="lg" className="font-black shadow-gold hover:shadow-lift">
+                <Link href="/programs">استكشف البرامج</Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-slate-700 bg-transparent font-bold text-white hover:bg-white/10 hover:text-white">
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-white/20 bg-white/5 font-bold text-white hover:border-amber-400/50 hover:bg-white/10 hover:text-amber-200"
+              >
                 <Link href="/register">
                   ابدأ كباحث أمني <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
             </div>
-            <div className="mt-6">
-              <Link href="/register" className="text-sm text-slate-300 underline underline-offset-4 hover:text-white">
-                شركتك تحتاج حماية؟ أطلق برنامج Bug Bounty
+            <p className="mt-6 text-sm text-navy-100/70">
+              شركتك تحتاج حماية؟{' '}
+              <Link href="/register" className="font-bold text-amber-300 underline decoration-amber-400/40 underline-offset-4 transition-colors hover:text-amber-200">
+                أطلق برنامج Bug Bounty
               </Link>
-            </div>
+            </p>
             <HeroStats stats={[[String(programs), 'برنامجًا نشطًا'], [String(reports), 'تقريرًا مُقدّمًا'], [String(researchers), 'باحثًا مسجلًا']]} />
           </div>
           <div className="hidden lg:block">
@@ -130,18 +131,24 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* ================= FEATURES ================= */}
       <section className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
         <div className="max-w-2xl">
-          <p className="text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">المنصة</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">بنية متكاملة لدورة البلاغ</h2>
+          <p className="flex items-center gap-2 text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">
+            <span aria-hidden="true" className="inline-block h-0.5 w-8 rounded-full bg-amber-500" />
+            المنصة
+          </p>
+          <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">بنية متكاملة لدورة البلاغ</h2>
           <p className="mt-3 leading-relaxed text-muted-foreground">من الاكتشاف حتى صرف المستحقات — كل مرحلة موثقة وقابلة للتتبع.</p>
         </div>
-        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border bg-border dark:border-slate-700 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f) => (
-            <div key={f.title} className="group bg-card p-6 transition-colors hover:bg-muted/50 dark:bg-slate-900/40">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-amber-50 text-amber-600 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
-                <f.icon className="h-5 w-5" strokeWidth={2} />
+            <div
+              key={f.title}
+              className="group rounded-xl border bg-card p-6 shadow-card transition-all duration-200 hover:-translate-y-1 hover:shadow-lift"
+            >
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-50 text-amber-600 transition-colors duration-200 group-hover:bg-amber-100 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-400 dark:group-hover:bg-amber-950/50">
+                <f.icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
               </span>
               <h3 className="mt-4 font-bold tracking-tight">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
@@ -150,35 +157,48 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* STEPS */}
-      <section className="border-y bg-muted/40 dark:border-slate-800 dark:bg-slate-900/20">
+      {/* ================= STEPS ================= */}
+      <section className="border-y bg-muted/40 dark:border-navy-800/50 dark:bg-navy-900/20">
         <div className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
           <div className="max-w-2xl">
-            <p className="text-sm font-bold text-amber-600">آلية العمل</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">ثلاث خطوات للبدء</h2>
+            <p className="flex items-center gap-2 text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">
+              <span aria-hidden="true" className="inline-block h-0.5 w-8 rounded-full bg-amber-500" />
+              آلية العمل
+            </p>
+            <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">ثلاث خطوات للبدء</h2>
           </div>
-          <ol className="mt-10 grid gap-8 md:grid-cols-3">
-            {steps.map(([n, title, desc]) => (
-              <li key={n} className="border-t-2 border-slate-900 pt-5 dark:border-slate-100">
-                <p className="text-sm font-black tabular-nums text-muted-foreground">{n}</p>
-                <h3 className="mt-2 font-bold">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+          <ol className="mt-10 grid gap-6 md:grid-cols-3">
+            {steps.map((s) => (
+              <li key={s.n} className="relative rounded-xl border bg-card p-6 shadow-card">
+                <div className="flex items-start justify-between">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-amber-400 dark:bg-amber-400 dark:text-navy-900">
+                    <s.icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span aria-hidden="true" className="text-3xl font-black tabular-nums text-border dark:text-navy-700">
+                    {s.n}
+                  </span>
+                </div>
+                <h3 className="mt-4 font-bold">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      {/* SEVERITY GUIDE */}
+      {/* ================= SEVERITY GUIDE ================= */}
       <section className="container mx-auto max-w-6xl px-4 py-16 md:py-20">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
           <div>
-            <p className="text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">تقييم عادل</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">المكافأة على قد الأثر</h2>
+            <p className="flex items-center gap-2 text-sm font-black tracking-wide text-amber-600 dark:text-amber-400">
+              <span aria-hidden="true" className="inline-block h-0.5 w-8 rounded-full bg-amber-500" />
+              تقييم عادل
+            </p>
+            <h2 className="mt-3 text-2xl font-black tracking-tight md:text-3xl">المكافأة على قد الأثر</h2>
             <p className="mt-3 leading-relaxed text-muted-foreground">
               كل تقرير يُقيَّم حسب خطورته الفعلية وفق معايير CVSS، وكل برنامج يعلن نطاقات مكافآته مقدمًا — لا مفاجآت بعد التقديم.
             </p>
-            <Button asChild variant="outline" className="mt-6">
+            <Button asChild variant="outline" className="mt-6 font-bold">
               <Link href="/disclosure">
                 سياسة الإفصاح المسؤول <ArrowLeft className="h-4 w-4" />
               </Link>
@@ -186,26 +206,27 @@ export default async function Home() {
           </div>
           <ul className="grid gap-3 sm:grid-cols-2" aria-label="مستويات الخطورة">
             {severities.map((sv) => (
-              <li key={sv.label} className="flex items-start gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${sv.dot}`} />
-                <div>
-                  <p className="font-bold">
-                    {sv.label} <span className="ms-1 font-mono text-xs font-medium text-muted-foreground" dir="ltr">CVSS {sv.cvss}</span>
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{sv.desc}</p>
-                </div>
+              <li key={sv.label} className="rounded-xl border bg-card p-4 shadow-card transition-shadow duration-200 hover:shadow-lift">
+                <p className="flex items-center gap-2 font-bold">
+                  <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${sv.dot}`} />
+                  {sv.label}
+                  <span className="ms-auto font-mono text-xs font-medium text-muted-foreground" dir="ltr">
+                    CVSS {sv.cvss}
+                  </span>
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{sv.desc}</p>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      {/* AUDIENCES */}
+      {/* ================= AUDIENCES ================= */}
       <section className="container mx-auto max-w-6xl px-4 pb-16 md:pb-20">
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="flex flex-col rounded-2xl border bg-card p-8 shadow-sm">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
-              <FileSearch className="h-5 w-5" aria-hidden="true" />
+          <div className="group flex flex-col rounded-2xl border bg-card p-8 shadow-card transition-shadow duration-200 hover:shadow-lift">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-50 text-amber-600 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-400">
+              <FileSearch className="h-6 w-6" aria-hidden="true" />
             </span>
             <h2 className="mt-5 text-xl font-black tracking-tight">للباحثين الأمنيين</h2>
             <ul className="mt-4 flex-1 space-y-2.5 text-sm text-muted-foreground">
@@ -216,26 +237,59 @@ export default async function Home() {
                 </li>
               ))}
             </ul>
-            <Button asChild className="mt-6 w-full sm:w-auto sm:self-start">
+            <Button asChild className="mt-6 w-full font-bold sm:w-auto sm:self-start">
               <Link href="/register">ابدأ الصيد الآن</Link>
             </Button>
           </div>
-          <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-950 p-8 text-white shadow-sm dark:border-slate-700">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10 text-amber-400">
-              <Building2 className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <h2 className="mt-5 text-xl font-black tracking-tight">للشركات</h2>
-            <ul className="mt-4 flex-1 space-y-2.5 text-sm text-slate-300">
-              {companyPerks.map((t) => (
-                <li key={t} className="flex gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-                  {t}
-                </li>
-              ))}
-            </ul>
-            <Button asChild className="mt-6 w-full bg-white font-bold text-slate-950 hover:bg-slate-200 sm:w-auto sm:self-start">
-              <Link href="/register">سجّل شركتك</Link>
-            </Button>
+          <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-navy-700/60 bg-navy p-8 text-white shadow-lift">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink opacity-70" />
+            <div className="relative">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-navy-900 shadow-gold">
+                <Building2 className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <h2 className="mt-5 text-xl font-black tracking-tight">للشركات</h2>
+              <ul className="mt-4 flex-1 space-y-2.5 text-sm text-navy-100/85">
+                {companyPerks.map((t) => (
+                  <li key={t} className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                asChild
+                className="mt-6 w-full bg-white font-bold text-navy-900 shadow-none hover:bg-navy-100 sm:w-auto sm:self-start"
+              >
+                <Link href="/register">سجّل شركتك</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= CTA BAND ================= */}
+      <section className="container mx-auto max-w-6xl px-4 pb-16 md:pb-24">
+        <div className="relative overflow-hidden rounded-3xl border border-navy-800/60 bg-navy px-6 py-12 text-center text-white shadow-lift md:px-12 md:py-16">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
+          <div aria-hidden="true" className="pointer-events-none absolute -top-24 start-1/2 h-56 w-[36rem] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+          <div className="relative mx-auto max-w-2xl">
+            <h2 className="text-2xl font-black tracking-tight md:text-3xl">جاهز تبدأ أول عملية صيد؟</h2>
+            <p className="mt-3 leading-relaxed text-navy-100/85">
+              أنشئ حسابك مجانًا، اختر برنامجًا مناسبًا لمهاراتك، وابدأ باختبار مصرح به ضمن نطاق واضح.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Button asChild size="lg" className="font-black shadow-gold hover:shadow-lift">
+                <Link href="/register">أنشئ حسابك مجانًا</Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-white/20 bg-white/5 font-bold text-white hover:border-amber-400/50 hover:bg-white/10 hover:text-amber-200"
+              >
+                <Link href="/hall-of-fame">قاعة المشاهير</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>

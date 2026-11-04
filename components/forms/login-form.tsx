@@ -85,7 +85,7 @@ export function LoginForm({ next = '' }: { next?: string }) {
   return (
     <form
       onSubmit={onSubmit}
-      className="mx-auto max-w-md space-y-5 rounded-xl border bg-card p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 md:p-8"
+      className="mx-auto max-w-md space-y-5"
     >
       {error && (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">

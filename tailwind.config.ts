@@ -60,11 +60,21 @@ const config: Config = {
         },
         navy: {
           DEFAULT: '#0a1628',
-          50: '#eef3fb',
-          800: '#0f2040',
+          50: '#f0f5fb',
+          100: '#dde7f3',
+          200: '#bccfe6',
+          300: '#8fa9cc',
+          400: '#5d7fae',
+          500: '#3a5f8f',
+          600: '#274772',
+          700: '#1a3357',
+          800: '#102441',
           900: '#0a1628',
           950: '#060e1a',
         },
+        success: 'hsl(var(--success))',
+        warning: 'hsl(var(--warning))',
+        info: 'hsl(var(--info))',
         masr: {
           gold: {
             50: '#fefce8',
@@ -170,6 +180,14 @@ const config: Config = {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' },
         },
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(14px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'shine': {
+          from: { transform: 'translateX(-120%)' },
+          to: { transform: 'translateX(220%)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -185,11 +203,12 @@ const config: Config = {
         'spin-slow': 'spin-slow 3s linear infinite',
         'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
         'bounce-slow': 'bounce-slow 2s ease-in-out infinite',
+        'fade-up': 'fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both',
       },
       boxShadow: {
-        'glow': '0 0 20px hsl(var(--primary) / 0.3)',
-        'glow-gold': '0 0 20px hsl(45 100% 50% / 0.3)',
-        'inner-glow': 'inset 0 0 20px hsl(var(--primary) / 0.1)',
+        card: '0 1px 2px 0 rgb(10 22 40 / 0.05), 0 2px 8px -2px rgb(10 22 40 / 0.06)',
+        lift: '0 6px 16px -4px rgb(10 22 40 / 0.12), 0 2px 6px -2px rgb(10 22 40 / 0.07)',
+        gold: '0 4px 14px -4px hsl(38 92% 50% / 0.5)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

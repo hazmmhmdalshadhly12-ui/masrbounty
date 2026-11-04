@@ -63,7 +63,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
       <section className="container max-w-3xl py-10">
         <div className="mb-3 flex gap-2 text-xs">
           {([['all', 'كل الأوقات'], ['year', 'هذه السنة'], ['month', 'هذا الشهر']] as const).map(([k, label]) => (
-            <Link key={k} href={`/leaderboard?by=${active}&period=${k}`} className={cn('rounded-full border px-3 py-1.5', period === k ? 'border-slate-900 bg-slate-900 font-bold text-white dark:bg-slate-100 dark:text-slate-900' : 'text-muted-foreground')}>
+            <Link key={k} href={`/leaderboard?by=${active}&period=${k}`} className={cn('rounded-full border px-3.5 py-1.5 transition-all duration-200', period === k ? 'border-navy-900 bg-navy-900 font-bold text-white shadow-card dark:border-navy-100 dark:bg-navy-100 dark:text-navy-900' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
               {label}
             </Link>
           ))}
@@ -75,7 +75,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
               href={`/leaderboard?by=${t.key}&period=${period}`}
               className={cn(
                 'flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-bold',
-                active === t.key ? 'border-slate-900 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-muted-foreground hover:text-foreground'
+                active === t.key ? 'border-navy-900 bg-navy-900 text-white shadow-card dark:border-navy-100 dark:bg-navy-100 dark:text-navy-900' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
               <t.icon className="h-4 w-4" /> {t.label}
@@ -85,14 +85,14 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         {!rows.length ? <p className="text-muted-foreground">No researchers yet.</p> : (
           <div className="space-y-2">
             {rows.map((r: { researcher_id: string; display_name: string; score: number; rank: number; total_earned: number; accepted_reports: number }, i: number) => (
-              <Card key={r.researcher_id} className={i < 3 ? 'border-amber-400/60 bg-amber-50 dark:bg-amber-950/20' : ''}>
+              <Card key={r.researcher_id} className={i < 3 ? 'border-amber-400/50 bg-gradient-to-br from-amber-50 to-transparent shadow-gold dark:from-amber-950/30' : ''}>
                 <CardContent className="flex items-center gap-4 p-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy font-black text-amber-400">
+                  <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black', i < 3 ? 'bg-amber-400 text-navy-900 shadow-gold' : 'bg-navy text-amber-400')}>
                     {i < 3 ? <Medal className="h-5 w-5" /> : i + 1}
                   </span>
                   <Avatar name={r.display_name} />
                   <span className="flex-1 font-bold">{r.display_name}</span>
-                  <span className="text-sm tabular-nums text-muted-foreground">{metric(r)}</span>
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-sm font-bold tabular-nums text-foreground">{metric(r)}</span>
                 </CardContent>
               </Card>
             ))}

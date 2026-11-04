@@ -31,7 +31,8 @@ export function MobileBottomNav() {
                 active ? 'font-bold text-foreground' : 'text-muted-foreground'
               )}
             >
-              <Icon className="h-5 w-5" aria-hidden="true" />
+              <Icon className="h-5 w-5" aria-hidden="true" strokeWidth={active ? 2.4 : 2} />
+              <span aria-hidden="true" className={cn('h-0.5 w-5 rounded-full transition-all duration-200', active ? 'bg-primary' : 'bg-transparent')} />
               {label}
             </Link>
           );

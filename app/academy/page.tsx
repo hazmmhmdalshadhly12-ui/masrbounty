@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { GraduationCap, BookOpen, Search, Clock, ShieldCheck } from 'lucide-react';
+import { BookOpen, Search, Clock, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/shared/page-header';
+import { PageHero } from '@/components/layout/page-hero';
 import { listAcademyCourses, getMyLearningAction } from '@/features/academy/services';
 import { LEVEL_LABELS } from '@/features/academy/labels';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,23 +35,22 @@ export default async function AcademyPage({
   const latest = [...courses].sort((a, b) => (a.sort_order - b.sort_order)).slice(-3).reverse();
 
   return (
-    <div className="container py-8">
-      <PageHeader
-        icon={GraduationCap}
+    <div>
+      <PageHero
+        kicker="تعلّم · اختبر · اكسب"
         title="أكاديمية اختبار الاختراق"
         desc="مسارات تعليمية عملية لمهارات الأمن السيبراني واختبار الاختراق الأخلاقي — كل التدريبات في مختبرات محلية مصرح بها فقط."
       />
-
-      {/* Search + level filter */}
-      <Card className="mb-6">
+      <div className="container py-8">
+      <Card className="mb-6 shadow-card">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <form className="relative flex-1" action="/academy">
-            <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               name="q"
               defaultValue={sp.q ?? ''}
               placeholder="ابحث في الدورات… (مثال: XSS، أساسيات الشبكات)"
-              className="pr-9"
+              className="ps-9"
               aria-label="بحث في الدورات"
             />
             {sp.level ? <input type="hidden" name="level" value={sp.level} /> : null}
@@ -68,9 +68,12 @@ export default async function AcademyPage({
                   href={href}
                   role="tab"
                   aria-selected={active}
-                  className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    active ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'
-                  }`}
+                  className={cn(
+                    'cursor-pointer rounded-lg border px-3.5 py-1.5 text-xs font-bold transition-all duration-200',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground shadow-gold'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
                 >
                   {f.label}
                 </Link>
@@ -90,10 +93,10 @@ export default async function AcademyPage({
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {learning.courses.slice(0, 6).map((c) => (
-              <Link key={c.course.id} href={`/academy/courses/${c.course.slug}`} className="group rounded-lg border p-3 transition-colors hover:bg-accent">
-                <p className="truncate text-sm font-bold group-hover:underline">{c.course.title_ar}</p>
+              <Link key={c.course.id} href={`/academy/courses/${c.course.slug}`} className="group rounded-xl border bg-card p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
+                <p className="truncate text-sm font-bold transition-colors group-hover:text-primary">{c.course.title_ar}</p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" dir="ltr">
-                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${c.percent}%` }} />
+                  <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all" style={{ width: `${c.percent}%` }} />
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">{c.percent}% مكتمل{c.certificateNumber ? ' • 🎓 شهادة' : ''}</p>
               </Link>
@@ -119,11 +122,11 @@ export default async function AcademyPage({
               const percent = myProgress.get(c.id);
               return (
                 <Link key={c.id} href={`/academy/courses/${c.slug}`} className="group">
-                  <Card className="h-full transition-shadow group-hover:shadow-md">
+                  <Card className="h-full transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-lift">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base leading-snug group-hover:text-primary">{c.title_ar}</CardTitle>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">{LEVEL_LABELS[c.level] ?? c.level}</Badge>
+                        <CardTitle className="text-base leading-snug transition-colors group-hover:text-primary">{c.title_ar}</CardTitle>
+                        <Badge variant="info" className="shrink-0 text-[10px]">{LEVEL_LABELS[c.level] ?? c.level}</Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -140,7 +143,7 @@ export default async function AcademyPage({
                       </div>
                       {percent != null && (
                         <div className="h-1.5 overflow-hidden rounded-full bg-muted" dir="ltr">
-                          <div className="h-full bg-amber-400" style={{ width: `${percent}%` }} />
+                          <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400" style={{ width: `${percent}%` }} />
                         </div>
                       )}
                     </CardContent>
@@ -165,9 +168,10 @@ export default async function AcademyPage({
         </>
       )}
 
-      <p className="mt-10 rounded-md bg-muted p-4 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-10 rounded-xl border border-warning/25 bg-warning/10 p-4 text-xs leading-relaxed text-foreground">
         <strong>تنبيه أخلاقي:</strong> كل ما تتعلمه هنا مخصص للاختبار داخل نطاقات مصرح بها أو مختبرات محلية. مهاجمة أنظمة بدون إذن مخالفة قانونية وأخلاقية وتؤدي إلى حظر الحساب.
       </p>
+      </div>
     </div>
   );
 }
