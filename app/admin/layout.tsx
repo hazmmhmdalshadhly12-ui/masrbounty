@@ -8,7 +8,7 @@ const links = [
   { href: '/admin/companies', label: 'الشركات', icon: 'companies' },
   { href: '/admin/programs', label: 'البرامج', icon: 'programs' },
   { href: '/admin/reports', label: 'التقارير', icon: 'reports' },
-  { href: '/admin/payments', label: 'المدفوعات', icon: 'payments' },
+  { href: '/admin/payments', label: 'المالية والمدفوعات', icon: 'payments' },
   { href: '/admin/disputes', label: 'النزاعات', icon: 'disputes' },
   { href: '/admin/verification', label: 'التحقق', icon: 'verification' },
   { href: '/admin/academy', label: 'الأكاديمية', icon: 'academy' },
