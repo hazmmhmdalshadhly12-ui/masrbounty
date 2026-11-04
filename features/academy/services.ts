@@ -388,6 +388,44 @@ export async function completeLessonAction(
       } catch {
         certificateNumber = null; // cert already issued or course conditions changed
       }
+      // Award the (educational) academy-graduate badge once per researcher.
+      if (certificateNumber) {
+        try {
+          const { createAdminClient } = await import('@/lib/supabase/admin');
+          const admin = createAdminClient();
+          const { data: rp } = await supabase
+            .from('researcher_profiles')
+            .select('id')
+            .eq('user_id', userId)
+            .maybeSingle();
+          const rid = (rp as { id: string } | null)?.id;
+          if (rid) {
+            const { data: badge } = await admin.from('badges').select('id').eq('code', 'academy-graduate').maybeSingle();
+            const badgeId = (badge as { id: string } | null)?.id;
+            if (badgeId) {
+              const { count: owned } = await admin
+                .from('researcher_badges')
+                .select('id', { count: 'exact', head: true })
+                .eq('researcher_id', rid)
+                .eq('badge_id', badgeId);
+              if ((owned ?? 0) === 0) {
+                await admin
+                  .from('researcher_badges')
+                  .upsert({ researcher_id: rid, badge_id: badgeId }, { onConflict: 'researcher_id,badge_id', ignoreDuplicates: true });
+                await admin.from('audit_logs').insert({
+                  actor_id: null,
+                  action: 'award',
+                  entity: 'researcher_badges',
+                  entity_id: rid,
+                  metadata: { badge: 'academy-graduate', course_id: courseId, certificate: certificateNumber },
+                });
+              }
+            }
+          }
+        } catch (badgeErr) {
+          console.error('[academy] badge award failed:', badgeErr instanceof Error ? badgeErr.message : badgeErr);
+        }
+      }
     }
     revalidatePath(`/academy/lessons/${lessonId}`);
     revalidatePath('/dashboard/learning');

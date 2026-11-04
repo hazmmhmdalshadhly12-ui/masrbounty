@@ -2592,6 +2592,14 @@ INSERT INTO public.platform_settings (key, value) VALUES
   ('reputation_weights', '{"accepted":10,"resolved":20,"critical":50,"high":20,"medium":10,"low":5,"informational":1,"duplicate":0,"invalid":0}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+-- Academy graduate badge (awarded server-side when a course certificate is
+-- first issued). Educational badge — explicitly NOT a professional credential.
+INSERT INTO public.badges (code, name_ar, name_en, description_ar, description_en, icon) VALUES
+  ('academy-graduate', 'خريج الأكاديمية', 'Academy Graduate',
+   'أكمل دورة تعليمية كاملة في أكاديمية اختبار الاختراق — شهادة تعليمية لا تعني اعتمادًا مهنيًا.',
+   'Completed an academy course. Educational achievement — not a professional certification.', 'graduation-cap')
+ON CONFLICT (code) DO NOTHING;
+
 -- 19.5 Daily report limits & anti-abuse ----------------------------------------
 -- Platform defaults (admin-editable via platform_settings) + per-user
 -- overrides. The limit applies to SUBMISSIONS only — drafts and edits of

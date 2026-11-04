@@ -47,10 +47,10 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
     );
   }
 
-  const [{ data: stats }, { data: rep }, { data: leaderboardRow }, { data: badges }, { data: verifs }, { data: hof }, trustRes] =
+  const [{ data: stats }, { data: rep }, { data: leaderboardRow }, { data: badges }, { data: verifs }, { data: hof }, { data: certs }, trustRes] =
     await Promise.all([
       supabase.from('researcher_stats').select('*').eq('researcher_id', rp.id).single(),
-      supabase.from('researcher_reputation').select('score,rank').eq('researcher_id', rp.id).single(),
+      supabase.from('researcher_reputation').select('score,rank,level_id,researcher_levels(name_ar,name_en)').eq('researcher_id', rp.id).single(),
       supabase.from('researcher_leaderboard').select('researcher_id,display_name,score,rank,accepted_reports,resolved_reports,total_earned').eq('researcher_id', rp.id).single(),
       supabase
         .from('researcher_badges')
@@ -63,6 +63,7 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
         .eq('researcher_id', rp.id)
         .order('recognized_at', { ascending: false })
         .limit(10),
+      supabase.from('certificates').select('certificate_number,title_ar,status').eq('user_id', profile.id).eq('status', 'valid').limit(6),
       supabase.rpc('researcher_trust', { p_researcher: rp.id }),
     ]);
 
@@ -78,14 +79,19 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
   const rank = leaderboardRow?.rank ?? rep?.rank ?? null;
   const score = leaderboardRow?.score ?? rep?.score ?? 0;
 
+  // DB-backed researcher level (researcher_levels via researcher_reputation.level_id).
+  type RepWithLevel = { score: number; rank: number | null; level_id: string | null; researcher_levels: { name_ar: string; name_en: string | null } | null };
+  const repLevel = (rep as unknown as RepWithLevel | null)?.researcher_levels?.name_ar ?? null;
+
   const levelLabel =
-    vmap.identity === 'verified'
+    repLevel ??
+    (vmap.identity === 'verified'
       ? 'باحث جدير بالثقة'
       : vmap.phone === 'verified'
         ? 'هوية متقدمة'
         : vmap.email === 'verified'
           ? 'بريد موثق'
-          : 'غير موثق';
+          : 'غير موثق');
 
   // Only public fields: display_name, avatar, country, website/github/twitter/linkedin, skills, bio, rank, stats, badges, hof
   return (
@@ -241,6 +247,30 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Certificates (public, verifiable) */}
+        {(certs ?? []).length > 0 && (
+          <Card className="md:col-span-3">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Award className="h-4 w-4 text-emerald-600" /> الشهادات المكتسبة
+              </CardTitle>
+              <CardDescription>شهادات قابلة للتحقق من صفحة التحقق العامة — الشهادات التعليمية ليست اعتمادًا مهنيًا.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {(certs as unknown as { certificate_number: string; title_ar: string }[]).map((c) => (
+                <Link
+                  key={c.certificate_number}
+                  href={`/certificates/${c.certificate_number}`}
+                  className="rounded-lg border px-3 py-2 text-xs transition-colors hover:bg-accent"
+                >
+                  <span className="font-bold">{c.title_ar}</span>
+                  <span className="block font-mono text-[10px] text-muted-foreground" dir="ltr">{c.certificate_number}</span>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Hall of fame entries */}

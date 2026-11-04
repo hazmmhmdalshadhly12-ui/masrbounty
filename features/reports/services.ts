@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { reportSchema } from '@/schemas/report';
 import { enforceRate, limits } from '@/lib/rate-limit';
+import { checkReportSubmissionLimit, recordAbuseAttempt } from '@/features/reports/limits';
 import { logAudit } from '@/services/audit';
 import { notify, reportParties } from '@/lib/notify';
 
@@ -77,6 +78,16 @@ export async function createReportAction(formData: FormData) {
 
 export async function submitReportAction(reportId: string) {
   const { supabase, researcherId } = await researcherIdOrThrow();
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('Unauthorized');
+  // Daily/anti-abuse limits apply to SUBMISSIONS only — drafts and edits are
+  // never limited (features/reports/limits.ts).
+  const limitRes = await checkReportSubmissionLimit(researcherId, uid);
+  if (!limitRes.allowed) {
+    await recordAbuseAttempt(uid, 'report_limit_exceeded', `submission blocked: ${limitRes.reason ?? ''}`);
+    throw new Error(limitRes.reason ?? 'تم بلوغ حد الإرسال اليومي');
+  }
   const { error } = await supabase
     .from('reports')
     .update({ status: 'submitted' })
@@ -85,7 +96,7 @@ export async function submitReportAction(reportId: string) {
     .eq('status', 'draft');
   if (error) throw new Error(error.message);
   await supabase.from('notifications').insert({
-    user_id: (await supabase.auth.getUser()).data.user!.id,
+    user_id: uid,
     type: 'report',
     title: 'Report submitted',
     link: `/dashboard/reports/${reportId}`,
