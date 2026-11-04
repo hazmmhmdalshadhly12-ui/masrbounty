@@ -7,6 +7,12 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
+    # date-fns 4 requires react-day-picker 9 (peer dep). Blocked until the
+    # calendar component is upgraded — ignore to stop unmergeable PRs.
+    ignore:
+      - dependency-name: date-fns
+        versions:
+          - ">=4"
   - package-ecosystem: github-actions
     directory: /
     schedule:
