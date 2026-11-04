@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     if (tError) return NextResponse.json({ ok: false, error: tError.message }, { status: 500 });
 
     return NextResponse.json({ ok: true, wallet, transactions: transactions ?? [] });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false, error: serverErrorMessage() }, { status: 500 });
   }
 }
