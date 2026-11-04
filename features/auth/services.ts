@@ -16,7 +16,7 @@ async function clientIp(): Promise<string> {
 }
 
 import { friendlyAuthError } from '@/lib/auth/errors';
-import { normalizeSiteUrl } from '@/lib/site-url';
+import { normalizeSiteUrl, DEFAULT_SITE_URL } from '@/lib/site-url';
 
 export async function loginAction(formData: FormData) {
   try {
@@ -133,7 +133,10 @@ export async function requestResetAction(formData: FormData) {
     const email = String(formData.get('email') ?? '').trim().toLowerCase();
     if (!email.includes('@')) redirect('/forgot-password?error=' + encodeURIComponent('بريد غير صالح'));
     const supabase = await createServerClient();
-    const appUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_APP_URL, 'http://localhost:3000');
+    // Fallback must be the canonical production origin — a localhost fallback
+    // would make Supabase send recovery links pointing at the developer's
+    // machine whenever NEXT_PUBLIC_APP_URL is unset in production.
+    const appUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_APP_URL, DEFAULT_SITE_URL);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${appUrl}/auth/callback?next=/auth/update-password`,
     });

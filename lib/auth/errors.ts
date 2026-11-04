@@ -9,6 +9,17 @@ export function friendlyAuthError(message: string): string {
   if (m.includes('rate limit') || m.includes('too many') || m.includes('exceeded') || m.includes('over_email_send_rate_limit'))
     return 'طلبات كثيرة في وقت قصير (حد Supabase للإيميلات) — انتظر 10 دقائق وحاول مجددًا';
   if (m.includes('signup') && m.includes('disabled')) return 'التسجيل متوقف مؤقتًا — حاول لاحقًا';
+  // Recovery-specific failures must map BEFORE the generic 'email invalid'
+  // and 'password' rules: descriptions like "Email link is invalid or has
+  // expired" contain both words and would otherwise be misclassified.
+  if (m.includes('auth session missing') || m.includes('session missing'))
+    return 'انتهت جلسة الاستعادة — اطلب رابط استعادة جديدًا ثم أعد المحاولة';
+  if (m.includes('otp_expired') || m.includes('email link is invalid or has expired') || m.includes('already been used'))
+    return 'انتهت صلاحية رابط الاستعادة أو استُخدم مسبقًا — اطلب رابطًا جديدًا';
+  if (m.includes('code verifier'))
+    return 'تعذر التحقق تلقائيًا — افتح رابط الاستعادة الجديد من نفس المتصفح الذي طُلبت منه';
+  if (m.includes('different from the old password'))
+    return 'كلمة السر الجديدة مطابقة للحالية — اختر كلمة سر مختلفة';
   if (m.includes('email') && (m.includes('invalid') || m.includes('not valid'))) return 'البريد الإلكتروني غير صالح';
   if (m.includes('password')) return 'كلمة السر قصيرة أو غير صالحة (8 أحرف على الأقل)';
   if (m.includes('phone')) return 'رقم الهاتف غير صالح';

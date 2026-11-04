@@ -35,6 +35,16 @@ export function isSafeNext(value: string | null): string | null {
   return value;
 }
 
+/**
+ * An auth page must render (not bounce to /dashboard) when it carries a
+ * user-facing notice: a guard rejection (?error=) or a post-action success
+ * message (?ok=, e.g. "password changed — log in with the new password").
+ * Exported for tests.
+ */
+export function authPageShowsNotice(error: string | null, ok: string | null): boolean {
+  return Boolean(error || ok);
+}
+
 function csrfBlocked(req: NextRequest): boolean {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return false;
   if (!req.nextUrl.pathname.startsWith('/api/')) return false;
@@ -121,8 +131,10 @@ export async function middleware(req: NextRequest) {
   }
 
   if (userId && AUTH_PAGES.has(pathname)) {
-    // Loop-breaker: a guard rejection (?error=) always renders the form.
-    if (searchParams.get('error')) return res;
+    // Loop-breaker: a guard rejection (?error=) or a post-action notice
+    // (?ok=, e.g. "password changed — log in") always renders the form so
+    // the message is never lost to the dashboard bounce.
+    if (authPageShowsNotice(searchParams.get('error'), searchParams.get('ok'))) return res;
     const url2 = req.nextUrl.clone();
     url2.pathname = isSafeNext(searchParams.get('next')) ?? '/dashboard';
     url2.search = '';
