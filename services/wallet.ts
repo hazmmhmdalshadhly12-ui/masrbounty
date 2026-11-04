@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export type ServiceResult<T> = { data: T | null; error: string | null };
 
-export type TxnType = 'bounty' | 'payout' | 'refund' | 'adjustment';
+export type TxnType = 'bounty' | 'payout' | 'refund' | 'adjustment' | 'deposit';
 
 export interface Wallet {
   id: string;

@@ -10,7 +10,7 @@ const links = [
   { href: '/company/messages', label: 'الرسائل', icon: 'messages' },
   { href: '/company/notifications', label: 'الإشعارات', icon: 'notifications' },
   { href: '/company/analytics', label: 'التحليلات', icon: 'analytics' },
-  { href: '/company/payments', label: 'المدفوعات', icon: 'payments' },
+  { href: '/company/payments', label: 'المحفظة والمدفوعات', icon: 'payments' },
   { href: '/company/settings', label: 'الإعدادات', icon: 'settings' },
 ];
 
