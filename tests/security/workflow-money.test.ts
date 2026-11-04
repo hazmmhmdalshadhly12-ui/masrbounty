@@ -6,6 +6,7 @@
  *   supabase/masrbounty.sql (base)
  *   → supabase/security-hardening-v2.sql (rank enforcement)
  *   → supabase/migrations/21_money_system.sql (prepaid wallets, 2-step payouts)
+ *   → supabase/migrations/22_money_race_and_rls_fixes.sql (row locks, refund proof)
  */
 import fs from 'fs';
 
@@ -13,6 +14,7 @@ const LAYERS = [
   'supabase/masrbounty.sql',
   'supabase/security-hardening-v2.sql',
   'supabase/migrations/21_money_system.sql',
+  'supabase/migrations/22_money_race_and_rls_fixes.sql',
 ];
 
 const sources = LAYERS.map((f) => fs.readFileSync(f, 'utf8'));
