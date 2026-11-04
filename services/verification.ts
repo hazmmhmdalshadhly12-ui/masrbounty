@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/services/audit';
 import { notify } from '@/lib/notify';
 import { randomHex, sha256Hex } from '@/lib/security/edge-crypto';
-import { resolveTxt } from '@/lib/security/dns-txt';
+import { resolveTxt, checkVerificationTxt } from '@/lib/security/dns-txt';
 
 export type ServiceResult<T> = { data: T | null; error: string | null };
 
@@ -64,7 +64,8 @@ async function requireCompanyAccess(db: Db, companyId: string): Promise<string> 
 }
 
 /** File-based verification: primary https://domain/<token>.txt (root, token-as-filename —
- *  like hazem.blog/xxxxxxxxxxxx.txt); legacy fallbacks still accepted. */
+ *  like hazem.blog/xxxxxxxxxxxx.txt); legacy fallbacks still accepted.
+ *  Matched by EXACT line — random pages that merely embed the token never verify. */
 async function lookupFile(domain: string, token: string): Promise<boolean> {
   const sentence = `masrbounty-verification=${token}`;
   const urls = [
@@ -77,7 +78,7 @@ async function lookupFile(domain: string, token: string): Promise<boolean> {
       const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (!res.ok) continue;
       const text = await res.text();
-      if (text.includes(sentence) || text.includes(token)) return true;
+      if (text.split(/\r?\n/).some((line) => line.trim() === sentence)) return true;
     } catch {
       /* unreachable or timeout — try next */
     }
@@ -92,9 +93,9 @@ async function lookupToken(domain: string, token: string): Promise<boolean> {
   for (const host of hosts) {
     try {
       const flat = await resolveTxt(host);
-      if (flat.some((txt) => txt.includes(token))) return true;
-      // also check for exact masrbounty-verification=TOKEN format
-      if (flat.some((txt) => txt.includes(`masrbounty-verification=${token}`))) return true;
+      // Strict sentence match (same rule as the wizard) — a bare token inside
+      // unrelated TXT content does not verify.
+      if (flat.some((txt) => txt === token || txt.includes(`masrbounty-verification=${token}`))) return true;
     } catch {
       /* NXDOMAIN / no TXT — try next host */
     }
@@ -166,6 +167,29 @@ async function notifyCompanyMembers(db: Db, companyId: string, domain: string, v
 function isExpired(expiresAt: string | null | undefined): boolean {
   if (!expiresAt) return false;
   return new Date(expiresAt).getTime() < Date.now();
+}
+
+/** Precise Arabic failure message for a failed DNS/file check (never a bare
+ *  "فشل التحقق"): explains NXDOMAIN / missing records / wrong value / outage. */
+async function diagnosticTxtError(domain: string, token: string): Promise<string> {
+  try {
+    const diag = await checkVerificationTxt(domain, token);
+    const host = `_masrbounty.${domain}`;
+    switch (diag.status) {
+      case 'nxdomain':
+        return `الدومين ${domain} غير موجود في DNS (NXDOMAIN) — تأكد من كتابته بشكل صحيح`;
+      case 'no_records':
+        return `لا يوجد أي سجل TXT على المضيف ${host} — أضف السجل (Type: TXT) ثم أعد الفحص`;
+      case 'wrong_value':
+        return `يوجد سجل TXT على ${host} لكن القيمة غير مطابقة — القيمة المطلوبة: masrbounty-verification=${token}`;
+      case 'resolver_error':
+        return 'تعذر الوصول إلى خدمات DNS مؤقتًا — أعد الفحص بعد لحظات';
+      default:
+        return `لم يتم العثور على الرمز — أضف سجل TXT على ${host} بالقيمة masrbounty-verification=${token} أو ارفع ملف التحقق على الموقع`;
+    }
+  } catch {
+    return 'فشل التحقق — أعد المحاولة بعد قليل';
+  }
 }
 
 /**
@@ -261,7 +285,7 @@ export async function verifyDomain(id: string, client?: Db): Promise<ServiceResu
     } catch {
       /* ignore */
     }
-    if (!found) return { data: updated as DomainVerification, error: 'Token not found in DNS TXT records' };
+    if (!found) return { data: updated as DomainVerification, error: await diagnosticTxtError(v.domain, v.token) };
     return { data: updated as DomainVerification, error: null };
   } catch (e) {
     return { data: null, error: err(e) };
@@ -531,7 +555,7 @@ export async function verifyCompanyDomain(id: string, client?: Db): Promise<Serv
       } catch {
         /* ignore */
       }
-      if (!found) return { data: mappedRetry, error: 'لم يتم العثور على الرمز في سجلات DNS TXT' };
+      if (!found) return { data: mappedRetry, error: await diagnosticTxtError(v.domain, v.verification_token_plain ?? v.token) };
       return { data: mappedRetry, error: null };
     }
     const mapped = mapCompanyDomainRow(updated as unknown as Record<string, unknown>);
@@ -552,7 +576,7 @@ export async function verifyCompanyDomain(id: string, client?: Db): Promise<Serv
     } catch {
       /* ignore */
     }
-    if (!found) return { data: mapped, error: 'لم يتم العثور على الرمز في سجلات DNS TXT' };
+    if (!found) return { data: mapped, error: await diagnosticTxtError(v.domain, v.verification_token_plain ?? v.token) };
     return { data: mapped, error: null };
   } catch (e) {
     return { data: null, error: err(e) };

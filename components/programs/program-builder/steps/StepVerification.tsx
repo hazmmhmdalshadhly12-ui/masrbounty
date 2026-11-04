@@ -58,17 +58,20 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
 
   const domainValid = /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v.domain.trim());
 
-  // Auto-generate token/sentence when domain changes and not yet verified
-  const ensureToken = React.useCallback(async (): Promise<boolean> => {
+  // Auto-generate token/sentence when domain changes and not yet verified.
+  // Returns true on success, or the specific Arabic error string on failure.
+  const ensureToken = React.useCallback(async (): Promise<true | string> => {
     const domain = v.domain.trim().toLowerCase();
-    if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) return false;
+    if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
+      return 'أدخل دومينًا بصيغة صحيحة (مثال: example.com)';
+    }
     if (v.token) return true;
     const res = await createVerificationTokenAction(domain);
-    if (res?.token && res?.sentence) {
+    if (res.ok) {
       updateVerification({ token: res.token, sentence: res.sentence });
       return true;
     }
-    return false;
+    return res.error;
   }, [v.domain, v.token, updateVerification]);
 
   async function onGenerate() {
@@ -77,9 +80,9 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
     setOk(null);
     try {
       const got = await ensureToken();
-      if (!got) {
+      if (got !== true) {
         setOk(false);
-        setMsg('تعذّر توليد رمز التحقق — تأكد من صيغة الدومين (مثال: example.com) ومن تسجيل دخولك بملف شركة مكتمل، ثم أعد المحاولة');
+        setMsg(got);
       }
     } catch (e) {
       setOk(false);
@@ -291,8 +294,14 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                   </Button>
                 ) : (
                   <Button type="button" onClick={onVerify} disabled={busy} className="gap-2">
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                    {method === 'dns' ? 'تحقق من سجل DNS' : 'تحقق الآن'}
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : ok === false ? <RefreshCw className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                    {method === 'dns'
+                      ? ok === false
+                        ? 'إعادة فحص سجل DNS'
+                        : 'تحقق من سجل DNS'
+                      : ok === false
+                        ? 'إعادة الفحص'
+                        : 'تحقق الآن'}
                   </Button>
                 )}
                 {v.verified ? (

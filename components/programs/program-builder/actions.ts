@@ -6,7 +6,7 @@ import { slugify } from '@/utils/slug';
 import { checkPublishReadiness } from '@/features/programs/services';
 import type { WizardData } from './types';
 import { randomHex, sha256Hex, isValidVerificationToken } from '@/lib/security/edge-crypto';
-import { hasVerificationTxt } from '@/lib/security/dns-txt';
+import { checkVerificationTxt } from '@/lib/security/dns-txt';
 import { sanitizeWizardDraft, draftFitsBudget, DRAFT_MAX_JSON_CHARS } from './draft-sanitize';
 
 type ActionResult = { ok: true; programId: string } | { ok: false; error: string };
@@ -166,16 +166,29 @@ export async function createWizardProgramAction(payload: WizardData): Promise<Ac
   }
 }
 
-export async function createVerificationTokenAction(domain: string): Promise<{ token: string; sentence: string } | null> {
+export type CreateTokenResult =
+  | { ok: true; token: string; sentence: string }
+  | { ok: false; error: string };
+
+/**
+ * Create (or reuse) the verification token for company+domain. Returns a
+ * SPECIFIC Arabic error for every failure mode so the UI never has to show a
+ * generic "تعذّر توليد الرمز" hint.
+ */
+export async function createVerificationTokenAction(domain: string): Promise<CreateTokenResult> {
+  const d = domain.trim().toLowerCase();
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) {
+    return { ok: false, error: 'صيغة الدومين غير صحيحة — اكتبها بدون https أو مسارات (مثال: example.com)' };
+  }
   try {
-    const d = domain.trim().toLowerCase();
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return null;
     const supabase = await createServerClient();
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth.user?.id;
-    if (!uid) return null;
+    if (!uid) return { ok: false, error: 'انتهت الجلسة — سجّل الدخول ثم أعد المحاولة' };
     const companyId = await resolveCompanyId(supabase, uid);
-    if (!companyId) return null;
+    if (!companyId) {
+      return { ok: false, error: 'لا يوجد ملف شركة مرتبط بحسابك — أكمل إنشاء ملف الشركة أولاً ثم أعد المحاولة' };
+    }
     // Reuse the stored token for this company+domain so the file the company
     // already deployed keeps working after a page refresh / new wizard session.
     const { data: existing } = await supabase
@@ -187,7 +200,7 @@ export async function createVerificationTokenAction(domain: string): Promise<{ t
     const existingToken = (existing as { verification_token_plain: string | null; status: string } | null)?.verification_token_plain ?? null;
     const existingStatus = (existing as { status: string } | null)?.status ?? '';
     if (existingToken && existingStatus !== 'expired' && isValidVerificationToken(existingToken)) {
-      return { token: existingToken, sentence: `masrbounty-verification=${existingToken}` };
+      return { ok: true, token: existingToken, sentence: `masrbounty-verification=${existingToken}` };
     }
     // No usable token yet — create a pending row so the token survives reloads.
     const token = randomHex(16);
@@ -201,14 +214,20 @@ export async function createVerificationTokenAction(domain: string): Promise<{ t
       verified_at: null,
       expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
     }, { onConflict: 'company_id,domain' });
-    if (error) return null;
-    return { token, sentence: `masrbounty-verification=${token}` };
-  } catch {
-    return null;
+    if (error) return { ok: false, error: 'تعذر حفظ رمز التحقق: ' + error.message };
+    return { ok: true, token, sentence: `masrbounty-verification=${token}` };
+  } catch (e) {
+    return { ok: false, error: 'تعذر إنشاء رمز التحقق: ' + (e instanceof Error ? e.message : 'خطأ غير متوقع') };
   }
 }
 
-export async function verifyDomainFileAction(domain: string, token: string): Promise<{ verified: boolean; error?: string }> {
+export type FileVerifyResult = { verified: boolean; error?: string };
+
+/**
+ * File-based verification with precise diagnostics: the error message tells the
+ * company exactly WHICH path failed and WHY (404 / wrong content / unreachable).
+ */
+export async function verifyDomainFileAction(domain: string, token: string): Promise<FileVerifyResult> {
   const d = domain.trim().toLowerCase();
   if (!d || !token) return { verified: false, error: 'الدومين والرمز مطلوبان' };
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return { verified: false, error: 'الدومين غير صالح' };
@@ -219,46 +238,105 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
   // Primary: token-as-filename at the root (hazem.blog/<token>.txt);
   // legacy paths still accepted for domains that already deployed them.
   const urls = [
-    `https://${d}/${token}.txt`,
-    `https://${d}/.well-known/masrbounty-verification.txt`,
-    `https://${d}/masrbounty-verification.txt`,
+    { url: `https://${d}/${token}.txt`, primary: true },
+    { url: `https://${d}/.well-known/masrbounty-verification.txt`, primary: false },
+    { url: `https://${d}/masrbounty-verification.txt`, primary: false },
   ];
-  let found = false;
-  for (const url of urls) {
+  let sawContentMismatch = false;
+  let saw404 = false;
+  let sawOtherHttp: number | null = null;
+  let netFailures = 0;
+  for (const { url } of urls) {
     try {
       const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        if (res.status === 404) saw404 = true;
+        else sawOtherHttp = res.status;
+        continue;
+      }
       const text = await res.text();
-      if (text.split(/\r?\n/).some((line) => line.trim() === sentence)) { found = true; break; }
+      if (text.split(/\r?\n/).some((line) => line.trim() === sentence)) {
+        const saved = await persistVerifiedDomain(d, token);
+        return saved.ok ? { verified: true } : { verified: false, error: saved.error };
+      }
+      sawContentMismatch = true;
     } catch {
-      /* try next */
+      netFailures += 1;
     }
   }
-  if (!found) return { verified: false, error: 'الملف غير موجود أو لا يحتوي الجملة — أنشئ الملف على https://' + d + '/' + token + '.txt (المسار البديل: /.well-known/masrbounty-verification.txt)' };
-  const saved = await persistVerifiedDomain(d, token);
-  return saved.ok ? { verified: true } : { verified: false, error: saved.error };
+  const primaryUrl = `https://${d}/${token}.txt`;
+  if (netFailures === urls.length) {
+    return {
+      verified: false,
+      error:
+        'تعذر الوصول إلى موقعك عبر HTTPS — تأكد أن الموقع يعمل وأنه يدعم HTTPS (بدون شهادة SSL الموقع لا يمكن فحصه)، ثم أعد الفحص',
+    };
+  }
+  if (sawContentMismatch) {
+    return {
+      verified: false,
+      error:
+        'وصلنا إلى الملف لكن المحتوى غير مطابق — يجب أن يحتوي الملف على هذا السطر بالضبط (بدون HTML أو نص إضافي):\n' +
+        sentence,
+    };
+  }
+  if (saw404) {
+    return {
+      verified: false,
+      error:
+        'الملف غير موجود (HTTP 404) على ' + primaryUrl +
+        ' — ارفع الملف في جذر الموقع بنفس الاسم والمسار بالضبط، أو استخدم المسار البديل /.well-known/masrbounty-verification.txt',
+    };
+  }
+  if (sawOtherHttp) {
+    return {
+      verified: false,
+      error: `الخادم ردّ برمز HTTP ${sawOtherHttp} عند فحص ${primaryUrl} — تأكد أن الملف متاح للعامة بدون حماية بكلمة مرور`,
+    };
+  }
+  return {
+    verified: false,
+    error: 'لم يتم العثور على الملف — أنشئ الملف على ' + primaryUrl + ' (المسار البديل: /.well-known/masrbounty-verification.txt) ثم أعد الفحص',
+  };
 }
 
 /**
  * DNS TXT verification (primary method): the company adds a TXT record on
  * `_masrbounty.<domain>` (or the apex) containing `masrbounty-verification=<token>`.
- * Resolution uses DNS-over-HTTPS (RFC 8484) via lib/security/dns-txt.
+ * Resolution uses DNS-over-HTTPS (RFC 8484) via lib/security/dns-txt, with a
+ * precise failure diagnosis (NXDOMAIN / no records / wrong value / resolver down).
  */
 export async function verifyDomainTxtAction(domain: string, token: string): Promise<{ verified: boolean; error?: string; host?: string }> {
   const d = domain.trim().toLowerCase();
   if (!d || !token) return { verified: false, error: 'الدومين والرمز مطلوبان' };
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) return { verified: false, error: 'الدومين غير صالح' };
   if (!isValidVerificationToken(token)) return { verified: false, error: 'رمز التحقق غير صالح — أنشئ رمزًا جديدًا' };
-  const res = await hasVerificationTxt(d, token);
+  const res = await checkVerificationTxt(d, token);
   if (!res.found) {
+    const host = `_masrbounty.${d}`;
+    const value = `masrbounty-verification=${token}`;
+    let reason: string;
+    switch (res.status) {
+      case 'nxdomain':
+        reason = `الدومين ${d} غير موجود في DNS (NXDOMAIN) — تأكد من كتابة الدومين بشكل صحيح ومن أن الموقع يعمل`;
+        break;
+      case 'no_records':
+        reason = `لم يتم العثور على أي سجل TXT على المضيف ${host} — أضف السجل أولًا (Type: TXT) ثم أعد الفحص`;
+        break;
+      case 'wrong_value':
+        reason = `يوجد ${res.txtCount ?? 'بعض'} سجل TXT على المضيف ${host} لكن قيمته غير مطابقة — تأكد أن القيمة هي بالضبط: ${value}`;
+        break;
+      case 'resolver_error':
+        reason = 'تعذر الوصول إلى خدمات DNS (Cloudflare وGoogle معًا) — غالبًا خلل مؤقت، أعد الفحص بعد لحظات';
+        break;
+      default:
+        reason = `لم يتم العثور على سجل TXT بالرمز — أضف سجلًا على المضيف ${host} بالقيمة ${value}`;
+    }
     return {
       verified: false,
       error:
-        'لم يتم العثور على سجل TXT بالرمز — تأكد من إضافة السجل على المضيف ' +
-        `_masrbounty.${d}` +
-        ' بالقيمة masrbounty-verification=' +
-        token +
-        ' (قد يستغرق انتشار DNS من دقائق إلى 48 ساعة — أعد المحاولة بعد قليل)',
+        reason +
+        ' (قد يستغرق انتشار DNS من دقائق إلى 48 ساعة) — جرّب زر «إعادة الفحص» بعد إضافة السجل',
     };
   }
   const saved = await persistVerifiedDomain(d, token);
