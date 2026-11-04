@@ -1,8 +1,8 @@
 import { payoutSchema, awardSchema } from '@/schemas/wallet';
 import { paginateMeta } from '@/utils/pagination';
 
-const METHOD = '00000000-0000-0000-0000-000000000001';
-const REPORT = '00000000-0000-0000-0000-000000000002';
+const METHOD = '3fa85f64-5717-4562-b3fc-2c963f66afa6'; // valid RFC 9562 v4
+const REPORT = 'c232b3a2-3b34-4b7e-9c1d-5e6f7a8b9c0d'; // valid RFC 9562 v4
 
 test('wallet invariant: balance>=0', () => {
   const b = 100;
