@@ -33,6 +33,14 @@ export type ChatOptions = {
   timeoutMs?: number;
   /** Ask for a JSON object response (provider-dependent). */
   jsonMode?: boolean;
+  /**
+   * Number of silent retries on transient failures (429/5xx/network).
+   * Default 1. Set 0 for NON-IDEMPOTENT generations (e.g. lesson creation):
+   * a retried call can silently produce two completions upstream when the
+   * first attempt actually succeeded after the client timed out — to the user
+   * this looks like generation "looping around again".
+   */
+  retries?: number;
 };
 
 export type ChatResult =
@@ -69,12 +77,14 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
   const model = opts.model?.trim() || env.model;
   const started = Date.now();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const retries = Math.max(0, Math.min(opts.retries ?? 1, 3));
 
   let lastCode: AiErrorCode = 'upstream_error';
   let lastMessage = 'تعذر تنفيذ الطلب — أعد المحاولة بعد لحظات';
 
-  // One retry on transient failures (429 / 5xx / network), small backoff.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Retries on transient failures (429 / 5xx / network), small backoff.
+  // The caller decides how many — non-idempotent features should pass 0.
+  for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 700));
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);

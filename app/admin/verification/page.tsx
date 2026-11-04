@@ -20,6 +20,94 @@ async function staff() {
 
 // ---- Domain verification actions ----
 
+/**
+ * Staff approval queue for company_domains (status='awaiting_approval').
+ * The technical check (DNS TXT / file) already passed — a supervisor (مشرف)
+ * or admin must explicitly approve before the domain becomes 'verified' and
+ * the company can publish programs. Writes use the SERVICE ROLE client
+ * because cd_write RLS grants write to admin/owner/member only — moderators
+ * approve from here without needing a policy change.
+ */
+async function approveCompanyDomain(domainId: string, companyId: string, formData: FormData) {
+  'use server';
+  const { supabase, user } = await staff();
+  const note = String(formData.get(`cdnote_${domainId}`) ?? '').trim();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('company_domains')
+    .update({
+      status: 'verified',
+      verified_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
+      reviewed_by: user.id,
+      review_note: note || null,
+    })
+    .eq('id', domainId);
+  if (error) throw new Error('فشل اعتماد النطاق: ' + error.message);
+  try {
+    const { data: company } = await admin.from('company_profiles').select('owner_id,name').eq('id', companyId).single();
+    if (company) {
+      await notify(supabase, (company as { owner_id: string }).owner_id, {
+        type: 'system',
+        title: `تم اعتماد توثيق نطاقكم ${company.name} ✓`,
+        body: note || 'اعتمد المشرف/الأدمن توثيق النطاق بعد الفحص التقني — يمكنك الآن نشر برامجك',
+        link: '/company/programs/new',
+      });
+      const { data: members } = await admin.from('company_members').select('user_id').eq('company_id', companyId);
+      for (const m of (members ?? []) as { user_id: string }[]) {
+        if (m.user_id !== (company as { owner_id: string }).owner_id) {
+          await notify(supabase, m.user_id, { type: 'system', title: `تم اعتماد توثيق نطاق ${company.name}`, link: '/company/programs/new' });
+        }
+      }
+    }
+  } catch {
+    /* ignore notify */
+  }
+  await supabase.from('moderation_actions').insert({
+    moderator_id: user.id,
+    target_type: 'company_domain',
+    target_id: domainId,
+    action: 'approve',
+    reason: note || 'staff approved after technical check',
+  });
+  await logAudit('verify', 'company_domains', domainId, { status: 'verified', company_id: companyId }, user.id);
+  revalidatePath('/admin/verification');
+}
+
+async function rejectCompanyDomain(domainId: string, companyId: string, formData: FormData) {
+  'use server';
+  const { supabase, user } = await staff();
+  const note = String(formData.get(`cdnote_${domainId}`) ?? '').trim();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('company_domains')
+    .update({ status: 'failed', technical_check_passed: false, reviewed_by: user.id, review_note: note || null })
+    .eq('id', domainId);
+  if (error) throw new Error('فشل رفض النطاق: ' + error.message);
+  try {
+    const { data: company } = await admin.from('company_profiles').select('owner_id').eq('id', companyId).single();
+    if (company) {
+      await notify(supabase, (company as { owner_id: string }).owner_id, {
+        type: 'system',
+        title: 'لم يُعتمد توثيق النطاق',
+        body: note || 'راجع سجل TXT/الملف وأعد الفحص من معالج إنشاء البرنامج',
+        link: '/company/programs/new',
+      });
+    }
+  } catch {
+    /* ignore notify */
+  }
+  await supabase.from('moderation_actions').insert({
+    moderator_id: user.id,
+    target_type: 'company_domain',
+    target_id: domainId,
+    action: 'reject',
+    reason: note || null,
+  });
+  await logAudit('verify', 'company_domains', domainId, { status: 'failed', company_id: companyId, note }, user.id);
+  revalidatePath('/admin/verification');
+}
+
 async function verifyDomain(domainId: string, companyId: string, formData: FormData) {
   'use server';
   const { supabase, user } = await staff();
@@ -213,6 +301,25 @@ export default async function VerificationCenter({
     .order('created_at', { ascending: true })
     .limit(100);
 
+  // NEW approval queue: technically-checked company_domains awaiting staff approval
+  const { data: awaitingDomainsRaw } = await supabase
+    .from('company_domains')
+    .select('id,domain,status,technical_check_passed,checked_at,created_at,company_id,company_profiles(name,slug)')
+    .eq('status', 'awaiting_approval')
+    .order('created_at', { ascending: true })
+    .limit(100);
+
+  const awaitingDomains = (awaitingDomainsRaw ?? []) as unknown as {
+    id: string;
+    domain: string;
+    status: string;
+    technical_check_passed: boolean;
+    checked_at: string | null;
+    created_at: string;
+    company_id: string;
+    company_profiles: { name: string; slug: string } | null;
+  }[];
+
   const pendingDomains = (domainsRaw ?? []) as unknown as {
     id: string;
     domain: string;
@@ -239,7 +346,7 @@ export default async function VerificationCenter({
   }
 
   const tabs = [
-    { key: 'domains', label: `النطاقات (${pendingDomains.length})`, icon: Globe },
+    { key: 'domains', label: `النطاقات (${awaitingDomains.length + pendingDomains.length})`, icon: Globe },
     { key: 'researchers', label: `باحثون (${rv?.length ?? 0})`, icon: ShieldCheck },
     { key: 'kyc', label: `KYC (${kyc?.length ?? 0})`, icon: CheckCircle2 },
     { key: 'suspicious', label: `مشبوه (${susp?.length ?? 0})`, icon: AlertTriangle },
@@ -266,10 +373,75 @@ export default async function VerificationCenter({
       </div>
 
       {tab === 'domains' && (
+        <>
+        <Card className="border-amber-300/60">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-amber-500" /> طابور اعتماد توثيق النطاقات — بانتظار موافقة مشرف/أدمن ({awaitingDomains.length})
+            </CardTitle>
+            <CardDescription>
+              هذه النطاقات اجتازت الفحص التقني (سجل TXT أو ملف الملكية) من الشركة — اعتمدها لتصبح موثقة ويسمح لها بالنشر، أو ارفضها إن لاحظت مشكلة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!awaitingDomains.length ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">لا توجد نطاقات بانتظار الاعتماد.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs text-muted-foreground">
+                      <th className="p-2 text-right">الشركة</th>
+                      <th className="p-2 text-right">النطاق</th>
+                      <th className="p-2 text-right">الفحص التقني</th>
+                      <th className="p-2 text-right">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {awaitingDomains.map((d) => (
+                      <tr key={d.id} className="border-b last:border-0">
+                        <td className="p-2">
+                          <span className="font-bold">{d.company_profiles?.name ?? '—'}</span>
+                          <span className="block font-mono text-xs text-muted-foreground" dir="ltr">
+                            {d.company_profiles?.slug ?? d.company_id.slice(0, 8)}
+                          </span>
+                        </td>
+                        <td className="p-2 font-mono text-xs" dir="ltr">
+                          {d.domain}
+                          {d.checked_at && <span className="block text-[11px] text-muted-foreground">آخر فحص: {new Date(d.checked_at).toLocaleString('ar-EG')}</span>}
+                        </td>
+                        <td className="p-2">
+                          {d.technical_check_passed ? <Badge className="bg-emerald-600 text-[10px]">اجتاز ✓</Badge> : <Badge variant="secondary" className="text-[10px]">غير محسوم</Badge>}
+                        </td>
+                        <td className="p-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            <form action={approveCompanyDomain.bind(null, d.id, d.company_id)} className="flex gap-1">
+                              <Input name={`cdnote_${d.id}`} placeholder="ملاحظة" className="h-8 w-24 text-xs" />
+                              <Button size="sm" type="submit" formAction={approveCompanyDomain.bind(null, d.id, d.company_id)} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                                <CheckCircle2 className="ml-1 h-3 w-3" /> اعتماد
+                              </Button>
+                            </form>
+                            <form action={rejectCompanyDomain.bind(null, d.id, d.company_id)} className="flex gap-1">
+                              <Input name={`cdnote_${d.id}`} placeholder="سبب الرفض" className="h-8 w-28 text-xs" />
+                              <Button size="sm" variant="destructive" type="submit" formAction={rejectCompanyDomain.bind(null, d.id, d.company_id)}>
+                                <XCircle className="ml-1 h-3 w-3" /> رفض
+                              </Button>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Globe className="h-4 w-4" /> طابور توثيق النطاقات — معلق/فشل
+              <Globe className="h-4 w-4" /> الطابور القديم (domain_verifications) — معلق/فشل ({pendingDomains.length})
             </CardTitle>
             <CardDescription>
               اعرض رمز التحقق TXT — اطلب من الشركة إضافة <code dir="ltr" className="rounded bg-muted px-1 py-0.5 font-mono text-xs">_masrbounty.&lt;domain&gt; TXT &quot;masrbounty-site-verification=TOKEN&quot;</code> ثم اضغط فحص DNS أو اعتمد يدويًا بعد المراجعة.
@@ -343,6 +515,7 @@ export default async function VerificationCenter({
             )}
           </CardContent>
         </Card>
+        </>
       )}
 
       {tab === 'researchers' && (

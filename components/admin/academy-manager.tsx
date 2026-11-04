@@ -202,6 +202,7 @@ function LessonsPanel({ course, lessons }: { course: AdminCourse; lessons: Admin
   const [aiLevel, setAiLevel] = React.useState('beginner');
   const [aiBusy, setAiBusy] = React.useState(false);
   const [aiMsg, setAiMsg] = React.useState<string | null>(null);
+  const [aiElapsed, setAiElapsed] = React.useState(0);
   const upload = useUpload('academy-materials');
   const fileRef = React.useRef<HTMLInputElement>(null);
 
@@ -259,10 +260,25 @@ function LessonsPanel({ course, lessons }: { course: AdminCourse; lessons: Admin
   async function generateAi() {
     setAiBusy(true);
     setAiMsg(null);
-    const res = await generateLessonAiAction(course.id, aiTopic, aiLevel as 'beginner' | 'intermediate' | 'advanced');
-    if (res.ok) { setAiMsg('تم توليد الدرس وحفظه كمسودة (غير منشورة) — راجعه وعدّله ثم علّمه «مُراجعًا» وانشره.'); router.refresh(); }
-    else setAiMsg(res.error ?? 'فشل التوليد');
-    setAiBusy(false);
+    setAiElapsed(0);
+    const startedAt = Date.now();
+    const tick = setInterval(() => setAiElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    try {
+      const res = await generateLessonAiAction(course.id, aiTopic, aiLevel as 'beginner' | 'intermediate' | 'advanced');
+      if (res.ok && res.deduped) {
+        setAiMsg('وجدنا مسودة مولّدة سابقًا لنفس الموضوع في هذه الدورة (لم تُراجع بعد) — أعدناها لك بدل تكرار التوليد. راجعها من القائمة بالأسفل.');
+        router.refresh();
+      } else if (res.ok) {
+        setAiMsg('تم توليد الدرس وحفظه كمسودة (غير منشورة) — راجعه وعدّله ثم علّمه «مُراجعًا» وانشره.');
+        router.refresh();
+      } else setAiMsg(res.error ?? 'فشل التوليد');
+    } catch {
+      setAiMsg('انقطع الاتصال أثناء التوليد — إن لم يظهر الدرس في القائمة بعد التحديث أعد المحاولة مرة واحدة فقط');
+    } finally {
+      clearInterval(tick);
+      setAiBusy(false);
+      setAiElapsed(0);
+    }
   }
 
   async function onUploadFile(file: File) {
@@ -284,6 +300,7 @@ function LessonsPanel({ course, lessons }: { course: AdminCourse; lessons: Admin
         {/* AI generator */}
         <div className="rounded-lg border border-dashed p-3">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-bold"><Sparkles className="h-3.5 w-3.5 text-amber-500" /> توليد درس بالذكاء الاصطناعي (يُحفظ كمسودة للمراجعة)</p>
+          <p className="mb-2 text-[11px] text-muted-foreground">قد يستغرق التوليد حتى دقيقة واحدة — اضغط مرة واحدة فقط وانتظر، ولا تكرر الضغط.</p>
           <div className="flex flex-wrap gap-2">
             <Input value={aiTopic} onChange={(e) => setAiTopic(e.target.value)} placeholder="موضوع الدرس… مثال: فهم XSS من خلال أمثلة آمنة" className="min-w-[240px] flex-1" />
             <select value={aiLevel} onChange={(e) => setAiLevel(e.target.value)} className="h-9 rounded-md border px-2 text-sm" aria-label="مستوى الدرس">
@@ -292,7 +309,8 @@ function LessonsPanel({ course, lessons }: { course: AdminCourse; lessons: Admin
               <option value="advanced">متقدم</option>
             </select>
             <Button type="button" size="sm" onClick={generateAi} disabled={aiBusy || aiTopic.trim().length < 3} className="gap-1">
-              {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} توليد
+              {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiBusy ? `جاري التوليد… (${aiElapsed}ث)` : 'توليد'}
             </Button>
           </div>
           {aiMsg && <p className="mt-2 rounded bg-muted p-2 text-xs leading-relaxed">{aiMsg}</p>}
