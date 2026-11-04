@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/page-header';
-import { listAcademyCourses, getMyLearningAction, LEVEL_LABELS } from '@/features/academy/services';
+import { listAcademyCourses, getMyLearningAction } from '@/features/academy/services';
+import { LEVEL_LABELS } from '@/features/academy/labels';
 
 export const dynamic = 'force-dynamic';
 

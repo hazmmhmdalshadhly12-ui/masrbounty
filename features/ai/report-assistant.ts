@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 import { runAiFeature, getAiStatusForUser } from '@/lib/ai/service';
 
-export const REPORT_ASSISTANT_TASKS = [
+const REPORT_ASSISTANT_TASKS = [
   'improve_title',
   'improve_summary',
   'improve_description',

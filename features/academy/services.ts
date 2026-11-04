@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 import { enforceRate } from '@/lib/rate-limit';
 import { logAudit } from '@/services/audit';
+import { gradeQuiz, withPassResult } from './quiz';
 
 export type AcademyCourse = {
   id: string;
@@ -41,12 +42,6 @@ export type AcademyLessonSummary = {
 };
 
 export type QuizQuestion = { q: string; options: string[]; correct: number; explanation?: string };
-
-export const LEVEL_LABELS: Record<string, string> = {
-  beginner: 'مبتدئ',
-  intermediate: 'متوسط',
-  advanced: 'متقدم',
-};
 
 async function getOptionalUser() {
   const supabase = await createServerClient();
@@ -478,10 +473,10 @@ export async function saveQuizAttemptAction(
     const quiz = Array.isArray(l.quiz) ? (l.quiz as QuizQuestion[]) : [];
     if (quiz.length === 0) return { ok: false, error: 'لا يوجد اختبار لهذا الدرس' };
     if (parsed.data.answers.length !== quiz.length) return { ok: false, error: 'عدد الإجابات غير مطابق' };
-    const perQuestion = quiz.map((q, i) => parsed.data.answers[i] === q.correct);
-    const correctCount = perQuestion.filter(Boolean).length;
-    const score = Math.round((correctCount * 100) / quiz.length);
-    const passed = score >= (l.quiz_pass_score ?? 70);
+    // Grading is computed server-side from the stored correct answers
+    // (features/academy/quiz.ts) — client input is only indices.
+    const graded = withPassResult(gradeQuiz(quiz, parsed.data.answers), l.quiz_pass_score ?? 70);
+    const { perQuestion, score, passed } = graded;
     const { error } = await supabase.from('academy_quiz_attempts').insert({
       lesson_id: lessonId,
       user_id: userId,

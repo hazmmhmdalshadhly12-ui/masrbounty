@@ -15,6 +15,7 @@ import { requireStaff } from '@/lib/auth/admin-actions';
 import { logAudit } from '@/services/audit';
 import { runAiFeature } from '@/lib/ai/service';
 import { slugify } from '@/utils/slug';
+import { parseQuiz } from './quiz-schema';
 
 const courseSchema = z.object({
   title_ar: z.string().trim().min(3).max(200),
@@ -28,31 +29,6 @@ const courseSchema = z.object({
   price: z.number().min(0).max(100000).nullable().optional(),
   sort_order: z.coerce.number().int().min(0).max(10000).default(0),
 });
-
-const quizQuestionSchema = z
-  .object({
-    q: z.string().trim().min(3).max(500),
-    options: z.array(z.string().trim().min(1).max(300)).min(2).max(6),
-    correct: z.number().int().min(0),
-    explanation: z.string().trim().max(1000).optional(),
-  })
-  .superRefine((val, ctx) => {
-    if (val.correct >= val.options.length) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'مؤشر الإجابة الصحيحة خارج نطاق الخيارات' });
-    }
-  });
-
-export const quizSchema = z.array(quizQuestionSchema).min(1).max(20);
-
-export function parseQuiz(raw: string | null | undefined): z.infer<typeof quizSchema> | null {
-  if (!raw || !raw.trim()) return null;
-  try {
-    const parsed = quizSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
 
 function s(fd: FormData, key: string): string {
   return String(fd.get(key) ?? '').trim();

@@ -4,7 +4,8 @@ import { BookOpen, Clock, CheckCircle2, Circle, Award, ArrowRight } from 'lucide
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/shared/page-header';
-import { getAcademyCourse, LEVEL_LABELS } from '@/features/academy/services';
+import { getAcademyCourse } from '@/features/academy/services';
+import { LEVEL_LABELS } from '@/features/academy/labels';
 import { CourseActions } from '@/components/academy/course-actions';
 
 export const dynamic = 'force-dynamic';
