@@ -38,7 +38,7 @@ export async function createReportAction(formData: FormData) {
     cwe: formData.get('cwe') || undefined,
   };
   const parsed = reportSchema.safeParse(raw);
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid report');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid report');
   const { supabase, researcherId } = await researcherIdOrThrow();
   enforceRate(`report:${researcherId}`, limits.reportCreate.max, limits.reportCreate.windowMs);
   // Private programs require an invitation — enforced server-side, not just hidden in UI

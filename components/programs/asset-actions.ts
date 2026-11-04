@@ -71,7 +71,7 @@ export async function addAssetAction(programId: string, formData: FormData) {
     risk: String(formData.get('risk') ?? 'none').trim() || undefined,
     description: String(formData.get('description') ?? '').trim() || undefined, // desc
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'بيانات غير صالحة');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'بيانات غير صالحة');
   const { supabase } = await requireCompanyAccess(programId);
   const dbType = toDbType(parsed.data.type);
   const desc = buildDescription(parsed.data);
@@ -93,7 +93,7 @@ export async function updateAssetAction(assetId: string, formData: FormData) {
     risk: String(formData.get('risk') ?? 'none').trim() || undefined,
     description: String(formData.get('description') ?? '').trim() || undefined, // desc
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'بيانات غير صالحة');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'بيانات غير صالحة');
   const supabase = await createServerClient();
   const { data: asset } = await supabase.from('program_assets').select('program_id').eq('id', assetId).single();
   if (!asset) throw new Error('Asset not found');

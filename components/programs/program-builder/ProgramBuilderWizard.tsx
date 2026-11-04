@@ -197,11 +197,11 @@ export function ProgramBuilderWizard(): React.JSX.Element {
 
   const handleNext = (): void => {
     const slice = getStepSlice(step, data);
-    const schema = wizardSchemas[step as keyof typeof wizardSchemas] as unknown as { safeParse: (v: unknown) => { success: boolean; error?: { errors: { message: string }[] } } } | undefined;
+    const schema = wizardSchemas[step as keyof typeof wizardSchemas] as unknown as { safeParse: (v: unknown) => { success: boolean; error?: { issues: { message: string }[] } } } | undefined;
     if (schema) {
       const res = schema.safeParse(slice);
       if (!res.success) {
-        const msgs: string[] = res.error ? res.error.errors.map((e) => e.message) : ['بيانات غير صالحة'];
+        const msgs: string[] = res.error ? res.error.issues.map((e) => e.message) : ['بيانات غير صالحة'];
         setErrors(msgs);
         return;
       }
@@ -227,11 +227,11 @@ export function ProgramBuilderWizard(): React.JSX.Element {
     // going forward: validate all intermediate steps
     for (let s = step; s < target; s++) {
       const slice = getStepSlice(s, data);
-      const schema = wizardSchemas[s as keyof typeof wizardSchemas] as unknown as { safeParse: (v: unknown) => { success: boolean; error?: { errors: { message: string }[] } } } | undefined;
+      const schema = wizardSchemas[s as keyof typeof wizardSchemas] as unknown as { safeParse: (v: unknown) => { success: boolean; error?: { issues: { message: string }[] } } } | undefined;
       if (schema) {
         const res = schema.safeParse(slice);
         if (!res.success) {
-          const msgs: string[] = res.error ? res.error.errors.map((e) => e.message) : ['بيانات غير صالحة'];
+          const msgs: string[] = res.error ? res.error.issues.map((e) => e.message) : ['بيانات غير صالحة'];
           setErrors(msgs);
           setStep(s);
           return;

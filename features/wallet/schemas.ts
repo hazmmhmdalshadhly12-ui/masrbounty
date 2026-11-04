@@ -12,7 +12,7 @@ export const payoutRequestSchema = z.object({
 export const paymentMethodSchema = z.object({
   type: z.enum(['bank', 'wallet', 'vodafone_cash', 'instapay', 'other']),
   label: z.string().min(2).max(100),
-  details: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])),
+  details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
   is_default: z.boolean().default(false),
 });
 

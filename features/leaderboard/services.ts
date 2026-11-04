@@ -6,7 +6,7 @@ import { leaderboardQuerySchema } from './schemas';
 
 export async function listLeaderboard(limit = 20) {
   const parsed = leaderboardQuerySchema.safeParse({ limit });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid query');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid query');
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from('researcher_leaderboard')

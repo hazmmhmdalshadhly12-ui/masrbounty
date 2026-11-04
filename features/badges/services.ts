@@ -38,7 +38,7 @@ export async function createBadgeAction(formData: FormData) {
     description_en: formData.get('description_en') || undefined,
     icon: formData.get('icon') || undefined,
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid badge');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid badge');
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
@@ -63,7 +63,7 @@ export async function awardBadgeAction(formData: FormData) {
     researcher_id: formData.get('researcher_id'),
     badge_id: formData.get('badge_id'),
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid award');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid award');
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');

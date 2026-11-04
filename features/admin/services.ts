@@ -61,7 +61,7 @@ export async function recordModerationAction(formData: FormData) {
     action: formData.get('action'),
     reason: formData.get('reason') || undefined,
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid moderation action');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid moderation action');
   const { supabase, userId } = await requireAdmin();
   const { error } = await supabase.from('moderation_actions').insert({
     moderator_id: userId,
@@ -79,7 +79,7 @@ export async function updateSupportTicket(formData: FormData) {
     ticket_id: formData.get('ticket_id'),
     status: formData.get('status'),
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid ticket update');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid ticket update');
   const { supabase } = await requireAdmin();
   const { error } = await supabase
     .from('support_tickets')
@@ -97,7 +97,7 @@ export async function updatePlatformSetting(formData: FormData) {
     throw new Error('Setting value must be valid JSON');
   }
   const parsed = platformSettingSchema.safeParse({ key: formData.get('key'), value });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid setting');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid setting');
   const { supabase } = await requireAdmin();
   const { error } = await supabase
     .from('platform_settings')

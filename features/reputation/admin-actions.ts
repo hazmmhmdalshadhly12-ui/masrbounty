@@ -28,7 +28,7 @@ export async function adjustReputationAction(
   try {
     const { supabase, user } = await requireStaff(['admin']);
     const parsed = adjustSchema.safeParse({ researcherId, delta, reason });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const { data, error } = await supabase.rpc('adjust_reputation', {
       p_researcher: parsed.data.researcherId,
       p_delta: parsed.data.delta,
@@ -61,7 +61,7 @@ export async function issueAchievementCertificateAction(
   try {
     const { supabase } = await requireStaff();
     const parsed = certSchema.safeParse({ userId, titleAr, titleEn, reason });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const { data, error } = await supabase.rpc('issue_achievement_certificate', {
       p_user: parsed.data.userId,
       p_title_ar: parsed.data.titleAr,
@@ -112,7 +112,7 @@ export async function updateResearcherLevelAction(
   try {
     const { supabase, user } = await requireStaff(['admin']);
     const parsed = levelSchema.safeParse(input);
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const d = parsed.data;
     const { error } = await supabase
       .from('researcher_levels')
@@ -209,7 +209,7 @@ export async function updateReportLimitsAction(
   try {
     const { supabase, user } = await requireStaff(['admin']);
     const parsed = limitsSchema.safeParse({ daily_max: dailyMax, hourly_max: hourlyMax });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'قيم غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'قيم غير صالحة' };
     if (parsed.data.hourly_max > parsed.data.daily_max) {
       return { ok: false, error: 'الحد الساعي لا يمكن أن يتجاوز اليومي' };
     }
@@ -243,7 +243,7 @@ export async function setReportLimitOverrideAction(
   try {
     const { supabase, user } = await requireStaff(['admin']);
     const parsed = overrideSchema.safeParse({ userId, daily_limit: dailyLimit, hourly_limit: hourlyLimit, reason });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const d = parsed.data;
     if (d.daily_limit == null && d.hourly_limit == null) {
       // both null → remove the override entirely

@@ -60,7 +60,7 @@ export async function createProgramAction(formData: FormData) {
     contact_email: formData.get('contact_email'),
   };
   const parsed = programSchema.safeParse(raw);
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'بيانات البرنامج غير صالحة');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'بيانات البرنامج غير صالحة');
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('غير مصرح');
@@ -391,7 +391,7 @@ export async function updateProgramAction(programId: string, formData: FormData)
       contact_email: programSchema.shape.contact_email,
     })
     .safeParse(raw);
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'بيانات البرنامج غير صالحة');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'بيانات البرنامج غير صالحة');
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('غير مصرح');

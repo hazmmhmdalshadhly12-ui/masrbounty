@@ -13,7 +13,7 @@ const quizQuestionSchema = z
   })
   .superRefine((val, ctx) => {
     if (val.correct >= val.options.length) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'مؤشر الإجابة الصحيحة خارج نطاق الخيارات' });
+      ctx.addIssue({ code: 'custom', message: 'مؤشر الإجابة الصحيحة خارج نطاق الخيارات' });
     }
   });
 

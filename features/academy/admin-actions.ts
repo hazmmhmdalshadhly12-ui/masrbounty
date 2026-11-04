@@ -55,7 +55,7 @@ export async function createCourseAction(fd: FormData): Promise<{ ok: boolean; c
       price: s(fd, 'price') ? Number(s(fd, 'price')) : null,
       sort_order: s(fd, 'sort_order') || 0,
     });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const d = parsed.data;
     const baseSlug = s(fd, 'slug') ? slugify(s(fd, 'slug')) : slugify(d.title_en || d.title_ar);
     const slug = baseSlug || `course-${Date.now()}`;
@@ -105,7 +105,7 @@ export async function updateCourseAction(id: string, fd: FormData): Promise<{ ok
       price: s(fd, 'price') ? Number(s(fd, 'price')) : null,
       sort_order: s(fd, 'sort_order') || 0,
     });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const d = parsed.data;
     const patch: Record<string, unknown> = {
       title_ar: d.title_ar,
@@ -197,7 +197,7 @@ export async function createLessonAction(courseId: string, fd: FormData): Promis
       is_published: fd.get('is_published') === 'on',
       quiz_pass_score: s(fd, 'quiz_pass_score') || 70,
     });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const d = parsed.data;
     const quiz = parseQuiz(s(fd, 'quiz'));
     if (s(fd, 'quiz') && !quiz) return { ok: false, error: 'صيغة الاختبار غير صالحة (JSON: q, options[], correct)' };
@@ -247,7 +247,7 @@ export async function updateLessonAction(lessonId: string, fd: FormData): Promis
       is_published: fd.get('is_published') === 'on',
       quiz_pass_score: s(fd, 'quiz_pass_score') || 70,
     });
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const d = parsed.data;
     const quiz = parseQuiz(s(fd, 'quiz'));
     if (s(fd, 'quiz') && !quiz) return { ok: false, error: 'صيغة الاختبار غير صالحة (JSON: q, options[], correct)' };

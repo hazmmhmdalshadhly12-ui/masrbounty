@@ -23,7 +23,7 @@ export const supportMessageSchema = z.object({
 
 export const platformSettingSchema = z.object({
   key: z.string().min(2).max(100),
-  value: z.record(z.unknown()),
+  value: z.record(z.string(), z.unknown()),
 });
 
 export type AdminInput = z.infer<typeof adminSchema>;

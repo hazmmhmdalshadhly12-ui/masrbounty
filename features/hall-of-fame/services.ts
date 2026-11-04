@@ -23,7 +23,7 @@ export async function addHallOfFameAction(formData: FormData) {
     achievement: formData.get('achievement'),
     display_name: formData.get('display_name'),
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid entry');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid entry');
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');

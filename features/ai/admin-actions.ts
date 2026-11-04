@@ -26,7 +26,7 @@ export async function updateAiSettingsAction(input: AiSettingsUpdate): Promise<{
   try {
     const { supabase, user } = await requireStaff(['admin']);
     const parsed = settingsSchema.safeParse(input);
-    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'بيانات غير صالحة' };
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'بيانات غير صالحة' };
     const { error } = await supabase.from('ai_settings').update(parsed.data).eq('id', 1);
     if (error) return { ok: false, error: 'فشل الحفظ: ' + error.message };
     await logAudit('update', 'ai_settings', undefined, { ...parsed.data }, user.id);

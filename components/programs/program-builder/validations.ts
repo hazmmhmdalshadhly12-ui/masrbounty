@@ -60,7 +60,7 @@ export const rewardsSchema = z.object({
     for (let i = 0; i < data.policies.length; i++) {
       const p = data.policies[i] as { min_amount: number; max_amount: number };
       if (p.min_amount !== p.max_amount) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'في النوع الثابت يجب أن يتساوى الحد الأدنى والأقصى', path: ['policies', i, 'max_amount'] });
+        ctx.addIssue({ code: 'custom', message: 'في النوع الثابت يجب أن يتساوى الحد الأدنى والأقصى', path: ['policies', i, 'max_amount'] });
       }
     }
   }
@@ -100,5 +100,5 @@ export function validateStep(step: number, data: unknown): { ok: boolean; errors
   if (!schema) return { ok: true };
   const res = schema.safeParse(data);
   if (res.success) return { ok: true };
-  return { ok: false, errors: res.error.errors.map((e) => e.message) };
+  return { ok: false, errors: res.error.issues.map((e) => e.message) };
 }

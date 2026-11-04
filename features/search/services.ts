@@ -6,13 +6,13 @@ import type { SearchHit } from './types';
 
 export async function listSearch(query: string, scope: 'programs' | 'reports' | 'researchers' | 'all' = 'all') {
   const parsed = searchQuerySchema.safeParse({ query, scope });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Invalid search');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Invalid search');
   return searchAction(parsed.data.query, parsed.data.scope);
 }
 
 export async function searchAction(query: string, scope = 'all'): Promise<SearchHit[]> {
   const parsed = searchQuerySchema.safeParse({ query, scope });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Search query too short');
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'Search query too short');
   const supabase = await createServerClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Unauthorized');
