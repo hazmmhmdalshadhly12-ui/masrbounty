@@ -381,6 +381,7 @@ export async function generateLessonAiAction(
       temperature: 0.5,
       jsonMode: true,
       retries: 0, // (2) non-idempotent — never silently re-run the generation
+      timeoutMs: 120_000, // a 3500-token JSON lesson needs well over 60s on slow providers
     });
     if (!res.ok) return { ok: false, error: res.message, setupHint: res.code === 'not_configured' };
 

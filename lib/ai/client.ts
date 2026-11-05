@@ -12,7 +12,7 @@
  * defensively (ignored by providers that don't support it).
  */
 
-import { getAiEnvConfig } from './config';
+import { getAiCredentials } from './config';
 
 export type AiErrorCode =
   | 'not_configured'
@@ -52,9 +52,16 @@ export type ChatResult =
       completionTokens: number;
       latencyMs: number;
     }
-  | { ok: false; code: AiErrorCode; message: string };
+  | {
+      ok: false;
+      code: AiErrorCode;
+      message: string;
+      /** Upstream HTTP status (number only — NEVER the response body). */
+      httpStatus?: number;
+    };
 
-const DEFAULT_TIMEOUT_MS = 45_000;
+/** 60s default; large non-idempotent generations pass their own longer value. */
+const DEFAULT_TIMEOUT_MS = 60_000;
 
 type ProviderChatResponse = {
   choices?: { message?: { content?: string } }[];
@@ -63,8 +70,8 @@ type ProviderChatResponse = {
 };
 
 export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
-  const env = getAiEnvConfig();
-  if (!env.configured) {
+  const creds = getAiCredentials();
+  if (!creds.apiKey || !creds.baseUrl) {
     return {
       ok: false,
       code: 'not_configured',
@@ -74,13 +81,14 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
   if (!Array.isArray(opts.messages) || opts.messages.length === 0) {
     return { ok: false, code: 'invalid_input', message: 'طلب غير صالح' };
   }
-  const model = opts.model?.trim() || env.model;
+  const model = opts.model?.trim() || creds.model;
   const started = Date.now();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = Math.max(0, Math.min(opts.retries ?? 1, 3));
 
   let lastCode: AiErrorCode = 'upstream_error';
   let lastMessage = 'تعذر تنفيذ الطلب — أعد المحاولة بعد لحظات';
+  let lastStatus: number | undefined = undefined;
 
   // Retries on transient failures (429 / 5xx / network), small backoff.
   // The caller decides how many — non-idempotent features should pass 0.
@@ -89,11 +97,11 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(`${env.baseUrl}/chat/completions`, {
+      const res = await fetch(`${creds.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          authorization: `Bearer ${(process.env as Record<string, string | undefined>).AI_API_KEY ?? ''}`,
+          authorization: `Bearer ${creds.apiKey}`,
         },
         body: JSON.stringify({
           model,
@@ -107,17 +115,20 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
       });
       if (res.status === 429) {
         lastCode = 'rate_limited';
+        lastStatus = 429;
         lastMessage = 'الخدمة مشغولة حاليًا بسبب الضغط — أعد المحاولة بعد نصف دقيقة';
         continue;
       }
       if (res.status >= 500) {
         lastCode = 'upstream_error';
+        lastStatus = res.status;
         lastMessage = 'خدمة الذكاء الاصطناعي غير متاحة مؤقتًا — أعد المحاولة بعد لحظات';
         continue;
       }
       if (!res.ok) {
         // 4xx: do not retry; keep the message generic (never echo the body —
         // provider error bodies can echo headers/auth details).
+        lastStatus = res.status;
         lastCode = res.status === 401 || res.status === 403 ? 'not_configured' : 'bad_response';
         lastMessage =
           res.status === 401 || res.status === 403
@@ -152,5 +163,7 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
       clearTimeout(timer);
     }
   }
-  return { ok: false, code: lastCode, message: lastMessage };
+  return lastStatus !== undefined
+    ? { ok: false, code: lastCode, message: lastMessage, httpStatus: lastStatus }
+    : { ok: false, code: lastCode, message: lastMessage };
 }

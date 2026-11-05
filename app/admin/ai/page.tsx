@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/guard';
 import { PageHeader } from '@/components/shared/page-header';
-import { getAiEnvConfig, AI_SETUP_HINT_AR } from '@/lib/ai/config';
+import { getAiEnvDiagnostics, AI_SETUP_HINT_AR } from '@/lib/ai/config';
 import { AiAdmin } from '@/components/admin/ai-admin';
 import type { AiUsageStat } from '@/components/admin/ai-admin';
 
@@ -54,6 +54,7 @@ export default async function AdminAiPage() {
     .map(([userId, count]) => ({ username: usernameMap.get(userId) ?? userId.slice(0, 8), count }));
 
   const s = (settings ?? {}) as Record<string, unknown>;
+  const envDiag = getAiEnvDiagnostics();
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
@@ -65,13 +66,14 @@ export default async function AdminAiPage() {
   return (
     <div className="space-y-6">
       <PageHeader icon={Sparkles} title="إدارة الذكاء الاصطناعي" desc="تفعيل/تعطيل الخدمة، حدود الاستخدام، الميزات المسموحة، وإحصائيات الاستهلاك. المفتاح يُدار من Cloudflare Pages فقط ولا يُخزّن هنا أبدًا." />
-      {!getAiEnvConfig().configured && (
+      {!envDiag.configured && (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
           {AI_SETUP_HINT_AR}
         </p>
       )}
       <AiAdmin
         isAdmin={isAdmin}
+        diagnostics={envDiag}
         settings={{
           enabled: s['enabled'] !== false,
           daily_limit_per_user: Number(s['daily_limit_per_user'] ?? 25),
