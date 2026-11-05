@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { updateAiSettingsAction } from '@/features/ai/admin-actions';
+import { updateAiSettingsAction, aiDiagnosticsAction } from '@/features/ai/admin-actions';
 import { toastSuccess, toastError } from '@/components/toasts/toast-utils';
 
 export type AiUsageStat = { feature: string; total: number; failed: number };
@@ -31,19 +31,100 @@ export type AiSettingsShape = {
   default_model: string;
 };
 
+export type AiEnvDiagnosticsShape = {
+  configured: boolean;
+  keyVar: string;
+  baseUrl: string;
+  model: string;
+  keyVarsPresent: Record<string, boolean>;
+  baseUrlVarsPresent: Record<string, boolean>;
+  modelVarPresent: boolean;
+};
+
 const FEATURES = [
   { id: 'report_assistant', label: 'مساعد كتابة التقارير' },
   { id: 'lesson_generator', label: 'مولّد الدروس التعليمية' },
 ];
 
+function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
+  const [testing, setTesting] = React.useState(false);
+  const [result, setResult] = React.useState<{ ok: boolean; interpretation: string; latencyMs?: number; httpStatus?: number } | null>(null);
+
+  async function runTest() {
+    setTesting(true);
+    setResult(null);
+    const res = await aiDiagnosticsAction(true);
+    if (!res.ok) {
+      toastError(res.error ?? 'فشل التشخيص');
+    } else if (res.test) {
+      setResult({ ok: res.test.ok, interpretation: res.test.interpretation, latencyMs: res.test.latencyMs, httpStatus: res.test.httpStatus });
+    }
+    setTesting(false);
+  }
+
+  const keyNames = Object.keys(diag.keyVarsPresent);
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm"><Stethoscope className="h-4 w-4" /> تشخيص الاتصال — لماذا لا يعمل التوليد؟</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={diag.configured ? 'secondary' : 'default'} className={diag.configured ? '' : 'bg-red-600'}>
+            {diag.configured ? 'الإعدادات مكتملة ✓' : 'الإعدادات غير مكتملة ✕'}
+          </Badge>
+          {diag.keyVar ? (
+            <span className="text-xs text-muted-foreground">المفتاح مقروء من المتغير: <code dir="ltr" className="rounded bg-muted px-1">{diag.keyVar}</code></span>
+          ) : (
+            <span className="text-xs font-bold text-red-600">الخادم لا يرى أي متغير مفتاح</span>
+          )}
+        </div>
+        <div className="grid gap-1 text-xs text-muted-foreground">
+          <span>عنوان الخدمة المستخدم: <span dir="ltr" className="tabular-nums">{diag.baseUrl || '—'}</span></span>
+          <span>النموذج الافتراضي: <span dir="ltr" className="tabular-nums">{diag.model || '—'}</span></span>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold">متغيرات المفتاح التي يراها الخادم (الأسماء فقط — القيم لا تُعرض أبدًا):</p>
+          <div className="flex flex-wrap gap-1.5">
+            {keyNames.map((n) => (
+              <Badge key={n} variant="outline" className={`text-[10px] ${diag.keyVarsPresent[n] ? 'border-emerald-400 text-emerald-700' : 'text-muted-foreground'}`}>
+                <span dir="ltr">{n}{diag.keyVarsPresent[n] ? ' ✓' : ''}</span>
+              </Badge>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={runTest} disabled={testing} className="gap-2">
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stethoscope className="h-4 w-4" />}
+            {testing ? 'جارٍ الاختبار…' : 'اختبار الاتصال الفعلي بالمزود'}
+          </Button>
+          {result && (
+            <Badge variant={result.ok ? 'secondary' : 'default'} className={result.ok ? '' : 'bg-red-600'}>
+              {result.ok ? `نجح (${result.latencyMs ?? 0}ms)` : `فشل${result.httpStatus ? ` — HTTP ${result.httpStatus}` : ''}`}
+            </Badge>
+          )}
+        </div>
+        {result && (
+          <p className={`rounded-md border p-3 text-xs leading-relaxed ${result.ok ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'}`}>
+            {result.interpretation}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">تنبيه: أي تغيير على متغيرات البيئة في Cloudflare Pages لا يسري إلا بعد إعادة نشر جديدة للموقع.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AiAdmin({
   isAdmin,
   settings,
   stats,
+  diagnostics,
 }: {
   isAdmin: boolean;
   settings: AiSettingsShape;
   stats: { monthTotal: number; byFeature: AiUsageStat[]; topUsers: { username: string; count: number }[]; recent: AiUsageRow[] };
+  diagnostics: AiEnvDiagnosticsShape;
 }) {
   const router = useRouter();
   const [form, setForm] = React.useState({ ...settings });
@@ -67,6 +148,7 @@ export function AiAdmin({
 
   return (
     <div className="space-y-4">
+      <DiagnosticsCard diag={diagnostics} />
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">الإعدادات</CardTitle>

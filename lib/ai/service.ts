@@ -155,6 +155,11 @@ export type AiRunParams = {
   temperature?: number;
   jsonMode?: boolean;
   /**
+   * Wall-clock timeout for the upstream completion. Default 60s; large
+   * structured generations (lesson drafts) should pass a longer value.
+   */
+  timeoutMs?: number;
+  /**
    * Silent transient-failure retries inside the AI client. Default 1.
    * Non-idempotent generations (lesson creation) must pass 0 — a retry can
    * produce a second completed generation upstream after the first attempt
@@ -233,6 +238,7 @@ export async function runAiFeature(params: AiRunParams): Promise<AiRunResult> {
     temperature: params.temperature,
     jsonMode: params.jsonMode,
     retries: params.retries,
+    timeoutMs: params.timeoutMs,
     model,
   });
 

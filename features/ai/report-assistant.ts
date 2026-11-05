@@ -186,6 +186,7 @@ export async function aiReportAssistAction(
       maxTokens: 1400,
       temperature: 0.3,
       jsonMode: true,
+      timeoutMs: 90_000, // structured JSON on slower providers can exceed 60s
     });
 
     if (!res.ok) {

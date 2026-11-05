@@ -116,6 +116,26 @@ describe('lib/ai/client — aiChat', () => {
     }
   });
 
+  it('reports the upstream HTTP status on failures (no body echo)', async () => {
+    mockFetchOnce(404, { error: { message: 'model not found test-secret-key-do-not-leak' } });
+    const res = await aiChat({ messages: [{ role: 'user', content: 'x' }] });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.httpStatus).toBe(404);
+      expect(res.message).not.toContain('test-secret-key-do-not-leak');
+    }
+  });
+
+  it('uses a key stored under an accepted alias (OPENAI_API_KEY) in the Authorization header', async () => {
+    delete process.env.AI_API_KEY;
+    process.env.OPENAI_API_KEY = 'alias-key-do-not-leak';
+    const fetchMock = mockFetchOnce(200, { choices: [{ message: { content: 'ok' } }] });
+    const res = await aiChat({ messages: [{ role: 'user', content: 'x' }] });
+    expect(res.ok).toBe(true);
+    const headers = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers.authorization).toBe('Bearer alias-key-do-not-leak');
+  });
+
   it('treats empty choices as bad_response', async () => {
     mockFetchOnce(200, { choices: [] });
     const res = await aiChat({ messages: [{ role: 'user', content: 'x' }] });
