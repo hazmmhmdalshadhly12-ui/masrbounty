@@ -44,6 +44,7 @@ export interface PaymentMethod {
   researcher_id: string;
   type: PaymentMethodType;
   label: string;
+  
   details: Record<string, string | number | boolean | null>;
   is_default: boolean;
   created_at: string;
