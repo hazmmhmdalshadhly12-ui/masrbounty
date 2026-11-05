@@ -19,41 +19,41 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   if (loggedIn) redirect(safeNext(next));
   const target = safeNext(next, '');
   return (
-    <div className="bg-slate-100 dark:bg-slate-950">
-      <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
-        <div className="relative hidden overflow-hidden rounded-3xl bg-navy p-10 text-white lg:block">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.2),transparent_60%)]" />
+    <div className="bg-muted/40 dark:bg-background">
+      <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-10 lg:grid-cols-2 lg:gap-14">
+        <div className="relative hidden overflow-hidden rounded-3xl border border-navy-800/60 bg-navy p-10 text-white shadow-lift lg:block">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
           <div className="relative">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 text-[#0a1628]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-navy-900 shadow-gold">
               <ShieldCheck className="h-6 w-6" strokeWidth={2.5} />
             </span>
             <h1 className="mt-6 text-3xl font-black leading-snug">
               انضم إلى المنصة.
               <br />
-              <span className="text-slate-400">باحثًا كنت أو جهة.</span>
+              <span className="text-gradient-gold">باحثًا كنت أو جهة.</span>
             </h1>
             <div className="mt-8 space-y-4">
-              <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
-                <UserCheck className="h-5 w-5 shrink-0 text-slate-300" />
-                <p className="text-sm text-slate-200"><b>للباحثين:</b> تقارير موثقة ومستحقات وسجل مهني</p>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                <UserCheck className="h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
+                <p className="text-sm text-navy-100/90"><b className="text-white">للباحثين:</b> تقارير موثقة ومستحقات وسجل مهني</p>
               </div>
-              <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
-                <Building2 className="h-5 w-5 shrink-0 text-slate-300" />
-                <p className="text-sm text-slate-200"><b>للشركات:</b> برامج مصممة حسب نطاق عملك وسياساتك</p>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                <Building2 className="h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
+                <p className="text-sm text-navy-100/90"><b className="text-white">للشركات:</b> برامج مصممة حسب نطاق عملك وسياساتك</p>
               </div>
-              <div className="flex items-center gap-3 rounded-xl bg-white/5 p-4">
-                <Zap className="h-5 w-5 shrink-0 text-slate-300" />
-                <p className="text-sm text-slate-200"><b>بدون تكلفة مسبقة</b> للتسجيل وبدء العمل</p>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                <Zap className="h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
+                <p className="text-sm text-navy-100/90"><b className="text-white">بدون تكلفة مسبقة</b> للتسجيل وبدء العمل</p>
               </div>
             </div>
           </div>
         </div>
-        <Card className="mx-auto w-full max-w-md shadow-xl">
+        <Card className="mx-auto w-full max-w-md animate-fade-up shadow-lift">
           <CardContent className="p-8">
             <h2 className="text-2xl font-black">حساب جديد مجاني</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               عندك حساب؟{' '}
-              <Link href="/login" className="font-bold text-amber-600 underline">
+              <Link href="/login" className="font-bold text-primary underline underline-offset-4">
                 سجّل دخول
               </Link>
             </p>

@@ -2,26 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   MasrBounty — «Ink & Gold» design tokens
+   Light: warm paper surfaces, ink-navy text, gold primary.
+   Dark:  deep navy surfaces with layered elevation, gold accent.
+   ============================================================ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 216 60% 9.8%;
+    --background: 220 33% 98%;
+    --foreground: 217 61% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 216 60% 9.8%;
+    --card-foreground: 217 61% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 216 60% 9.8%;
+    --popover-foreground: 217 61% 12%;
     --primary: 38 92% 50%;
     --primary-foreground: 216 60% 9.8%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 216 60% 9.8%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 216 60% 9.8%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 215 26% 94%;
+    --secondary-foreground: 217 50% 16%;
+    --muted: 215 26% 94%;
+    --muted-foreground: 215 18% 40%;
+    --accent: 215 28% 93%;
+    --accent-foreground: 217 50% 14%;
+    --destructive: 0 74% 48%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --success: 152 65% 30%;
+    --warning: 32 95% 40%;
+    --info: 207 90% 42%;
+    --border: 215 22% 89%;
+    --input: 215 22% 86%;
     --ring: 38 92% 50%;
     --radius: 0.75rem;
     --chart-1: 38 92% 50%;
@@ -31,26 +39,29 @@
     --chart-5: 142 76% 36%;
   }
   .dark {
-    --background: 216 60% 7%;
-    --foreground: 210 40% 98%;
-    --card: 217.2 32.6% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 217.2 32.6% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 43 96% 56%;
-    --primary-foreground: 216 60% 7%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 217 65% 5.5%;
+    --foreground: 213 32% 96%;
+    --card: 216 55% 8.5%;
+    --card-foreground: 213 32% 96%;
+    --popover: 216 55% 9.5%;
+    --popover-foreground: 213 32% 96%;
+    --primary: 45 96% 55%;
+    --primary-foreground: 217 65% 8%;
+    --secondary: 216 42% 15%;
+    --secondary-foreground: 213 30% 94%;
+    --muted: 216 42% 14%;
+    --muted-foreground: 215 20% 66%;
+    --accent: 216 45% 16%;
+    --accent-foreground: 213 30% 95%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 43 96% 56%;
-    --chart-1: 43 96% 56%;
+    --success: 152 60% 42%;
+    --warning: 40 95% 55%;
+    --info: 205 90% 55%;
+    --border: 216 40% 15%;
+    --input: 216 40% 17%;
+    --ring: 45 96% 55%;
+    --chart-1: 45 96% 55%;
     --chart-2: 173 58% 45%;
     --chart-3: 210 40% 98%;
     --chart-4: 215 20.2% 65.1%;
@@ -64,6 +75,7 @@
   }
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -75,7 +87,7 @@
   .font-mono {
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   }
-  /* Enterprise headings — font-black tracking-tight */
+  /* Enterprise headings — Cairo 900 */
   h1,
   h2,
   h3 {
@@ -92,11 +104,18 @@
   :lang(ar) {
     line-height: 1.8;
   }
+  img,
+  svg,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
@@ -106,11 +125,7 @@
     outline-offset: 2px;
   }
   ::selection {
-    background: #f59e0b;
-    color: #0a1628;
-  }
-  .dark ::selection {
-    background: #fbbf24;
+    background: hsl(var(--primary));
     color: #0a1628;
   }
   ::-webkit-scrollbar {
@@ -121,32 +136,63 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: hsl(var(--border));
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #f59e0b;
-    background-clip: content-box;
-  }
-  .dark ::-webkit-scrollbar-thumb {
-    background: #334155;
-    background-clip: content-box;
-  }
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background: #fbbf24;
+    background: hsl(var(--primary) / 0.85);
     background-clip: content-box;
   }
 }
 
 @layer utilities {
-  /* Enforce enterprise container — max-w-6xl centered */
+  /* Enterprise container — max-w-6xl centered */
   .container {
     max-width: 72rem;
   }
   /* Consistent section rhythm */
   .section-py {
     @apply py-8 md:py-12;
+  }
+
+  /* ---- Ink & Gold surfaces ------------------------------------ */
+
+  /* Blueprint grid over navy hero bands (white hairlines + gold bloom) */
+  .bg-grid-ink {
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(45 96% 55% / 0.14), transparent 60%),
+      linear-gradient(to left, rgb(148 163 184 / 0.14) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(148 163 184 / 0.14) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+  }
+  /* Same grid for light sections */
+  .bg-grid-paper {
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(38 92% 50% / 0.07), transparent 60%),
+      linear-gradient(to left, hsl(var(--border) / 0.7) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.7) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+  }
+  /* Soft radial gold glow for CTA bands / hero corners */
+  .bg-gold-bloom {
+    background: radial-gradient(ellipse 55% 70% at 85% 20%, hsl(45 96% 55% / 0.16), transparent 65%);
+  }
+  /* Gold text gradient — headlines only */
+  .text-gradient-gold {
+    background: linear-gradient(120deg, hsl(45 96% 58%) 0%, hsl(38 92% 52%) 55%, hsl(30 88% 48%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Elevated card surface */
+  .card-elevated {
+    @apply rounded-xl border bg-card shadow-[0_1px_2px_rgb(10_22_40/0.05),0_2px_10px_-2px_rgb(10_22_40/0.07)];
+  }
+  /* Hairline divider between navy sections */
+  .hairline-x {
+    background: linear-gradient(to left, transparent, hsl(45 96% 55% / 0.35), transparent);
+    height: 1px;
   }
 }

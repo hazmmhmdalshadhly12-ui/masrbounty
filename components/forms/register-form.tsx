@@ -270,7 +270,7 @@ export function RegisterForm({ next = '' }: { next?: string }) {
 
   if (pendingEmail) {
     return (
-      <div className="mx-auto mt-6 max-w-md space-y-4 rounded-xl border bg-card p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+      <div className="mx-auto mt-6 max-w-md space-y-4">
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
           تم إنشاء حسابك — أرسلنا رابط التفعيل إلى <b dir="ltr">{pendingEmail}</b>. أكّد بريدك ثم سجّل الدخول وستكمل إجاباتك تلقائيًا.
         </p>
@@ -294,7 +294,7 @@ export function RegisterForm({ next = '' }: { next?: string }) {
   );
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto max-w-md space-y-5 rounded-xl border bg-card p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 md:p-8" noValidate>
+    <form onSubmit={onSubmit} className="mx-auto max-w-md space-y-5" noValidate>
       <StepIndicator current={step} total={2} />
       {errBox}
 

@@ -17,10 +17,10 @@ function StatCell({ n, label }: { n: number; label: string }) {
   return (
     <div>
       <dt className="sr-only">{label}</dt>
-      <dd className="text-3xl font-black tabular-nums">
+      <dd className="text-3xl font-black tabular-nums text-amber-400">
         <span ref={ref}>{value}</span>
       </dd>
-      <dd className="mt-1 text-sm text-slate-400">{label}</dd>
+      <dd className="mt-1 text-sm text-navy-100/70">{label}</dd>
     </div>
   );
 }

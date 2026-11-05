@@ -6,9 +6,9 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        'rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-150 dark:border-slate-700/60 dark:bg-slate-900/60',
+        'rounded-xl border bg-card text-card-foreground shadow-card transition-all duration-200',
         // interactive hover lift — only when card contains an anchor/button or has data-interactive
-        'has-[a:hover]:shadow-md has-[a:hover]:-translate-y-0.5 has-[button:hover]:shadow-md hover:shadow-md',
+        'has-[a:hover]:shadow-lift has-[a:hover]:-translate-y-0.5 has-[button:hover]:shadow-lift hover:shadow-lift',
         className
       )}
       {...props}

@@ -33,27 +33,27 @@ export default async function LoginPage({
   const target = safeNext(next, '');
 
   return (
-    <div className="bg-slate-100 dark:bg-slate-950">
+    <div className="bg-muted/40 dark:bg-background">
       {/* Resolves GoTrue hash-fragment errors (#error=...) that never reach
           the server into visible messages (expired/reused recovery links). */}
       <AuthHashError />
-      <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-8 py-10 lg:grid-cols-2">
-        <div className="relative hidden overflow-hidden rounded-3xl bg-navy p-10 text-white lg:block">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.2),transparent_60%)]" />
+      <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-10 lg:grid-cols-2 lg:gap-14">
+        <div className="relative hidden overflow-hidden rounded-3xl border border-navy-800/60 bg-navy p-10 text-white shadow-lift lg:block">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
           <div className="relative">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-400 text-[#0a1628]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-navy-900 shadow-gold">
               <ShieldCheck className="h-6 w-6" strokeWidth={2.5} />
             </span>
             <h1 className="mt-6 text-3xl font-black leading-snug">
               مرحبًا بعودتك.
               <br />
-              <span className="text-slate-400">عملك ينتظرك.</span>
+              <span className="text-gradient-gold">عملك ينتظرك.</span>
             </h1>
             <ul className="mt-8 space-y-4">
               {perks.map(([Icon, text]) => (
-                <li key={text} className="flex items-center gap-3 text-slate-200">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-                    <Icon className="h-4 w-4 text-amber-400" />
+                <li key={text} className="flex items-center gap-3 text-navy-100/90">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                    <Icon className="h-5 w-5 text-amber-400" aria-hidden="true" />
                   </span>
                   {text}
                 </li>
@@ -61,20 +61,20 @@ export default async function LoginPage({
             </ul>
           </div>
         </div>
-        <Card className="mx-auto w-full max-w-md shadow-xl">
+        <Card className="mx-auto w-full max-w-md animate-fade-up shadow-lift">
           <CardContent className="p-8">
             <h2 className="text-2xl font-black">تسجيل الدخول</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               معندكش حساب؟{' '}
-              <Link href={target ? `/register?next=${encodeURIComponent(target)}` : '/register'} className="font-bold text-amber-600 underline">
+              <Link href={target ? `/register?next=${encodeURIComponent(target)}` : '/register'} className="font-bold text-primary underline underline-offset-4">
                 اعمل واحد مجانًا
               </Link>
             </p>
-            {error && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-            {ok && <p className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700">{ok}</p>}
+            {error && <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm font-medium text-destructive">{error}</p>}
+            {ok && <p className="mt-3 rounded-lg border border-success/30 bg-success/10 p-3 text-sm font-medium text-success">{ok}</p>}
             <LoginForm next={target} />
             <p className="mt-4 text-center text-sm">
-              <Link href="/forgot-password" className="text-muted-foreground underline">
+              <Link href="/forgot-password" className="text-muted-foreground underline underline-offset-4 hover:text-foreground">
                 نسيت كلمة السر؟
               </Link>
             </p>

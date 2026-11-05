@@ -3,6 +3,7 @@
 import { ShieldCheck, FileText, Wallet, Activity, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCountUp } from '@/hooks/use-count-up';
+import { cn } from '@/lib/utils';
 
 function Mini({ label, target, suffix = '' }: { label: string; target: number; suffix?: string }) {
   const { ref, value } = useCountUp(target);
@@ -32,12 +33,12 @@ export function HeroVisual({ programs, reports, researchers }: { programs: numbe
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-amber-400">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy text-amber-400">
                 <ShieldCheck className="h-4 w-4" />
               </span>
               <div>
                 <p className="text-sm font-black">لوحة الأمان</p>
-                <p className="flex items-center gap-1 text-[11px] text-emerald-600">
+                <p className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> الأنظمة مراقبة
                 </p>
               </div>
@@ -73,9 +74,13 @@ export function HeroVisual({ programs, reports, researchers }: { programs: numbe
               })}
             </div>
           </div>
-          <div className="flex h-16 items-end gap-1.5 rounded-lg border p-3" dir="ltr" aria-hidden>
+          <div className="flex h-16 items-end gap-1.5 rounded-lg border border-navy-700/50 p-3" dir="ltr" aria-hidden>
             {bars.map((h, i) => (
-              <span key={i} className="flex-1 rounded-sm bg-slate-900/80 dark:bg-slate-100/80" style={{ height: `${h}%` }} />
+              <span
+                key={i}
+                className={cn('flex-1 rounded-sm transition-all duration-300', i === bars.length - 1 ? 'bg-amber-400' : 'bg-amber-400/25 dark:bg-amber-400/20')}
+                style={{ height: `${h}%` }}
+              />
             ))}
           </div>
         </CardContent>
