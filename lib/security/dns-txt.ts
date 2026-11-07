@@ -47,7 +47,7 @@ async function resolveTxtWithStatus(host: string, timeoutMs = 6000): Promise<Res
     try {
       const res = await fetch(`${base}?name=${encodeURIComponent(name)}&type=TXT`, {
         headers: { accept: 'application/dns-json' },
-        cache: 'no-store',
+        // no `cache` field here — Cloudflare Workers throws on it
         signal: timeoutSignal(timeoutMs),
       });
       if (!res.ok) continue;

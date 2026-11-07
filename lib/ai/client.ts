@@ -114,7 +114,11 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
           max_tokens: opts.maxTokens ?? 1200,
           ...(opts.jsonMode ? { response_format: { type: 'json_object' } } : {}),
         }),
-        cache: 'no-store',
+        // NOTE: never add a `cache` field to this init — the Cloudflare Workers
+        // runtime throws "The 'cache' field on 'RequestInitializerDict' is not
+        // implemented" the moment a fetch init carries it (Node and Jest
+        // tolerate it, which is why unit tests do not catch this). POST
+        // requests are never cached by Next.js anyway.
         signal: controller.signal,
       });
       if (res.status === 429) {
