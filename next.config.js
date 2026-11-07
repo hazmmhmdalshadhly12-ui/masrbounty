@@ -25,6 +25,12 @@ const csp = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Inlined at BUILD time so the /admin/ai diagnostics panel can display which
+  // commit is actually serving traffic (Cloudflare sets CF_PAGES_COMMIT_SHA
+  // during Pages builds; empty outside Cloudflare → panel hides the chip).
+  env: {
+    NEXT_PUBLIC_DEPLOY_SHA: process.env.CF_PAGES_COMMIT_SHA || '',
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',

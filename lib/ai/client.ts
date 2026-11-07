@@ -58,6 +58,9 @@ export type ChatResult =
       message: string;
       /** Upstream HTTP status (number only — NEVER the response body). */
       httpStatus?: number;
+      /** Low-level failure detail for ADMIN diagnostics (URL errors, DNS).
+       *  Never contains the key — fetch errors cannot include headers. */
+      detail?: string;
     };
 
 /** 60s default; large non-idempotent generations pass their own longer value. */
@@ -89,6 +92,7 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
   let lastCode: AiErrorCode = 'upstream_error';
   let lastMessage = 'تعذر تنفيذ الطلب — أعد المحاولة بعد لحظات';
   let lastStatus: number | undefined = undefined;
+  let lastDetail: string | undefined = undefined;
 
   // Retries on transient failures (429 / 5xx / network), small backoff.
   // The caller decides how many — non-idempotent features should pass 0.
@@ -158,12 +162,19 @@ export async function aiChat(opts: ChatOptions): Promise<ChatResult> {
       } else {
         lastCode = 'upstream_error';
         lastMessage = 'تعذر الاتصال بخدمة الذكاء الاصطناعي — أعد المحاولة';
+        // Network-level detail (invalid URL, DNS failure, TLS) — admins see
+        // this in the diagnostics panel; it can never contain the API key.
+        lastDetail = (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 300);
       }
     } finally {
       clearTimeout(timer);
     }
   }
-  return lastStatus !== undefined
-    ? { ok: false, code: lastCode, message: lastMessage, httpStatus: lastStatus }
-    : { ok: false, code: lastCode, message: lastMessage };
+  return {
+    ok: false,
+    code: lastCode,
+    message: lastMessage,
+    ...(lastStatus !== undefined ? { httpStatus: lastStatus } : {}),
+    ...(lastDetail !== undefined ? { detail: lastDetail } : {}),
+  };
 }

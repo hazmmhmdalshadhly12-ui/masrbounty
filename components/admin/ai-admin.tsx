@@ -35,10 +35,14 @@ export type AiEnvDiagnosticsShape = {
   configured: boolean;
   keyVar: string;
   baseUrl: string;
+  chatEndpoint: string;
+  baseUrlVar: string;
+  rawBaseUrl: string;
   model: string;
   keyVarsPresent: Record<string, boolean>;
   baseUrlVarsPresent: Record<string, boolean>;
   modelVarPresent: boolean;
+  deploySha: string;
 };
 
 const FEATURES = [
@@ -48,7 +52,14 @@ const FEATURES = [
 
 function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
   const [testing, setTesting] = React.useState(false);
-  const [result, setResult] = React.useState<{ ok: boolean; interpretation: string; latencyMs?: number; httpStatus?: number } | null>(null);
+  const [result, setResult] = React.useState<{
+    ok: boolean;
+    interpretation: string;
+    latencyMs?: number;
+    httpStatus?: number;
+    detail?: string;
+    targetUrl?: string;
+  } | null>(null);
 
   async function runTest() {
     setTesting(true);
@@ -57,7 +68,14 @@ function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
     if (!res.ok) {
       toastError(res.error ?? 'فشل التشخيص');
     } else if (res.test) {
-      setResult({ ok: res.test.ok, interpretation: res.test.interpretation, latencyMs: res.test.latencyMs, httpStatus: res.test.httpStatus });
+      setResult({
+        ok: res.test.ok,
+        interpretation: res.test.interpretation,
+        latencyMs: res.test.latencyMs,
+        httpStatus: res.test.httpStatus,
+        detail: res.test.detail,
+        targetUrl: res.test.targetUrl,
+      });
     }
     setTesting(false);
   }
@@ -78,9 +96,18 @@ function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
           ) : (
             <span className="text-xs font-bold text-red-600">الخادم لا يرى أي متغير مفتاح</span>
           )}
+          {diag.deploySha && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+              <span dir="ltr">النسخة المنشورة: {diag.deploySha.slice(0, 7)}</span>
+            </Badge>
+          )}
         </div>
         <div className="grid gap-1 text-xs text-muted-foreground">
-          <span>عنوان الخدمة المستخدم: <span dir="ltr" className="tabular-nums">{diag.baseUrl || '—'}</span></span>
+          <span>
+            القيمة المخزنة في Cloudflare (<code dir="ltr">{diag.baseUrlVar || '— لم يُضف متغير عنوان —'}</code>):{' '}
+            <span dir="ltr" className="tabular-nums">{diag.rawBaseUrl || '— (افتراضي المزود) —'}</span>
+          </span>
+          <span>الرابط بعد التصحيح التلقائي: <span dir="ltr" className="tabular-nums">{diag.baseUrl || '—'}</span></span>
           <span>النموذج الافتراضي: <span dir="ltr" className="tabular-nums">{diag.model || '—'}</span></span>
         </div>
         <div className="space-y-1.5">
@@ -105,9 +132,15 @@ function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
           )}
         </div>
         {result && (
-          <p className={`rounded-md border p-3 text-xs leading-relaxed ${result.ok ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'}`}>
-            {result.interpretation}
-          </p>
+          <div className={`space-y-1.5 rounded-md border p-3 text-xs leading-relaxed ${result.ok ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300'}`}>
+            <p>{result.interpretation}</p>
+            {result.targetUrl && (
+              <p className="text-muted-foreground">الرابط المستهدف للاختبار: <span dir="ltr" className="tabular-nums">{result.targetUrl}</span></p>
+            )}
+            {result.detail && (
+              <p className="text-muted-foreground" dir="ltr">{result.detail}</p>
+            )}
+          </div>
         )}
         <p className="text-xs text-muted-foreground">تنبيه: أي تغيير على متغيرات البيئة في Cloudflare Pages لا يسري إلا بعد إعادة نشر جديدة للموقع.</p>
       </CardContent>

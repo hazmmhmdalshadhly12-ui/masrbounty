@@ -48,34 +48,35 @@ export async function updateAiSettingsAction(input: AiSettingsUpdate): Promise<{
  *     upstream HTTP status (401/404/429/5xx/timeout) with an Arabic
  *     interpretation. Response bodies are never echoed.
  */
-import { getAiEnvDiagnostics, getAiEnvConfig } from '@/lib/ai/config';
+import { getAiEnvDiagnostics, getAiEnvConfig, normalizeBaseUrl } from '@/lib/ai/config';
 import { aiChat } from '@/lib/ai/client';
 
 export type AiDiagnosticsResult = {
   ok: boolean;
   error?: string;
-  env: {
-    configured: boolean;
-    keyVar: string;
-    baseUrl: string;
-    model: string;
-    keyVarsPresent: Record<string, boolean>;
-    baseUrlVarsPresent: Record<string, boolean>;
-    modelVarPresent: boolean;
-  };
+  env: ReturnType<typeof getAiEnvDiagnostics>;
   test?: {
     ok: boolean;
     code?: string;
     httpStatus?: number;
+    /** Low-level network detail (invalid URL / DNS) — never contains the key. */
+    detail?: string;
+    /** Exact URL the test POSTed to (admin display only, not a secret). */
+    targetUrl: string;
     latencyMs: number;
     model: string;
     interpretation: string;
   };
 };
 
-function interpretFailure(code: string | undefined, httpStatus: number | undefined, keyVar: string): string {
+function interpretFailure(
+  code: string | undefined,
+  httpStatus: number | undefined,
+  keyVar: string,
+  detail?: string
+): string {
   if (code === 'not_configured' && !keyVar) {
-    return 'الخادم لا يرى أي متغير مفتاح من الأسماء المدعومة (AI_API_KEY أو OPENAI_API_KEY أو ZAI_API_KEY...). أضف المفتاح بأحد هذه الأسماء ثم أعد النشر.';
+    return 'الخادم لا يرى أي متغير مفتاح من الأسماء المدعومة (AI_API_KEY أو OPENAI_API_KEY أو GEMINI_API_KEY...). أضف المفتاح بأحد هذه الأسماء ثم أعد النشر.';
   }
   if (httpStatus === 401 || httpStatus === 403 || code === 'not_configured') {
     return 'المزود رفض المفتاح (' + (httpStatus ?? 401) + '). المفتاح غير صالح، أو منسوخ من مزود مختلف عن AI_API_BASE_URL الحالي.';
@@ -92,8 +93,16 @@ function interpretFailure(code: string | undefined, httpStatus: number | undefin
   if (code === 'timeout') {
     return 'استغرق الطلب أكثر من 25 ثانية (انتهاء مهلة). المزود بطيء أو يوجد حجب شبكي على المسار.';
   }
+  if (code === 'upstream_error' && httpStatus && httpStatus >= 500) {
+    return 'المزود رجع خطأ خادم (HTTP ' + httpStatus + ') — مشكلة مؤقتة لدى المزود نفسه. أعد المحاولة بعد دقائق.';
+  }
   if (code === 'upstream_error') {
-    return 'تعذر الوصول للمزود نهائيًا. تحقق من صحة AI_API_BASE_URL (مع https://) ومن أن المزود متاح.';
+    const tech = detail ? ' السبب التقني: ' + detail : '';
+    return (
+      'فشل الاتصال الشبكي بالمزود قبل وصول أي رد — غالبًا قيمة AI_API_BASE_URL غير صالحة (فراغ أو خطأ إملائي في النطاق) أو النطاق غير موجود.' +
+      tech +
+      ' راجع «القيمة المخزنة» و«الرابط المستهدف» في الأعلى وقارنهما.'
+    );
   }
   return 'فشل غير معروف من المزود' + (httpStatus ? ' (HTTP ' + httpStatus + ')' : '') + ' — أعد المحاولة وراقب سجل الطلبات بالأسفل.';
 }
@@ -105,6 +114,25 @@ export async function aiDiagnosticsAction(runTest: boolean): Promise<AiDiagnosti
     const result: AiDiagnosticsResult = { ok: true, env: diag };
     if (runTest) {
       const env = getAiEnvConfig();
+      const targetUrl = `${diag.baseUrl}/chat/completions`;
+      // Pre-validate so a malformed stored URL produces a precise message
+      // instead of an opaque network failure.
+      try {
+        new URL(normalizeBaseUrl(targetUrl));
+      } catch {
+        return {
+          ...result,
+          test: {
+            ok: false,
+            code: 'upstream_error',
+            targetUrl,
+            latencyMs: 0,
+            model: env.model,
+            interpretation:
+              'قيمة AI_API_BASE_URL المخزنة في Cloudflare لا تشكّل رابطًا صالحًا («الرابط المستهدف» بالأعلى). صحّح القيمة — يجب أن تبدأ بـ https:// وبدون فراغات — ثم أعد النشر.',
+          },
+        };
+      }
       const chat = await aiChat({
         messages: [{ role: 'user', content: 'ping — reply with the single word: pong' }],
         maxTokens: 16,
@@ -114,30 +142,26 @@ export async function aiDiagnosticsAction(runTest: boolean): Promise<AiDiagnosti
         model: env.model,
       });
       result.test = chat.ok
-        ? { ok: true, latencyMs: chat.latencyMs, model: chat.model, interpretation: 'الاتصال بخدمة الذكاء الاصطناعي يعمل — جرب التوليد الآن.' }
+        ? {
+            ok: true,
+            targetUrl,
+            latencyMs: chat.latencyMs,
+            model: chat.model,
+            interpretation: 'الاتصال بخدمة الذكاء الاصطناعي يعمل — جرب التوليد الآن.',
+          }
         : {
             ok: false,
             code: chat.code,
             httpStatus: chat.httpStatus,
+            detail: chat.detail,
+            targetUrl,
             latencyMs: 0,
             model: env.model,
-            interpretation: interpretFailure(chat.code, chat.httpStatus, diag.keyVar),
+            interpretation: interpretFailure(chat.code, chat.httpStatus, diag.keyVar, chat.detail),
           };
     }
     return result;
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : 'خطأ غير متوقع',
-      env: {
-        configured: false,
-        keyVar: '',
-        baseUrl: '',
-        model: '',
-        keyVarsPresent: {},
-        baseUrlVarsPresent: {},
-        modelVarPresent: false,
-      },
-    };
+    return { ok: false, error: e instanceof Error ? e.message : 'خطأ غير متوقع', env: getAiEnvDiagnostics() };
   }
 }
