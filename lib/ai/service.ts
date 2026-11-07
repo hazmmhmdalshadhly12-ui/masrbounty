@@ -1,7 +1,7 @@
 /**
  * Central AI gate for the whole platform — SERVER ONLY.
  *
- * Every AI call from any feature funnels through runAiFeature(), which:
+ * Every   AI call from any feature funnels through runAiFeature(), which:
  *  1. refuses when Cloudflare secrets are missing (clear admin hint, no crash);
  *  2. honours the admin toggle + per-feature allow-list (ai_settings table);
  *  3. enforces per-user daily / monthly quotas and per-minute burst limits;
