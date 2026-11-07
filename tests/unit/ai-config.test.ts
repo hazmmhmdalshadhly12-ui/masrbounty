@@ -82,6 +82,46 @@ describe('lib/ai/config — env resolution', () => {
     expect(normalizeBaseUrl('https://api.x.com/v1/chat/completions///')).toBe('https://api.x.com/v1');
   });
 
+  it('repairs a bare Gemini host to the OpenAI-compat path', () => {
+    expect(normalizeBaseUrl('https://generativelanguage.googleapis.com')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    );
+  });
+
+  it('repairs a Gemini /v1beta or /v1 URL (native generateContent root) to the OpenAI-compat path', () => {
+    expect(normalizeBaseUrl('https://generativelanguage.googleapis.com/v1beta')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    );
+    expect(normalizeBaseUrl('https://generativelanguage.googleapis.com/v1')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    );
+  });
+
+  it('is idempotent for an already-correct Gemini OpenAI-compat URL', () => {
+    expect(normalizeBaseUrl('https://generativelanguage.googleapis.com/v1beta/openai')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    );
+    expect(normalizeBaseUrl('https://generativelanguage.googleapis.com/v1beta/openai/')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    );
+  });
+
+  it('prefixes https:// when the scheme was omitted', () => {
+    expect(normalizeBaseUrl('generativelanguage.googleapis.com')).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/openai'
+    );
+    expect(normalizeBaseUrl('api.openai.com/v1')).toBe('https://api.openai.com/v1');
+  });
+
+  it('infers Gemini provider defaults from a GEMINI_API_KEY variable', () => {
+    process.env.GEMINI_API_KEY = 'k';
+    const c = getAiEnvConfig();
+    expect(c.configured).toBe(true);
+    expect(c.keyVar).toBe('GEMINI_API_KEY');
+    expect(c.baseUrl).toBe('https://generativelanguage.googleapis.com/v1beta/openai');
+    expect(c.model).toBe('gemini-2.5-flash');
+  });
+
   it('AI_MODEL overrides the provider default model', () => {
     process.env.ZAI_API_KEY = 'k';
     process.env.AI_MODEL = 'glm-4-plus';

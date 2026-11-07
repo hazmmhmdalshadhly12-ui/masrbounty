@@ -377,11 +377,11 @@ export async function generateLessonAiAction(
       feature: 'lesson_generator',
       systemPrompt,
       userPrompt,
-      maxTokens: 3500,
+      maxTokens: 8000, // thinking models (e.g. Gemini 2.5) spend output tokens on reasoning too
       temperature: 0.5,
       jsonMode: true,
       retries: 0, // (2) non-idempotent — never silently re-run the generation
-      timeoutMs: 120_000, // a 3500-token JSON lesson needs well over 60s on slow providers
+      timeoutMs: 120_000, // a full JSON lesson needs well over 60s on slow providers
     });
     if (!res.ok) return { ok: false, error: res.message, setupHint: res.code === 'not_configured' };
 
