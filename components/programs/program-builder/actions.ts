@@ -254,7 +254,8 @@ export async function verifyDomainFileAction(domain: string, token: string): Pro
   let netFailures = 0;
   for (const { url } of urls) {
     try {
-      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      // no `cache` field — Cloudflare Workers throws on it
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) {
         if (res.status === 404) saw404 = true;
         else sawOtherHttp = res.status;

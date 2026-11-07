@@ -75,7 +75,8 @@ async function lookupFile(domain: string, token: string): Promise<boolean> {
   ];
   for (const url of urls) {
     try {
-      const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      // no `cache` field — Cloudflare Workers throws on it
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) continue;
       const text = await res.text();
       if (text.split(/\r?\n/).some((line) => line.trim() === sentence)) return true;
