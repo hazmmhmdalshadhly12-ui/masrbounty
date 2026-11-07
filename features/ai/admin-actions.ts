@@ -81,7 +81,7 @@ function interpretFailure(code: string | undefined, httpStatus: number | undefin
     return 'المزود رفض المفتاح (' + (httpStatus ?? 401) + '). المفتاح غير صالح، أو منسوخ من مزود مختلف عن AI_API_BASE_URL الحالي.';
   }
   if (httpStatus === 404) {
-    return 'المسار أو النموذج غير موجود (404). تحقق أن AI_API_BASE_URL هو جذر التوافق مع OpenAI (ينتهي بـ /v1 أو ما يقابله) وأن اسم النموذج صحيح لهذا المزود.';
+    return 'المسار أو النموذج غير موجود (404). تحقق أن AI_API_BASE_URL هو جذر التوافق مع OpenAI (ينتهي بـ /v1 أو ما يقابله) وأن اسم النموذج صحيح لهذا المزود. لمزود Google Gemini العنوان الصحيح: https://generativelanguage.googleapis.com/v1beta/openai (النظام يصححه تلقائيًا الآن).';
   }
   if (httpStatus === 400) {
     return 'الطلب مرفوض (400) — غالبًا اسم النموذج لا يناسب هذا المزود. صحّح AI_MODEL أو النموذج الافتراضي من هذه الصفحة.';

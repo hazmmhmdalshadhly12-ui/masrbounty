@@ -48,6 +48,8 @@ export const AI_KEY_VARS = [
   'OPENAI_API_KEY',
   'ZAI_API_KEY',
   'Z_AI_API_KEY',
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
   'OPENROUTER_API_KEY',
   'GROQ_API_KEY',
 ] as const;
@@ -62,6 +64,8 @@ const PROVIDER_DEFAULTS: Record<string, ProviderDefault> = {
   OPENAI_API_KEY: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   ZAI_API_KEY: { baseUrl: 'https://api.z.ai/api/paas/v4', model: 'glm-4.6' },
   Z_AI_API_KEY: { baseUrl: 'https://api.z.ai/api/paas/v4', model: 'glm-4.6' },
+  GEMINI_API_KEY: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' },
+  GOOGLE_API_KEY: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' },
   OPENROUTER_API_KEY: { baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
   GROQ_API_KEY: { baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
 };
@@ -70,11 +74,26 @@ function readEnv(name: string): string {
   return (process.env as Record<string, string | undefined>)[name]?.trim() ?? '';
 }
 
-/** Strip copy-paste artifacts: trailing slashes and the endpoint path itself. */
+/**
+ * Strip copy-paste artifacts and repair the most common provider mistakes:
+ *  - trailing slashes and a trailing `/chat/completions` (the client appends
+ *    the endpoint path itself);
+ *  - a missing scheme (copied from docs without https://) → default https;
+ *  - Google Gemini: ONLY `<host>/v1beta/openai` speaks the OpenAI protocol —
+ *    a bare host or /v1beta (the native generateContent API) would 404.
+ */
 export function normalizeBaseUrl(raw: string): string {
   let url = raw.trim().replace(/\/+$/, '');
   if (url.toLowerCase().endsWith('/chat/completions')) url = url.slice(0, -'/chat/completions'.length).replace(/\/+$/, '');
-  return url;
+  if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (/^https:\/\/generativelanguage\.googleapis\.com/i.test(url)) {
+    // strip a trailing version path WITH or WITHOUT the /openai suffix, then
+    // rebuild the exact OpenAI-compat root (idempotent for correct inputs).
+    url = url.replace(/\/(v1alpha|v1beta|v1)(\/openai)?\/?$/i, '');
+    url = url.replace(/\/openai\/?$/i, '');
+    url = `${url}/v1beta/openai`;
+  }
+  return url.replace(/\/+$/, '');
 }
 
 function resolveCredentials(): AiCredentials {
@@ -152,4 +171,4 @@ export function getAiEnvDiagnostics(): {
 
 /** Setup guidance shown to ADMINS when secrets are missing — no site crash. */
 export const AI_SETUP_HINT_AR =
-  'لم يتم التعرف على مفتاح الذكاء الاصطناعي بعد. الحلول الأكثر شيوعًا: (1) أضف المتغير بالاسم الدقيق AI_API_KEY في Cloudflare Pages ← Settings ← Environment variables (الاسموليات المدعومة أيضًا: OPENAI_API_KEY و ZAI_API_KEY و OPENROUTER_API_KEY و GROQ_API_KEY). (2) إن كنت تستخدم مزودًا غير OpenAI فأضف AI_API_BASE_URL (مثل https://api.z.ai/api/paas/v4) و AI_MODEL. (3) أي تغيير على متغيرات البيئة يتطلب إعادة نشر جديدة حتى تظهر للدوال.';
+  'لم يتم التعرف على مفتاح الذكاء الاصطناعي بعد. الحلول الأكثر شيوعًا: (1) أضف المتغير بالاسم الدقيق AI_API_KEY في Cloudflare Pages ← Settings ← Environment variables (الأسماء المدعومة أيضًا: OPENAI_API_KEY و GEMINI_API_KEY و ZAI_API_KEY و OPENROUTER_API_KEY و GROQ_API_KEY). (2) إن كنت تستخدم مزودًا غير OpenAI فأضف AI_API_BASE_URL — لمزود Google Gemini العنوان الصحيح: https://generativelanguage.googleapis.com/v1beta/openai — و AI_MODEL (مثل gemini-2.5-flash). (3) أي تغيير على متغيرات البيئة يتطلب إعادة نشر جديدة حتى تظهر للدوال.';

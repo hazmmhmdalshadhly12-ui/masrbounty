@@ -183,7 +183,7 @@ export async function aiReportAssistAction(
       feature: 'report_assistant',
       systemPrompt: NO_FABRICATION_AR + '\n' + TASK_PROMPTS[task],
       userPrompt: buildUserPrompt(task, ctx),
-      maxTokens: 1400,
+      maxTokens: 2000, // headroom for thinking models (Gemini 2.5 counts reasoning tokens as output)
       temperature: 0.3,
       jsonMode: true,
       timeoutMs: 90_000, // structured JSON on slower providers can exceed 60s
