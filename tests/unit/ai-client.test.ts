@@ -136,6 +136,17 @@ describe('lib/ai/client — aiChat', () => {
     expect(headers.authorization).toBe('Bearer alias-key-do-not-leak');
   });
 
+  it('exposes network-level detail on fetch failure (for admin diagnostics, no key)', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Fetch failed: name resolution failed')) as unknown as typeof fetch;
+    const res = await aiChat({ messages: [{ role: 'user', content: 'x' }], retries: 0 });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe('upstream_error');
+      expect(res.detail).toContain('name resolution failed');
+      expect(res.detail).not.toContain('test-secret-key-do-not-leak');
+    }
+  });
+
   it('treats empty choices as bad_response', async () => {
     mockFetchOnce(200, { choices: [] });
     const res = await aiChat({ messages: [{ role: 'user', content: 'x' }] });

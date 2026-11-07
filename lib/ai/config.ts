@@ -40,6 +40,10 @@ export type AiCredentials = {
   model: string;
   /** Env var name the key came from ('' when none matched). */
   keyVar: string;
+  /** Env var name the base URL came from ('' when inferred from the provider). */
+  baseUrlVar: string;
+  /** Raw stored base-URL value (trimmed, pre-normalization) — not a secret. */
+  rawBaseUrl: string;
 };
 
 /** Accepted key variable names, in priority order. */
@@ -110,17 +114,19 @@ function resolveCredentials(): AiCredentials {
   const provider = PROVIDER_DEFAULTS[keyVar] ?? PROVIDER_DEFAULTS['AI_API_KEY'];
 
   let explicitBase = '';
+  let baseUrlVar = '';
   for (const name of AI_BASE_URL_VARS) {
     const v = readEnv(name);
     if (v) {
       explicitBase = v;
+      baseUrlVar = name;
       break;
     }
   }
 
   const baseUrl = explicitBase ? normalizeBaseUrl(explicitBase) : provider.baseUrl;
   const model = readEnv('AI_MODEL') || provider.model;
-  return { apiKey, baseUrl, model, keyVar };
+  return { apiKey, baseUrl, model, keyVar, baseUrlVar, rawBaseUrl: explicitBase };
 }
 
 export function getAiCredentials(): AiCredentials {
@@ -148,24 +154,36 @@ export function getAiEnvDiagnostics(): {
   configured: boolean;
   keyVar: string;
   baseUrl: string;
+  /** Exact URL the client will POST to (diagnostics display only). */
+  chatEndpoint: string;
+  baseUrlVar: string;
+  /** Raw stored value before normalization (catches typos/stray characters). */
+  rawBaseUrl: string;
   model: string;
   keyVarsPresent: Record<string, boolean>;
   baseUrlVarsPresent: Record<string, boolean>;
   modelVarPresent: boolean;
+  /** Deployed commit SHA (inlined at build time; '' outside Cloudflare). */
+  deploySha: string;
 } {
   const creds = resolveCredentials();
   const keyVarsPresent: Record<string, boolean> = {};
   for (const name of AI_KEY_VARS) keyVarsPresent[name] = readEnv(name).length > 0;
   const baseUrlVarsPresent: Record<string, boolean> = {};
   for (const name of AI_BASE_URL_VARS) baseUrlVarsPresent[name] = readEnv(name).length > 0;
+  const deploySha = (process.env as Record<string, string | undefined>)['NEXT_PUBLIC_DEPLOY_SHA']?.trim() ?? '';
   return {
     configured: creds.apiKey.length > 0 && creds.baseUrl.length > 0,
     keyVar: creds.keyVar,
     baseUrl: creds.baseUrl,
+    chatEndpoint: `${creds.baseUrl}/chat/completions`,
+    baseUrlVar: creds.baseUrlVar,
+    rawBaseUrl: creds.rawBaseUrl,
     model: creds.model,
     keyVarsPresent,
     baseUrlVarsPresent,
     modelVarPresent: readEnv('AI_MODEL').length > 0,
+    deploySha,
   };
 }
 
