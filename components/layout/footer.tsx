@@ -13,7 +13,7 @@ const icons: Record<string, typeof Twitter> = {
 const cols = [
   { title: 'المنصة', links: [['البرامج', '/programs'], ['الشركات', '/companies'], ['الباحثون', '/researchers'], ['المتصدرين', '/leaderboard']] },
   { title: 'الموارد', links: [['من نحن', '/about'], ['المدونة', '/blog'], ['المساعدة', '/help'], ['الأسئلة الشائعة', '/faq'], ['تواصل معنا', '/contact']] },
-  { title: 'قانوني', links: [['الأمان', '/security'], ['شروط الخدمة', '/terms'], ['سياسة الخصوصية', '/privacy'], ['البحث', '/search']] },
+  { title: 'قانوني', links: [['مركز السياسات', '/legal'], ['شروط الاستخدام', '/legal/terms-of-service'], ['سياسة الخصوصية', '/legal/privacy-policy'], ['الإفصاح المسؤول', '/legal/responsible-disclosure'], ['الأنشطة المحظورة', '/legal/prohibited-activities'], ['الأمان', '/security']] },
   { title: 'الحساب', links: [['تسجيل الدخول', '/login'], ['إنشاء حساب', '/register'], ['لوحة التحكم', '/dashboard'], ['قاعة المشاهير', '/hall-of-fame'], ['الاستئناف', '/appeal']] },
 ];
 

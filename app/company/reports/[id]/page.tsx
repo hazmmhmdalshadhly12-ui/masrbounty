@@ -1,7 +1,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect, notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
-import { triageReportAction, awardBountyAction, changeSeverityAction, markDuplicateAction, toggleLabelAction } from '@/features/company/services';
+import { triageReportAction, changeSeverityAction, markDuplicateAction, toggleLabelAction } from '@/features/company/services';
+import { RewardApproval } from '@/components/company/reward-approval';
 import { assignReportAction as legacyAssign, unassignReportAction as legacyUnassign } from '@/features/company/services';
 import { assignReport, unassignReport } from '@/services/assignment';
 import { addCommentAction } from '@/features/reports/services';
@@ -91,6 +92,26 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
   const { data: comments } = await supabase.from('report_comments').select('id,body,is_internal,created_at,profiles!inner(username)').eq('report_id', id).order('created_at');
   const { data: dups } = await supabase.from('report_duplicates').select('id,duplicate_of').eq('report_id', id);
 
+  // Smart-wallet data for the reward approval flow (spec A): effective
+  // commission rate, available balance, and any locked-in reward.
+  let rateBp: number | null = null;
+  let availableMinor: number | null = null;
+  let rewardData: unknown = null;
+  let canAct = false;
+  if (companyId && user.user) {
+    const [{ data: roleRow }, { data: rateRow }, { data: walletRow }, { data: rewardRow }] = await Promise.all([
+      supabase.from('company_members').select('role').eq('company_id', companyId).eq('user_id', user.user.id).maybeSingle(),
+      supabase.rpc('get_effective_commission_rate', { p_company: companyId }),
+      supabase.from('company_wallets').select('available_balance_minor').eq('company_id', companyId).maybeSingle(),
+      supabase.from('bounty_rewards').select('*').eq('report_id', id).maybeSingle(),
+    ]);
+    const role = (roleRow as { role: string } | null)?.role ?? null;
+    canAct = ['owner', 'admin', 'finance'].includes(role ?? '');
+    if (rateRow !== null && rateRow !== undefined) rateBp = rateRow as unknown as number;
+    availableMinor = (walletRow as { available_balance_minor: number } | null)?.available_balance_minor ?? 0;
+    rewardData = rewardRow;
+  }
+
   return (
     <div className="container py-8 max-w-3xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -117,7 +138,7 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
       <Card><CardContent className="p-4 space-y-2"><p>{report.description}</p><p><b>Impact:</b> {report.impact}</p><p><b>Repro:</b> {report.reproduction_steps}</p></CardContent></Card>
       <Card><CardHeader><CardTitle>Triage</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {['triaged', 'accepted', 'resolved', 'duplicate', 'not_applicable', 'closed'].map((s) => (
+          {['under_review', 'need_more_info', 'triaged', 'accepted', 'rejected', 'resolved', 'duplicate', 'not_applicable', 'closed'].map((s) => (
             <form key={s} action={triageReportAction.bind(null, report.id, s)}>
               <Button size="sm" variant="outline" type="submit" aria-label={`تغيير الحالة إلى ${s}`} className="focus-visible:ring-2">{s}</Button>
             </form>
@@ -186,14 +207,14 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
           <p className="mt-2 text-xs text-muted-foreground">اضغط الوسم لإضافته أو إزالته.</p>
         </CardContent></Card>
       </div>
-      <Card><CardHeader><CardTitle>Award bounty (server-side, credits wallet)</CardTitle></CardHeader>
-        <CardContent>
-          <form action={awardBountyAction.bind(null, report.id)} className="flex flex-col gap-2 sm:flex-row">
-            <Input name="amount" type="number" min={0} required placeholder="Amount EGP" aria-label="مبلغ المكافأة بالجنيه" className="flex-1" />
-            <Button type="submit" aria-label="منح المكافأة">Award</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <RewardApproval
+        reportId={report.id}
+        reportStatus={report.status}
+        rateBp={rateBp}
+        availableMinor={availableMinor}
+        existingReward={(rewardData as unknown as import('@/types/wallet').BountyReward | null) ?? null}
+        canAct={canAct}
+      />
       <Card><CardHeader><CardTitle>التعليقات ({comments?.length ?? 0})</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {((comments ?? []) as unknown as { id: string; body: string; is_internal: boolean; created_at: string; profiles: { username: string } }[]).map((c) => (

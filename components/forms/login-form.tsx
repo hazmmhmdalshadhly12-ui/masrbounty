@@ -69,12 +69,23 @@ export function LoginForm({ next = '' }: { next?: string }) {
         setError('المتصفح رفض حفظ جلسة الدخول — تأكد أن الرابط يبدأ بـ https (قفل الأمان) وعطّل مانع الإعلانات/التتبع ثم حاول مجددًا');
         return;
       }
-      // Role-aware landing (?next= wins); hard navigation carries the cookies.
-      if (next) {
-        window.location.assign(target);
-        return;
+      // Legal gate: outstanding policy re-acceptances block the dashboards.
+      // Versions + records are resolved server-side; nothing is guessed here.
+      let landing = target;
+      if (!next && data.user) {
+        landing = await roleHome(supabase, data.user.id);
       }
-      window.location.assign(await roleHome(supabase, data.user.id));
+      try {
+        const { data: required } = await supabase.rpc('get_required_legal_docs', { p_user: data.user?.id ?? null });
+        if ((required ?? []).length > 0) {
+          window.location.assign(`/legal/consent?next=${encodeURIComponent(landing)}`);
+          return;
+        }
+      } catch {
+        /* gate check must never block login on transient errors */
+      }
+      // Role-aware landing (?next= wins); hard navigation carries the cookies.
+      window.location.assign(landing);
     } catch {
       setError('تعذر تسجيل الدخول حاليًا — حاول لاحقًا');
     } finally {

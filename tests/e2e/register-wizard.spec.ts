@@ -2,14 +2,15 @@ import { expect, test } from '@playwright/test';
 
 /**
  * Registration wizard (UI-level only — no real accounts are created).
- * Verifies the two-step flow, progress indicator, role-card switching and
+ * Verifies the three-step flow (account -> personalization -> legal &
+ * security agreement), progress indicator, role-card switching and
  * per-step validation blocking.
  */
 test.describe('register wizard', () => {
   test('renders step 1 with role cards and progress indicator', async ({ page }) => {
     await page.goto('/register');
     await expect(page.getByRole('heading', { name: /حساب جديد/ })).toBeVisible();
-    await expect(page.getByText('الخطوة 1 من 2')).toBeVisible();
+    await expect(page.getByText('الخطوة 1 من 3')).toBeVisible();
     const radios = page.getByRole('radiogroup', { name: 'نوع الحساب' });
     await expect(radios.getByRole('radio', { name: /باحث أمني/ })).toBeVisible();
     await expect(radios.getByRole('radio', { name: /شركة/ })).toBeVisible();
@@ -20,7 +21,7 @@ test.describe('register wizard', () => {
     await page.getByRole('button', { name: /متابعة للتخصيص/ }).click();
     // invalid values -> error summary, still on step 1
     await expect(page.getByText(/بيانات غير صالحة/)).toBeVisible();
-    await expect(page.getByText('الخطوة 1 من 2')).toBeVisible();
+    await expect(page.getByText('الخطوة 1 من 3')).toBeVisible();
   });
 
   test('valid step-1 data advances to the researcher personalization step', async ({ page }) => {
@@ -32,7 +33,7 @@ test.describe('register wizard', () => {
     await page.getByLabel('كلمة السر (8+ أحرف)').fill('S3curePass!');
     await page.getByLabel('تأكيد كلمة السر').fill('S3curePass!');
     await page.getByRole('button', { name: /متابعة للتخصيص/ }).click();
-    await expect(page.getByText('الخطوة 2 من 2')).toBeVisible();
+    await expect(page.getByText('الخطوة 2 من 3')).toBeVisible();
     // researcher personalization questions are visible
     await expect(page.getByText('مستوى خبرتك')).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'مستوى الخبرة' })).toBeVisible();
@@ -50,8 +51,32 @@ test.describe('register wizard', () => {
     await page.getByLabel('كلمة السر (8+ أحرف)').fill('S3curePass!');
     await page.getByLabel('تأكيد كلمة السر').fill('S3curePass!');
     await page.getByRole('button', { name: /متابعة للتخصيص/ }).click();
-    await expect(page.getByText('الخطوة 2 من 2')).toBeVisible();
+    await expect(page.getByText('الخطوة 2 من 3')).toBeVisible();
     await expect(page.getByLabel('اسم الشركة')).toBeVisible();
     await expect(page.getByLabel('حجم الشركة')).toBeVisible();
+  });
+
+  test('step 3 legal & security agreement gates completion until all five checks', async ({ page }) => {
+    await page.goto('/register');
+    await page.getByLabel('اسم المستخدم').fill('e2e_legal');
+    await page.getByLabel('الاسم الكامل').fill('اختبار الموافقة');
+    await page.getByLabel('البريد الإلكتروني').fill('e2e-legal@example.com');
+    await page.getByLabel('رقم الهاتف').fill('01055555555');
+    await page.getByLabel('كلمة السر (8+ أحرف)').fill('S3curePass!');
+    await page.getByLabel('تأكيد كلمة السر').fill('S3curePass!');
+    await page.getByRole('button', { name: /متابعة للتخصيص/ }).click();
+    await expect(page.getByText('الخطوة 2 من 3')).toBeVisible();
+    await page.getByRole('button', { name: /متابعة للموافقة القانونية/ }).click();
+    await expect(page.getByText('الخطوة 3 من 3')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'الاتفاقية القانونية والأمنية' })).toBeVisible();
+    // submit locked until ALL five mandatory checks are ticked
+    const submit = page.getByRole('button', { name: /أوافق وأكمل التسجيل/ });
+    await expect(submit).toBeDisabled();
+    const boxes = page.locator('input[type=checkbox]');
+    await expect(boxes).toHaveCount(5);
+    for (let i = 0; i < 4; i++) await boxes.nth(i).check();
+    await expect(submit).toBeDisabled();
+    await boxes.nth(4).check();
+    await expect(submit).toBeEnabled();
   });
 });
