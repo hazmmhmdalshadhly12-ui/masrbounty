@@ -17,7 +17,9 @@ const settingsSchema = z.object({
   per_minute_limit: z.coerce.number().int().min(1).max(120),
   monthly_budget_requests: z.coerce.number().int().min(1).max(10_000_000),
   allowed_features: z.array(z.enum(['report_assistant', 'lesson_generator'])),
-  default_model: z.string().trim().max(120).nullable(),
+  // NOTE: default_model is intentionally NOT part of this schema — the model
+  // choice is owned exclusively by aiSetDefaultModelAction (model picker
+  // card), so a settings save can never clobber the admin's model selection.
 });
 
 export type AiSettingsUpdate = z.input<typeof settingsSchema>;
@@ -48,13 +50,18 @@ export async function updateAiSettingsAction(input: AiSettingsUpdate): Promise<{
  *     upstream HTTP status (401/404/429/5xx/timeout) with an Arabic
  *     interpretation. Response bodies are never echoed.
  */
-import { getAiEnvDiagnostics, getAiEnvConfig, normalizeBaseUrl } from '@/lib/ai/config';
+import { getAiEnvDiagnostics, getAiEnvConfig, normalizeBaseUrl, getAiCredentials } from '@/lib/ai/config';
 import { aiChat } from '@/lib/ai/client';
+import { resolveEffectiveAiModel } from '@/lib/ai/service';
+import { fetchProviderModels, parseModelsList, isValidModelName } from '@/lib/ai/models';
 
 export type AiDiagnosticsResult = {
   ok: boolean;
   error?: string;
   env: ReturnType<typeof getAiEnvDiagnostics>;
+  /** The model the next real AI call would use + where it came from. */
+  activeModel: string;
+  modelSource: 'admin' | 'env';
   test?: {
     ok: boolean;
     code?: string;
@@ -82,7 +89,7 @@ function interpretFailure(
     return 'المزود رفض المفتاح (' + (httpStatus ?? 401) + '). المفتاح غير صالح، أو منسوخ من مزود مختلف عن AI_API_BASE_URL الحالي.';
   }
   if (httpStatus === 404) {
-    return 'المسار أو النموذج غير موجود (404). تحقق أن AI_API_BASE_URL هو جذر التوافق مع OpenAI (ينتهي بـ /v1 أو ما يقابله) وأن اسم النموذج صحيح لهذا المزود. لمزود Google Gemini العنوان الصحيح: https://generativelanguage.googleapis.com/v1beta/openai (النظام يصححه تلقائيًا الآن).';
+    return 'المسار أو النموذج غير موجود (404). غالبًا اسم النموذج لا يوفره مفتاحك — استخدم بطاقة «اختيار نموذج الذكاء الاصطناعي» في هذه الصفحة: اضغط «جلب النماذج المتاحة» واختر نموذجًا من القائمة الفعلية لمفتاحك. إن بقي 404 بعد اختيار نموذج من القائمة فتحقق أن AI_API_BASE_URL هو جذر التوافق مع OpenAI (لمزود Google Gemini: https://generativelanguage.googleapis.com/v1beta/openai).';
   }
   if (httpStatus === 400) {
     return 'الطلب مرفوض (400) — غالبًا اسم النموذج لا يناسب هذا المزود. صحّح AI_MODEL أو النموذج الافتراضي من هذه الصفحة.';
@@ -111,7 +118,8 @@ export async function aiDiagnosticsAction(runTest: boolean): Promise<AiDiagnosti
   try {
     await requireStaff(['admin', 'moderator']);
     const diag = getAiEnvDiagnostics();
-    const result: AiDiagnosticsResult = { ok: true, env: diag };
+    const effective = await resolveEffectiveAiModel();
+    const result: AiDiagnosticsResult = { ok: true, env: diag, activeModel: effective.model, modelSource: effective.source };
     if (runTest) {
       const env = getAiEnvConfig();
       const targetUrl = `${diag.baseUrl}/chat/completions`;
@@ -127,7 +135,7 @@ export async function aiDiagnosticsAction(runTest: boolean): Promise<AiDiagnosti
             code: 'upstream_error',
             targetUrl,
             latencyMs: 0,
-            model: env.model,
+            model: effective.model,
             interpretation:
               'قيمة AI_API_BASE_URL المخزنة في Cloudflare لا تشكّل رابطًا صالحًا («الرابط المستهدف» بالأعلى). صحّح القيمة — يجب أن تبدأ بـ https:// وبدون فراغات — ثم أعد النشر.',
           },
@@ -139,7 +147,9 @@ export async function aiDiagnosticsAction(runTest: boolean): Promise<AiDiagnosti
         temperature: 0,
         timeoutMs: 25_000,
         retries: 0,
-        model: env.model,
+        // Test the model that real features will actually use (the admin's
+        // saved choice when set), not just the env default.
+        model: effective.model,
       });
       result.test = chat.ok
         ? {
@@ -156,12 +166,91 @@ export async function aiDiagnosticsAction(runTest: boolean): Promise<AiDiagnosti
             detail: chat.detail,
             targetUrl,
             latencyMs: 0,
-            model: env.model,
+            model: effective.model,
             interpretation: interpretFailure(chat.code, chat.httpStatus, diag.keyVar, chat.detail),
           };
     }
     return result;
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'خطأ غير متوقع', env: getAiEnvDiagnostics() };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'خطأ غير متوقع',
+      env: getAiEnvDiagnostics(),
+      activeModel: '',
+      modelSource: 'env',
+    };
+  }
+}
+
+/**
+ * Admin model picker — list the models the configured provider/key actually
+ * offers (GET <baseUrl>/models, OpenAI-compatible). Lets the admin pick a
+ * VALID model instead of guessing a name and hitting a 404. Returns plain
+ * model ids only — never the key, never raw provider error bodies.
+ */
+export type AiModelsListResult =
+  | { ok: true; models: string[]; activeModel: string; modelSource: 'admin' | 'env' }
+  | { ok: false; error: string };
+
+export async function aiListModelsAction(): Promise<AiModelsListResult> {
+  try {
+    await requireStaff(['admin', 'moderator']);
+    const creds = getAiCredentials();
+    if (!creds.apiKey || !creds.baseUrl) {
+      return { ok: false, error: 'خدمة الذكاء الاصطناعي غير مُعدة بعد — أضف المفتاح في Cloudflare Pages أولاً.' };
+    }
+    const res = await fetchProviderModels(creds.baseUrl, creds.apiKey);
+    if (res.ok) {
+      const models = parseModelsList(res.json);
+      if (models.length === 0) {
+        return { ok: false, error: 'رجع المزود قائمة فارغة أو غير مفهومة — اكتب اسم النموذج يدويًا في الحقل بالأسفل.' };
+      }
+      const effective = await resolveEffectiveAiModel();
+      return { ok: true, models, activeModel: effective.model, modelSource: effective.source };
+    }
+    if (res.timeout) {
+      return { ok: false, error: 'انتهت مهلة جلب قائمة النماذج من المزود — أعد المحاولة، أو اكتب الاسم يدويًا.' };
+    }
+    if (res.httpStatus === 401 || res.httpStatus === 403) {
+      return { ok: false, error: `المزود رفض المفتاح عند جلب القائمة (HTTP ${res.httpStatus}) — راجع صلاحية المفتاح.` };
+    }
+    if (res.httpStatus === 404) {
+      return { ok: false, error: 'هذا المزود لا يدعم جلب قائمة النماذج — اكتب اسم النموذج يدويًا في الحقل بالأسفل.' };
+    }
+    if (res.httpStatus === 429) {
+      return { ok: false, error: 'المزود مشغول حاليًا (429) — أعد المحاولة بعد نصف دقيقة.' };
+    }
+    return {
+      ok: false,
+      error: `تعذر جلب القائمة من المزود${res.httpStatus ? ` (HTTP ${res.httpStatus})` : ''} — اكتب اسم النموذج يدويًا في الحقل بالأسفل.`,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'خطأ غير متوقع' };
+  }
+}
+
+/**
+ * Save the admin's model choice (ai_settings.default_model, single row).
+ * Pass null/empty to clear it and fall back to the environment default.
+ * Takes effect on the NEXT AI call — no redeploy needed (unlike env vars).
+ */
+export async function aiSetDefaultModelAction(model: string | null): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { supabase, user } = await requireStaff(['admin']);
+    const trimmed = (model ?? '').trim();
+    if (trimmed && !isValidModelName(trimmed)) {
+      return {
+        ok: false,
+        error: 'اسم النموذج غير صالح — استخدم أحرفًا إنجليزية وأرقامًا و . _ / : @ + - فقط (حتى 120 حرفًا).',
+      };
+    }
+    const value = trimmed || null;
+    const { error } = await supabase.from('ai_settings').update({ default_model: value }).eq('id', 1);
+    if (error) return { ok: false, error: 'فشل الحفظ: ' + error.message };
+    await logAudit('update', 'ai_settings', undefined, { default_model: value }, user.id);
+    revalidatePath('/admin/ai');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'خطأ غير متوقع' };
   }
 }

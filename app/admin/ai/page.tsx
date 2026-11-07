@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/guard';
 import { PageHeader } from '@/components/shared/page-header';
 import { getAiEnvDiagnostics, AI_SETUP_HINT_AR } from '@/lib/ai/config';
+import { resolveEffectiveAiModel } from '@/lib/ai/service';
 import { AiAdmin } from '@/components/admin/ai-admin';
 import type { AiUsageStat } from '@/components/admin/ai-admin';
 
@@ -55,6 +56,7 @@ export default async function AdminAiPage() {
 
   const s = (settings ?? {}) as Record<string, unknown>;
   const envDiag = getAiEnvDiagnostics();
+  const effective = await resolveEffectiveAiModel();
   const monthStart = new Date();
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0, 0, 0, 0);
@@ -74,6 +76,8 @@ export default async function AdminAiPage() {
       <AiAdmin
         isAdmin={isAdmin}
         diagnostics={envDiag}
+        activeModel={effective.model}
+        modelSource={effective.source}
         settings={{
           enabled: s['enabled'] !== false,
           daily_limit_per_user: Number(s['daily_limit_per_user'] ?? 25),
