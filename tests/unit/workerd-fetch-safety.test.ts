@@ -14,6 +14,7 @@ import { join } from 'node:path';
 /** Server-executed files whose fetch() calls land on the Workers runtime. */
 const WORKERD_SERVER_FILES = [
   'lib/ai/client.ts',
+  'lib/ai/models.ts',
   'lib/security/dns-txt.ts',
   'services/verification.ts',
   'components/programs/program-builder/actions.ts',

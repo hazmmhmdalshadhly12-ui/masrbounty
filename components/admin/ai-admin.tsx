@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save, Stethoscope } from 'lucide-react';
+import { Boxes, CheckCircle2, Loader2, Save, Stethoscope, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { updateAiSettingsAction, aiDiagnosticsAction } from '@/features/ai/admin-actions';
+import { updateAiSettingsAction, aiDiagnosticsAction, aiListModelsAction, aiSetDefaultModelAction } from '@/features/ai/admin-actions';
 import { toastSuccess, toastError } from '@/components/toasts/toast-utils';
 
 export type AiUsageStat = { feature: string; total: number; failed: number };
@@ -148,16 +148,155 @@ function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
   );
 }
 
+function ModelPickerCard({
+  isAdmin,
+  currentModel,
+  activeModel,
+  modelSource,
+  envModel,
+}: {
+  isAdmin: boolean;
+  currentModel: string;
+  activeModel: string;
+  modelSource: 'admin' | 'env';
+  envModel: string;
+}) {
+  const router = useRouter();
+  const [selected, setSelected] = React.useState<string>(currentModel);
+  const [manual, setManual] = React.useState('');
+  const [models, setModels] = React.useState<string[]>([]);
+  const [listing, setListing] = React.useState(false);
+  const [listError, setListError] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  async function fetchModels() {
+    setListing(true);
+    setListError('');
+    const res = await aiListModelsAction();
+    if (res.ok) {
+      setModels(res.models);
+    } else {
+      setListError(res.error);
+      setModels([]);
+    }
+    setListing(false);
+  }
+
+  async function saveModel(value: string | null) {
+    setSaving(true);
+    const res = await aiSetDefaultModelAction(value);
+    if (res.ok) {
+      toastSuccess(value ? `سيعمل النموذج «${value}» على كل ميزات AI فورًا` : 'أُلغي الاختيار — سيُستخدم النموذج الافتراضي من البيئة');
+      setSelected(value ?? '');
+      setManual('');
+      router.refresh();
+    } else {
+      toastError(res.error ?? 'فشل الحفظ');
+    }
+    setSaving(false);
+  }
+
+  const chosen = manual.trim() || selected;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm"><Boxes className="h-4 w-4" /> اختيار نموذج الذكاء الاصطناعي</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">النموذج الفعلي المستخدم الآن:</span>
+          <code dir="ltr" className="rounded bg-muted px-1.5 py-0.5 text-xs font-bold">{activeModel || envModel || '—'}</code>
+          {activeModel && (
+            <Badge variant="outline" className="text-[10px]">{modelSource === 'admin' ? 'اختيار الأدمن' : 'من متغيرات البيئة'}</Badge>
+          )}
+        </div>
+        {isAdmin ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={fetchModels} disabled={listing} className="gap-2">
+                {listing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Boxes className="h-4 w-4" />}
+                {listing ? 'جارٍ الجلب…' : 'جلب النماذج المتاحة من المزود'}
+              </Button>
+              <span className="text-xs text-muted-foreground">يعرض القائمة الفعلية لمفتاحك — لا تخمين ولا 404.</span>
+            </div>
+            {listError && (
+              <p className="rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">{listError}</p>
+            )}
+            {models.length > 0 && (
+              <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
+                {models.map((m) => (
+                  <label key={m} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-muted">
+                    <input
+                      type="radio"
+                      name="ai-model-choice"
+                      checked={selected === m && !manual.trim()}
+                      onChange={() => {
+                        setManual('');
+                        setSelected(m);
+                      }}
+                      disabled={!isAdmin}
+                    />
+                    <span dir="ltr" className="tabular-nums">{m}</span>
+                    {m === activeModel && <Badge variant="secondary" className="text-[10px]">مستخدم حاليًا</Badge>}
+                  </label>
+                ))}
+              </div>
+            )}
+            <div>
+              <Label>أو اكتب اسم النموذج يدويًا (إن لم تُدعم القائمة)</Label>
+              <Input
+                dir="ltr"
+                value={manual}
+                onChange={(e) => setManual(e.target.value)}
+                placeholder="gemini-2.5-flash"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                onClick={() => saveModel(chosen.trim() || null)}
+                disabled={saving || (!selected && !manual.trim())}
+                className="gap-2"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ النموذج المختار
+              </Button>
+              {(selected || manual.trim()) && (
+                <Button type="button" variant="outline" onClick={() => saveModel(null)} disabled={saving} className="gap-2">
+                  <XCircle className="h-4 w-4" /> إلغاء الاختيار (العودة للافتراضي)
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">الحفظ يسري فورًا على كل ميزات AI (توليد الدروس، مساعد التقارير، اختبار التشخيص) — بدون إعادة نشر.</p>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">العرض فقط — اختيار النموذج للأدمن فقط.</p>
+        )}
+        {chosen && chosen !== activeModel && (
+          <p className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5" /> سيُستخدم «<span dir="ltr">{chosen}</span>» بعد الحفظ.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AiAdmin({
   isAdmin,
   settings,
   stats,
   diagnostics,
+  activeModel,
+  modelSource,
 }: {
   isAdmin: boolean;
   settings: AiSettingsShape;
   stats: { monthTotal: number; byFeature: AiUsageStat[]; topUsers: { username: string; count: number }[]; recent: AiUsageRow[] };
   diagnostics: AiEnvDiagnosticsShape;
+  /** Resolved server-side: the model the next AI call will use + its source. */
+  activeModel: string;
+  modelSource: 'admin' | 'env';
 }) {
   const router = useRouter();
   const [form, setForm] = React.useState({ ...settings });
@@ -165,13 +304,15 @@ export function AiAdmin({
 
   async function save() {
     setBusy(true);
+    // NOTE: default_model is intentionally NOT sent here — it is owned by the
+    // ModelPickerCard (aiSetDefaultModelAction) so saving settings can never
+    // clobber the admin's model choice.
     const res = await updateAiSettingsAction({
       enabled: form.enabled,
       daily_limit_per_user: Number(form.daily_limit_per_user),
       per_minute_limit: Number(form.per_minute_limit),
       monthly_budget_requests: Number(form.monthly_budget_requests),
       allowed_features: form.allowed_features as ('report_assistant' | 'lesson_generator')[],
-      default_model: form.default_model.trim() || null,
     });
     if (res.ok) toastSuccess('حُفظت إعدادات الذكاء الاصطناعي');
     else toastError(res.error ?? 'فشل الحفظ');
@@ -182,6 +323,13 @@ export function AiAdmin({
   return (
     <div className="space-y-4">
       <DiagnosticsCard diag={diagnostics} />
+      <ModelPickerCard
+        isAdmin={isAdmin}
+        currentModel={settings.default_model}
+        activeModel={activeModel}
+        modelSource={modelSource}
+        envModel={diagnostics.model}
+      />
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">الإعدادات</CardTitle>
@@ -196,7 +344,7 @@ export function AiAdmin({
             <div><Label>الحد الأقصى للطلبات (كل دقيقة/مستخدم)</Label><Input type="number" dir="ltr" value={form.per_minute_limit} onChange={(e) => setForm({ ...form, per_minute_limit: Number(e.target.value) })} disabled={!isAdmin} /></div>
             <div><Label>ميزانية المنصة الشهرية (طلب)</Label><Input type="number" dir="ltr" value={form.monthly_budget_requests} onChange={(e) => setForm({ ...form, monthly_budget_requests: Number(e.target.value) })} disabled={!isAdmin} /></div>
           </div>
-          <div><Label>النموذج الافتراضي (يجب أن يطابق ما يوفره المزود)</Label><Input dir="ltr" value={form.default_model} onChange={(e) => setForm({ ...form, default_model: e.target.value })} placeholder="gpt-4o-mini" disabled={!isAdmin} /></div>
+          {/* model choice lives in ModelPickerCard above (aiSetDefaultModelAction) */}
           <div>
             <Label className="mb-1.5 block">الميزات المسموح لها باستخدام AI:</Label>
             <div className="flex flex-wrap gap-3">

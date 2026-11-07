@@ -168,6 +168,25 @@ export type AiRunParams = {
   retries?: number;
 };
 
+/**
+ * The model that will ACTUALLY be used for the next AI call, and where it
+ * came from: the admin's saved choice (ai_settings.default_model) when set
+ * and permitted by the allow-list, otherwise the environment default.
+ * Single source of truth — runAiFeature, the diagnostics test and the admin
+ * UI all resolve through this.
+ */
+export async function resolveEffectiveAiModel(): Promise<{ model: string; source: 'admin' | 'env' }> {
+  const env = getAiEnvConfig();
+  const settings = await readSettings();
+  if (
+    settings.default_model &&
+    (settings.allowed_models.length === 0 || settings.allowed_models.includes(settings.default_model))
+  ) {
+    return { model: settings.default_model, source: 'admin' };
+  }
+  return { model: env.model, source: 'env' };
+}
+
 /** Run one gated, quota-checked, logged AI request. */
 export async function runAiFeature(params: AiRunParams): Promise<AiRunResult> {
   const env = getAiEnvConfig();
@@ -219,15 +238,9 @@ export async function runAiFeature(params: AiRunParams): Promise<AiRunResult> {
   const sys = params.systemPrompt.slice(0, 8000);
   const user = params.userPrompt.slice(0, env.maxInputChars);
 
-  // Model resolution: admin default_model wins when allow-list permits;
-  // otherwise the env default.
-  let model = env.model;
-  if (settings.default_model) {
-    model = settings.default_model;
-  }
-  if (settings.allowed_models.length > 0 && !settings.allowed_models.includes(model)) {
-    model = env.model;
-  }
+  // Model resolution: the admin's saved choice wins when the allow-list
+  // permits it; otherwise the env default (resolveEffectiveAiModel).
+  const model = (await resolveEffectiveAiModel()).model;
 
   const chat = await aiChat({
     messages: [
