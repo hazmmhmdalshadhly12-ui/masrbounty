@@ -34,7 +34,22 @@ import type {
   BountyPayment,
   PayoutRequest,
   PaymentMethod,
+  CompanyWalletV2,
+  WalletDepositRequest,
+  WalletTransactionV2,
+  FinancialLedgerEntry,
+  BountyReward,
+  ResearcherPayout,
+  CommissionSetting,
+  CommissionHistory,
+  FinancialApproval,
+  FinancialAuditLog,
 } from './wallet';
+import type {
+  LegalDocument,
+  LegalDocumentVersion,
+  LegalAcceptance,
+} from './legal';
 
 export type Json =
   | string
@@ -118,6 +133,21 @@ export interface Database {
       researcher_stats: SbTable<ResearcherStats>;
       badges: SbTable<Badge>;
       researcher_badges: SbTable<ResearcherBadge>;
+      /* Smart wallet & finance (migration 24) */
+      company_wallets: SbTable<CompanyWalletV2>;
+      wallet_deposit_requests: SbTable<WalletDepositRequest>;
+      wallet_transactions_v2: SbTable<WalletTransactionV2>;
+      financial_ledger_entries: SbTable<FinancialLedgerEntry>;
+      bounty_rewards: SbTable<BountyReward>;
+      researcher_payouts: SbTable<ResearcherPayout>;
+      commission_settings: SbTable<CommissionSetting>;
+      commission_history: SbTable<CommissionHistory>;
+      financial_approvals: SbTable<FinancialApproval>;
+      financial_audit_logs: SbTable<FinancialAuditLog>;
+      /* Legal system (migrations 25-26) */
+      legal_documents: SbTable<LegalDocument>;
+      legal_document_versions: SbTable<LegalDocumentVersion>;
+      legal_acceptances: SbTable<LegalAcceptance>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -130,11 +160,16 @@ export interface Database {
       report_status:
         | 'draft'
         | 'submitted'
+        | 'under_review'
+        | 'need_more_info'
         | 'triaged'
         | 'informative'
         | 'duplicate'
         | 'not_applicable'
+        | 'rejected'
         | 'accepted'
+        | 'reward_approved'
+        | 'paid'
         | 'resolved'
         | 'closed';
       severity_level: 'informational' | 'low' | 'medium' | 'high' | 'critical';
@@ -155,6 +190,16 @@ export interface Database {
         | 'payout'
         | 'moderate'
         | 'verify';
+      reward_state:
+        | 'reward_approved'
+        | 'awaiting_payout'
+        | 'processing'
+        | 'paid'
+        | 'failed'
+        | 'cancelled';
+      commission_scope: 'global' | 'company';
+      ledger_entry_type: 'debit' | 'credit';
+      deposit_status: 'pending' | 'approved' | 'rejected';
     };
   };
 }

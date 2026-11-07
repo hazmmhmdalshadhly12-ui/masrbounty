@@ -3,11 +3,16 @@ import type { Locale } from '@/types/index';
 export const REPORT_STATUSES = [
   'draft',
   'submitted',
+  'under_review',
+  'need_more_info',
   'triaged',
   'informative',
   'duplicate',
   'not_applicable',
+  'rejected',
   'accepted',
+  'reward_approved',
+  'paid',
   'resolved',
   'closed',
 ] as const;
@@ -33,12 +38,17 @@ export type ProgramStatus = (typeof PROGRAM_STATUSES)[number];
 
 export const REPORT_STATUS_LABELS: Record<ReportStatus, { ar: string; en: string }> = {
   draft: { ar: 'مسودة', en: 'Draft' },
-  submitted: { ar: 'مُرسَل', en: 'Submitted' },
-  triaged: { ar: 'قيد الفرز', en: 'Triaged' },
+  submitted: { ar: 'جديد', en: 'New' },
+  under_review: { ar: 'قيد المراجعة', en: 'Under review' },
+  need_more_info: { ar: 'معلومات مطلوبة', en: 'Need more info' },
+  triaged: { ar: 'قيد الفرز', en: 'Triaging' },
   informative: { ar: 'معلوماتي', en: 'Informative' },
   duplicate: { ar: 'مكرر', en: 'Duplicate' },
   not_applicable: { ar: 'غير منطبق', en: 'N/A' },
+  rejected: { ar: 'مرفوض', en: 'Rejected' },
   accepted: { ar: 'مقبول', en: 'Accepted' },
+  reward_approved: { ar: 'المكافأة معتمدة', en: 'Reward approved' },
+  paid: { ar: 'مدفوع', en: 'Paid' },
   resolved: { ar: 'تم حله', en: 'Resolved' },
   closed: { ar: 'مغلق', en: 'Closed' },
 };
@@ -68,4 +78,15 @@ export function severityLabel(severity: Severity, locale: Locale = 'ar'): string
 }
 
 /** Terminal states — no further transitions expected. */
-export const CLOSED_REPORT_STATUSES: readonly ReportStatus[] = ['resolved', 'closed', 'duplicate', 'informative', 'not_applicable'];
+export const CLOSED_REPORT_STATUSES: readonly ReportStatus[] = [
+  'resolved', 'closed', 'duplicate', 'informative', 'not_applicable', 'rejected', 'paid',
+];
+
+/** Company triage whitelist — superset incl. the finance-driven states. */
+export const COMPANY_TRIAGE_STATUSES: readonly ReportStatus[] = [
+  'under_review', 'need_more_info', 'triaged', 'informative', 'duplicate',
+  'not_applicable', 'rejected', 'accepted', 'resolved', 'closed',
+];
+
+/** Finance-driven report states (set exclusively by the money RPCs). */
+export const FINANCE_REPORT_STATUSES: readonly ReportStatus[] = ['reward_approved', 'paid'];

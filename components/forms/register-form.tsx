@@ -16,6 +16,11 @@ import { ensureUserBootstrap } from '@/lib/auth/bootstrap';
 import { safeNext } from '@/lib/auth/redirect';
 import { resetBrowserSession } from '@/lib/auth/browser-session';
 import { MAX_SKILLS, parseSkills } from '@/lib/auth/onboarding';
+import { registerAgreementStep } from '@/features/legal/schemas';
+import { acceptLegalAgreementAction } from '@/features/legal/acceptance-actions';
+import { REGISTRATION_CHECKS } from '@/constants/legal';
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -49,11 +54,13 @@ function flattenErrors(err: { issues: Array<{ path: Array<PropertyKey>; message:
   return out;
 }
 
+const STEP_NAMES = ['بيانات الحساب', 'تخصيص ملفك', 'الاتفاقية القانونية'];
+
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <div className="mb-6" aria-live="polite">
       <div className="flex items-center justify-between">
-        {[1, 2].slice(0, total).map((n) => (
+        {[1, 2, 3].slice(0, total).map((n) => (
           <div key={n} className="flex items-center gap-2">
             <span
               className={[
@@ -67,7 +74,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
               {n < current ? <Check className="h-4 w-4" /> : n}
             </span>
             <span className={['hidden text-xs font-bold sm:block', n === current ? 'text-foreground' : 'text-muted-foreground'].join(' ')}>
-              {n === 1 ? 'بيانات الحساب' : 'تخصيص ملفك'}
+              {STEP_NAMES[n - 1]}
             </span>
           </div>
         ))}
@@ -83,7 +90,11 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 export function RegisterForm({ next = '' }: { next?: string }) {
   const router = useRouter();
   const target = safeNext(next || null);
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Legal & Security Agreement (step 3) — all five checks are mandatory
+  const [agreement, setAgreement] = useState<Record<string, boolean>>({});
+  const agreementValid = REGISTRATION_CHECKS.every((c) => agreement[c.id] === true);
 
   // account fields
   const [role, setRole] = useState<Role>('researcher');
@@ -160,10 +171,44 @@ export function RegisterForm({ next = '' }: { next?: string }) {
     setStep(1);
   }
 
+  function goToStep3(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    const step2 = role === 'researcher' ? registerResearcherStep : registerCompanyStep;
+    const parsed = step2.safeParse(formValues);
+    if (!parsed.success) {
+      applyErrors(flattenErrors(parsed.error));
+      return;
+    }
+    setStep(3);
+  }
+
+  function backToStep2() {
+    setError(null);
+    setFieldErrors({});
+    setStep(2);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
+    // Stage 3 gate: the Legal & Security Agreement is mandatory and cannot
+    // be bypassed — the submit button is disabled until every box is ticked.
+    const agreementParsed = registerAgreementStep.safeParse({
+      terms: agreement.terms === true,
+      age: agreement.age === true,
+      privacy: agreement.privacy === true,
+      authorized: agreement.authorized === true,
+      scope: agreement.scope === true,
+      context: 'registration' as const,
+    });
+    if (!agreementParsed.success) {
+      setError('يجب الموافقة على جميع البنود الخمسة قبل إكمال التسجيل');
+      setStep(3);
+      return;
+    }
     const parsed = registerSchema.safeParse(formValues);
     if (!parsed.success) {
       applyErrors(flattenErrors(parsed.error));
@@ -221,6 +266,16 @@ export function RegisterForm({ next = '' }: { next?: string }) {
       if (!persisted) {
         setError('المتصفح رفض حفظ الجلسة — تأكد من https وعطّل مانع الإعلانات ثم سجّل الدخول');
         return;
+      }
+      // Persist the acceptance record (user id, document versions, age
+      // confirmation, timestamp) — server-side validated + immutable.
+      try {
+        const fd = new FormData();
+        for (const c of REGISTRATION_CHECKS) fd.set(c.id, agreement[c.id] ? 'on' : 'off');
+        fd.set('context', 'registration');
+        await acceptLegalAgreementAction(fd);
+      } catch {
+        // Non-fatal: the login gate re-checks outstanding agreements.
       }
       await ensureUserBootstrap(supabase, data.user.id, {
         username: parsed.data.username,
@@ -295,7 +350,7 @@ export function RegisterForm({ next = '' }: { next?: string }) {
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-md space-y-5" noValidate>
-      <StepIndicator current={step} total={2} />
+      <StepIndicator current={step} total={3} />
       {errBox}
 
       {step === 1 && (
@@ -542,9 +597,9 @@ export function RegisterForm({ next = '' }: { next?: string }) {
               <ArrowRight className="ml-1 h-4 w-4" />
               رجوع
             </Button>
-            <Button type="submit" disabled={busy} className="h-11 flex-[2] text-base">
-              {busy && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              {busy ? 'جارٍ الإنشاء…' : 'إنشاء الحساب'}
+            <Button type="button" onClick={goToStep3} className="h-11 flex-[2] text-base">
+              متابعة للموافقة القانونية
+              <ArrowLeft className="mr-2 h-4 w-4" />
             </Button>
           </div>
         </>
@@ -623,14 +678,82 @@ export function RegisterForm({ next = '' }: { next?: string }) {
               <ArrowRight className="ml-1 h-4 w-4" />
               رجوع
             </Button>
-            <Button type="submit" disabled={busy} className="h-11 flex-[2] text-base">
-              {busy && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-              {busy ? 'جارٍ الإنشاء…' : 'إنشاء الحساب'}
+            <Button type="button" onClick={goToStep3} className="h-11 flex-[2] text-base">
+              متابعة للموافقة القانونية
+              <ArrowLeft className="mr-2 h-4 w-4" />
             </Button>
           </div>
           <p className="text-center text-xs text-muted-foreground">
             بعد الإنشاء هتكمل خطوتين بسيطتين: إنشاء المؤسسة وتوثيق النطاق.
           </p>
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+            <h2 className="text-base font-black">الاتفاقية القانونية والأمنية</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              الخطوة الأخيرة قبل تفعيل حسابك. اقرأ الوثائق ثم وافق على جميع البنود — تُسجَّل موافقتك في المنصة مع رقم الإصدار وتاريخ القبول وتأكيد العمر، وهي سجلات غير قابلة للتعديل.
+            </p>
+          </div>
+
+          <ul className="space-y-2.5">
+            {REGISTRATION_CHECKS.map((c) => {
+              const checked = agreement[c.id] === true;
+              return (
+                <li key={c.id}>
+                  <label
+                    className={[
+                      'flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 text-sm leading-relaxed transition-colors duration-150',
+                      checked
+                        ? 'border-emerald-500 bg-emerald-50/60 dark:border-emerald-600/60 dark:bg-emerald-950/30'
+                        : 'border-border hover:border-slate-400 dark:hover:border-slate-500',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => setAgreement((s) => ({ ...s, [c.id]: e.target.checked }))}
+                      className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-emerald-600"
+                      aria-label={c.label}
+                      required
+                    />
+                    <span className="flex-1">
+                      <span className="font-bold">{c.label}</span>
+                      {c.linkSlug && (
+                        <>
+                          {' '}
+                          <Link
+                            href={`/legal/${c.linkSlug}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-0.5 font-bold text-primary underline underline-offset-4"
+                          >
+                            قراءة الوثيقة
+                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          </Link>
+                        </>
+                      )}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={backToStep2} className="h-11 flex-1">
+              <ArrowRight className="ml-1 h-4 w-4" />
+              رجوع
+            </Button>
+            <Button type="submit" disabled={busy || !agreementValid} className="h-11 flex-[2] text-base" aria-disabled={busy || !agreementValid}>
+              {busy && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              {busy ? 'جارٍ الإنشاء…' : 'أوافق وأكمل التسجيل'}
+            </Button>
+          </div>
+          {!agreementValid && (
+            <p className="text-center text-xs text-muted-foreground">لا يمكن إكمال التسجيل قبل الموافقة على جميع البنود الخمسة.</p>
+          )}
         </>
       )}
     </form>

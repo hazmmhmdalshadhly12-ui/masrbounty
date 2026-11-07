@@ -36,7 +36,13 @@ export async function requireCompanyRole(programId: string, allowed: MemberRole[
 }
 
 export async function triageReportAction(reportId: string, status: string) {
-  const allowed = ['triaged', 'informative', 'duplicate', 'not_applicable', 'accepted', 'resolved', 'closed'];
+  // Company-controlled statuses only; reward_approved/paid are set by the
+  // finance RPCs (approve_bounty_reward / complete_reward_payout) — a plain
+  // triage update can never fake a financial state.
+  const allowed = [
+    'under_review', 'need_more_info', 'triaged', 'informative', 'duplicate',
+    'not_applicable', 'rejected', 'accepted', 'resolved', 'closed',
+  ];
   if (!allowed.includes(status)) throw new Error('Invalid status');
   const supabase = await createServerClient();
   const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
