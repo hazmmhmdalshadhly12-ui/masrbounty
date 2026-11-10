@@ -35,13 +35,13 @@ export default async function CompanyReports({
   // Fetch reports for company programs with SLA-relevant fields
   const { data: rawReports } = await supabase
     .from('reports')
-    .select('id, report_number, title, status, severity, affected_asset, asset_id, program_id, created_at, submitted_at, researcher_id')
+    .select('id, report_number, title, status, severity, affected_asset, asset_id, program_id, created_at, submitted_at, updated_at, researcher_id')
     .in('program_id', programIds.length ? programIds : ['00000000-0000-0000-0000-000000000000'])
     .order('created_at', { ascending: false })
     .limit(200);
 
   const reports = ((rawReports ?? []) as {
-    id: string; report_number: string; title: string; status: string; severity: string; affected_asset: string; asset_id: string | null; program_id: string; created_at: string; submitted_at: string | null; researcher_id: string;
+    id: string; report_number: string; title: string; status: string; severity: string; affected_asset: string; asset_id: string | null; program_id: string; created_at: string; submitted_at: string | null; updated_at: string; researcher_id: string;
   }[]);
   const reportIds = reports.map((r) => r.id);
 

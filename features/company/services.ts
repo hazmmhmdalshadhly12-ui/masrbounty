@@ -5,6 +5,13 @@ import { createServerClient } from '@/lib/supabase/server';
 import { logAudit } from '@/services/audit';
 import { notify, reportParties } from '@/lib/notify';
 import { enforceRate } from '@/lib/rate-limit';
+import {
+  canTransition,
+  COMPANY_TRIAGE_STATUSES,
+  REASON_REQUIRED_STATUSES,
+  REPORT_STATUS_LABELS,
+  type ReportStatus,
+} from '@/constants/statuses';
 
 type MemberRole = 'owner' | 'admin' | 'triager' | 'viewer';
 
@@ -35,23 +42,50 @@ export async function requireCompanyRole(programId: string, allowed: MemberRole[
   return ctx;
 }
 
-export async function triageReportAction(reportId: string, status: string) {
-  // Company-controlled statuses only; reward_approved/paid are set by the
-  // finance RPCs (approve_bounty_reward / complete_reward_payout) — a plain
-  // triage update can never fake a financial state.
-  const allowed = [
-    'under_review', 'need_more_info', 'triaged', 'informative', 'duplicate',
-    'not_applicable', 'rejected', 'accepted', 'resolved', 'closed',
-  ];
-  if (!allowed.includes(status)) throw new Error('Invalid status');
+/**
+ * Company triage with lifecycle enforcement:
+ *  - only company-controlled statuses (finance states are set by money RPCs);
+ *  - from → to must respect the canonical transition map (DB trigger
+ *    `fn_enforce_report_transitions` enforces the same rules again);
+ *  - decision statuses (rejected/duplicate/not_applicable/spam) REQUIRE a
+ *    written reason, stored permanently on the report timeline.
+ */
+export async function triageReportAction(reportId: string, formData: FormData) {
+  const status = String(formData?.get('status') ?? '').trim();
+  const reason = String(formData?.get('reason') ?? '').trim().slice(0, 1000);
+  if (!(COMPANY_TRIAGE_STATUSES as readonly string[]).includes(status)) {
+    throw new Error('حالة غير متاحة للشركة');
+  }
   const supabase = await createServerClient();
-  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  const { data: report } = await supabase
+    .from('reports')
+    .select('program_id,status,report_number')
+    .eq('id', reportId)
+    .single();
   if (!report) throw new Error('Not found');
+  const fromStatus = (report as unknown as { status: string }).status;
+  if (!canTransition(fromStatus, status)) {
+    throw new Error(
+      `انتقال غير صالح: ${REPORT_STATUS_LABELS[fromStatus as ReportStatus]?.ar ?? fromStatus} ← ${REPORT_STATUS_LABELS[status as ReportStatus]?.ar ?? status}`
+    );
+  }
+  if ((REASON_REQUIRED_STATUSES as readonly string[]).includes(status) && reason.length < 5) {
+    throw new Error('سبب القرار مطلوب (5 أحرف على الأقل) — يُحفظ في سجل التقرير');
+  }
   await requireCompanyRole(report.program_id);
   const { data: actor } = await supabase.auth.getUser();
   if (actor.user) enforceRate(`triage:${actor.user.id}`, 60, 60_000);
   const { error } = await supabase.from('reports').update({ status }).eq('id', reportId);
-  if (error) throw new Error(error.message);
+  if (error) throw friendlyTriageError(error.message);
+  // Decision reason is preserved permanently on the timeline as its own
+  // note event (the status change itself is auto-logged by the DB trigger).
+  if (reason) {
+    await supabase.from('report_events').insert({
+      report_id: reportId,
+      actor_id: actor.user?.id ?? null,
+      note: `سبب القرار (${REPORT_STATUS_LABELS[status as ReportStatus]?.ar ?? status}): ${reason}`,
+    });
+  }
   if (status === 'resolved') {
     const { data: rr } = await supabase.from('reports').select('researcher_id').eq('id', reportId).single();
     const rid = (rr as unknown as { researcher_id: string } | null)?.researcher_id;
@@ -60,17 +94,25 @@ export async function triageReportAction(reportId: string, status: string) {
       await supabase.rpc('check_merit_badges', { p_researcher: rid });
     }
   }
-  await logAudit('update', 'reports', reportId, { status }, actor.user?.id);
+  await logAudit('update', 'reports', reportId, { status, reason: reason || null }, actor.user?.id);
   const parties = await reportParties(supabase, reportId);
   if (parties.reporterUserId) {
+    const arLabel = REPORT_STATUS_LABELS[status as ReportStatus]?.ar ?? status;
     await notify(supabase, parties.reporterUserId, {
       type: 'report',
-      title: `تحديث التقرير ${parties.reportNumber}: ${status}`,
-      body: 'غيّرت الشركة حالة تقريرك — افتحه لعرض التفاصيل',
+      title: `تحديث التقرير ${parties.reportNumber}: ${arLabel}`,
+      body: reason || 'غيّرت الشركة حالة تقريرك — افتحه لعرض التفاصيل',
       link: `/dashboard/reports/${reportId}`,
     });
   }
   revalidatePath('/company/reports');
+  revalidatePath(`/company/reports/${reportId}`);
+}
+
+function friendlyTriageError(raw: string): Error {
+  if (/invalid transition/i.test(raw)) return new Error('انتقال حالة غير صالح وفق دورة حياة التقرير');
+  if (/forbidden/i.test(raw)) return new Error('غير مصرّح لك بهذه العملية');
+  return new Error(raw || 'تعذّر تحديث الحالة');
 }
 
 export async function changeSeverityAction(reportId: string, formData: FormData) {

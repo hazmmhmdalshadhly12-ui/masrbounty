@@ -1,17 +1,20 @@
 import { cn } from '@/lib/utils';
 
+/**
+ * Stage mapping covers EVERY report status (constants/statuses.ts) so new
+ * values can never fall through to stage 0 again.
+ */
 const STAGES = [
   { key: 'new', label: 'جديد', match: ['draft', 'submitted'] },
-  { key: 'triaged', label: 'فرز', match: ['triaged', 'informative'] },
-  { key: 'accepted', label: 'قبول', match: ['accepted', 'duplicate', 'not_applicable'] },
-  { key: 'resolved', label: 'حل ومكافأة', match: ['resolved', 'closed'] },
+  { key: 'review', label: 'مراجعة وفرز', match: ['under_review', 'triaged', 'need_more_info'] },
+  { key: 'decision', label: 'القرار', match: ['accepted', 'rejected', 'duplicate', 'not_applicable', 'informative', 'spam', 'reward_approved'] },
+  { key: 'resolved', label: 'حل ومكافأة', match: ['resolved', 'paid', 'closed'] },
 ];
 
 export function ReportStepper({ status }: { status: string }) {
-  const active = Math.max(
-    0,
-    STAGES.findIndex((s) => s.match.includes(status))
-  );
+  const idx = STAGES.findIndex((s) => s.match.includes(status));
+  // Unknown/legacy statuses land on "القرار" rather than resetting to the first step.
+  const active = idx >= 0 ? idx : 2;
   return (
     <ol className="flex items-center gap-0" dir="rtl">
       {STAGES.map((s, i) => (

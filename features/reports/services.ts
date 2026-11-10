@@ -58,14 +58,17 @@ export async function createReportAction(formData: FormData) {
       .single();
     if (!inv) throw new Error('برنامج خاص — يلزم قبول الدعوة أولًا');
   }
-  // generate report number server-side via DB function
+  // generate report number server-side via DB function (MB-YYYY-000001).
+  // No silent fallback: a missing RPC means the DB is not migrated and a
+  // fake number would break the reference contract — fail loudly instead.
   const { data: num } = await supabase.rpc('generate_report_number');
+  if (!num) throw new Error('تعذّر توليد الرقم المرجعي — تأكد من تنفيذ الترحيلات ثم أعد المحاولة');
   const { data: report, error } = await supabase
     .from('reports')
     .insert({
       ...parsed.data,
       researcher_id: researcherId,
-      report_number: (num as string) ?? `MB-${Date.now()}`,
+      report_number: num as string,
       status: 'draft',
     })
     .select('id')
@@ -88,20 +91,44 @@ export async function submitReportAction(reportId: string) {
     await recordAbuseAttempt(uid, 'report_limit_exceeded', `submission blocked: ${limitRes.reason ?? ''}`);
     throw new Error(limitRes.reason ?? 'تم بلوغ حد الإرسال اليومي');
   }
-  const { error } = await supabase
+  // Return the updated rows so we can tell "already submitted / not yours"
+  // apart from a successful submit (the WHERE status='draft' guard makes
+  // the lifecycle transition draft → submitted the only path in).
+  const { data: updated, error } = await supabase
     .from('reports')
     .update({ status: 'submitted' })
     .eq('id', reportId)
     .eq('researcher_id', researcherId)
-    .eq('status', 'draft');
+    .eq('status', 'draft')
+    .select('id,report_number');
   if (error) throw new Error(error.message);
-  await supabase.from('notifications').insert({
-    user_id: uid,
+  const row = (updated ?? [])[0] as { id: string; report_number: string } | undefined;
+  if (!row) throw new Error('التقرير غير موجود أو تم إرساله مسبقًا');
+
+  // Success confirmation to the researcher (spec: "تم إرسال التقرير بنجاح")
+  await notify(supabase, uid, {
     type: 'report',
-    title: 'Report submitted',
+    title: `تم إرسال التقرير بنجاح — ${row.report_number}`,
+    body: 'وصل التقرير للشركة وستصلك تحديثات الحالة هنا',
     link: `/dashboard/reports/${reportId}`,
   });
+
+  // New-report notification to every company member (was missing entirely).
+  const parties = await reportParties(supabase, reportId);
+  for (const memberId of parties.memberUserIds) {
+    if (memberId && memberId !== uid) {
+      await notify(supabase, memberId, {
+        type: 'report',
+        title: `تقرير جديد وارد — ${parties.reportNumber}`,
+        body: 'تقرير ثغرة جديد بحاجة إلى مراجعة أولية',
+        link: `/company/reports/${reportId}`,
+      });
+    }
+  }
   revalidatePath('/dashboard/reports');
+  revalidatePath('/company/reports');
+  // Success banner on the detail page (?submitted=1)
+  redirect(`/dashboard/reports/${reportId}?submitted=1`);
 }
 
 export async function addCommentAction(reportId: string, formData: FormData) {

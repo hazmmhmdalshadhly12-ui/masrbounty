@@ -2,16 +2,19 @@ import { revalidatePath } from 'next/cache';
 import { redirect, notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { triageReportAction, changeSeverityAction, markDuplicateAction, toggleLabelAction } from '@/features/company/services';
+import { downloadAttachmentAction } from '@/features/reports/attachments';
 import { RewardApproval } from '@/components/company/reward-approval';
 import { assignReportAction as legacyAssign, unassignReportAction as legacyUnassign } from '@/features/company/services';
 import { assignReport, unassignReport } from '@/services/assignment';
 import { addCommentAction } from '@/features/reports/services';
+import { allowedTransitions, REASON_REQUIRED_STATUSES, REPORT_STATUS_LABELS, SEVERITY_LABELS, type ReportStatus } from '@/constants/statuses';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReportStepper } from '@/components/reports/report-stepper';
+import { StatusPill } from '@/components/shared/status-pill';
 import { Avatar } from '@/components/shared/avatar';
 import { timeAgo } from '@/utils/time';
 import { getSLAStatus, getDueDate, slaIcon, slaLabel } from '@/lib/sla';
@@ -91,6 +94,12 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
   const slaDueResolution = getDueDate({ status: report.status, created_at: report.created_at, submitted_at: report.submitted_at } as never, 'resolution');
   const { data: comments } = await supabase.from('report_comments').select('id,body,is_internal,created_at,profiles!inner(username)').eq('report_id', id).order('created_at');
   const { data: dups } = await supabase.from('report_duplicates').select('id,duplicate_of').eq('report_id', id);
+  const { data: attachments } = await supabase.from('report_attachments').select('id,file_name,file_size,mime_type,created_at').eq('report_id', id).order('created_at');
+
+  // Lifecycle-aware triage: only transitions valid FROM the current status
+  // are offered (mirrors the DB trigger fn_enforce_report_transitions).
+  const nextStatuses = allowedTransitions(report.status);
+  const reasonRequired = (s: string) => (REASON_REQUIRED_STATUSES as readonly string[]).includes(s);
 
   // Smart-wallet data for the reward approval flow (spec A): effective
   // commission rate, available balance, and any locked-in reward.
@@ -136,21 +145,35 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
       </div>
       <Card><CardContent className="p-4"><ReportStepper status={report.status} /></CardContent></Card>
       <Card><CardContent className="p-4 space-y-2"><p>{report.description}</p><p><b>Impact:</b> {report.impact}</p><p><b>Repro:</b> {report.reproduction_steps}</p></CardContent></Card>
-      <Card><CardHeader><CardTitle>Triage</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {['under_review', 'need_more_info', 'triaged', 'accepted', 'rejected', 'resolved', 'duplicate', 'not_applicable', 'closed'].map((s) => (
-            <form key={s} action={triageReportAction.bind(null, report.id, s)}>
-              <Button size="sm" variant="outline" type="submit" aria-label={`تغيير الحالة إلى ${s}`} className="focus-visible:ring-2">{s}</Button>
+      <Card><CardHeader><CardTitle>إدارة الحالة — دورة حياة التقرير</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">الحالة الحالية: <StatusPill value={report.status} /></p>
+          {nextStatuses.length ? (
+            <form action={triageReportAction.bind(null, report.id)} className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <select name="status" required defaultValue="" aria-label="اختر الحالة الجديدة" className="h-10 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="" disabled>اختر الحالة الجديدة…</option>
+                  {nextStatuses.map((s) => (
+                    <option key={s} value={s}>{REPORT_STATUS_LABELS[s].ar}{reasonRequired(s) ? ' — يتطلب سببًا' : ''}</option>
+                  ))}
+                </select>
+                <Button size="sm" type="submit" aria-label="تطبيق تغيير الحالة">تطبيق</Button>
+              </div>
+              <Textarea name="reason" placeholder="سبب القرار — مطلوب عند الرفض/المكرر/غير المنطبق/غير الجاد، ويُحفظ في سجل التقرير ويرسل للباحث" aria-label="سبب تغيير الحالة" />
+              <p className="text-xs text-muted-foreground">الانتقالات تتبع دورة حياة التقرير المعتمدة — لا يمكن القفز إلى حالة غير منطقية (محمي على الخادم وقاعدة البيانات معًا).</p>
             </form>
-          ))}
+          ) : (
+            <p className="text-sm text-muted-foreground">لا توجد انتقالات متاحة من الحالة الحالية {REPORT_STATUS_LABELS[report.status as ReportStatus]?.ar ?? report.status}.{report.status === 'closed' ? ' الإغلاق نهائي — إعادة الفتح تتم من إدارة المنصة فقط عند وجود نزاع.' : ''}</p>
+          )}
         </CardContent>
       </Card>
       <Card><CardHeader><CardTitle>تغيير الخطورة (مع السبب)</CardTitle></CardHeader>
         <CardContent>
           <form action={changeSeverityAction.bind(null, report.id)} className="flex flex-wrap gap-2">
             <select name="severity" defaultValue={report.severity} aria-label="اختر الخطورة الجديدة" className="h-10 border rounded-md px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <option value="informational">informational</option><option value="low">low</option>
-              <option value="medium">medium</option><option value="high">high</option><option value="critical">critical</option>
+              {(['informational','low','medium','high','critical'] as const).map((s) => (
+                <option key={s} value={s}>{SEVERITY_LABELS[s].ar}</option>
+              ))}
             </select>
             <Input name="reason" required minLength={5} placeholder="سبب التغيير (يُحفظ في السجل)" aria-label="سبب تغيير الخطورة" className="flex-1 min-w-[200px]" />
             <Button size="sm" type="submit" aria-label="حفظ تغيير الخطورة">حفظ</Button>
@@ -215,6 +238,21 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
         existingReward={(rewardData as unknown as import('@/types/wallet').BountyReward | null) ?? null}
         canAct={canAct}
       />
+      <Card><CardHeader><CardTitle>المرفقات والأدلة ({attachments?.length ?? 0})</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {!attachments?.length ? <p className="text-sm text-muted-foreground">لا توجد مرفقات.</p> : (
+            ((attachments ?? []) as { id: string; file_name: string; file_size: number; mime_type: string; created_at: string }[]).map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <span className="min-w-0 truncate">{a.file_name} <span className="text-muted-foreground">({a.mime_type}، {Math.round(a.file_size / 1024)}KB)</span></span>
+                <form action={downloadAttachmentAction.bind(null, report.id, a.id)}>
+                  <Button size="sm" variant="outline" type="submit" aria-label={`تحميل المرفق ${a.file_name}`}>تحميل آمن</Button>
+                </form>
+              </div>
+            ))
+          )}
+          <p className="text-xs text-muted-foreground">الروابط موقعة وقصيرة الأجل (5 دقائق) — الدلو خاص ولا يمكن الوصول للمرفقات خارج صفحات الأطراف المخوّلين.</p>
+        </CardContent>
+      </Card>
       <Card><CardHeader><CardTitle>التعليقات ({comments?.length ?? 0})</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {((comments ?? []) as unknown as { id: string; body: string; is_internal: boolean; created_at: string; profiles: { username: string } }[]).map((c) => (

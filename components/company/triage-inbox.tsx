@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { StatusPill } from '@/components/shared/status-pill';
+import { REPORT_STATUS_LABELS, UNREVIEWED_REPORT_STATUSES, type ReportStatus } from '@/constants/statuses';
+import { timeAgo } from '@/utils/time';
 import { getSLAStatus, slaIcon, slaLabel, type SLAReport } from '@/lib/sla';
 import { assignReport, unassignReport } from '@/services/assignment';
 
@@ -22,6 +24,7 @@ type ReportRow = {
   affected_asset: string;
   created_at: string;
   submitted_at: string | null;
+  updated_at: string;
   program_name: string;
   program_slug?: string;
   researcher_name: string;
@@ -33,7 +36,7 @@ type Assignee = { user_id: string; profiles: { username: string } };
 type Member = { user_id: string; role: string; profiles: { username: string } };
 type AssetOpt = { id: string; value: string; type: string };
 
-const STATUSES = ['', 'submitted', 'triaged', 'accepted', 'resolved', 'duplicate', 'informative', 'not_applicable', 'closed'];
+const STATUSES = ['', 'submitted', 'under_review', 'triaged', 'need_more_info', 'accepted', 'reward_approved', 'paid', 'resolved', 'rejected', 'duplicate', 'informative', 'not_applicable', 'spam', 'closed'];
 const SEVERITIES = ['', 'critical', 'high', 'medium', 'low', 'informational'];
 const SLA_FILTERS = ['', 'overdue', 'at_risk', 'on_time', 'fulfilled'] as const;
 
@@ -163,8 +166,13 @@ export function TriageInbox({
         const sbo = prio[getSLAStatus({ status: b.status, created_at: b.created_at, submitted_at: b.submitted_at } as SLAReport)] ?? -1;
         return sbo - sa;
       }
-      // newest default
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sort === 'updated') {
+        return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+      }
+      // newest = by receive date (submitted_at), falling back to created_at
+      const ra = new Date(a.submitted_at || a.created_at).getTime();
+      const rb = new Date(b.submitted_at || b.created_at).getTime();
+      return rb - ra;
     });
     return out;
   }, [reports, debouncedQ, status, severity, asset, assignee, sla, sort, assigneeMap]);
@@ -175,7 +183,7 @@ export function TriageInbox({
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالعنوان أو الرقم أو الباحث…" aria-label="بحث في صندوق الفرز" className="h-9 min-w-[180px] flex-1 snap-start focus-visible:ring-2" />
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="فلتر الحالة" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل الحالات</option>
-          {STATUSES.filter(Boolean).map((s) => <option key={s} value={s}>{s}</option>)}
+          {STATUSES.filter(Boolean).map((s) => <option key={s} value={s}>{REPORT_STATUS_LABELS[s as ReportStatus]?.ar ?? s}</option>)}
         </select>
         <select value={severity} onChange={(e) => setSeverity(e.target.value)} aria-label="فلتر الخطورة" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <option value="">كل الخطورة</option>
@@ -195,9 +203,10 @@ export function TriageInbox({
           {SLA_FILTERS.filter(Boolean).map((s) => <option key={s} value={s}>{slaLabel(s as never)} {slaIcon(s as never)}</option>)}
         </select>
         <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="الترتيب" className="h-9 shrink-0 snap-start rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-          <option value="newest">الأحدث</option>
+          <option value="newest">الأحدث استلامًا</option>
           <option value="severity">الخطورة</option>
           <option value="sla">SLA (الأكثر تأخرًا أولًا)</option>
+          <option value="updated">آخر تحديث</option>
         </select>
         <Button variant="outline" size="sm" aria-label="مسح كل الفلاتر" className="shrink-0 snap-start" onClick={() => { setQ(''); setStatus(''); setSeverity(''); setAsset(''); setAssignee(''); setSla(''); setSort('newest'); }}>مسح</Button>
       </div>
@@ -226,6 +235,8 @@ export function TriageInbox({
                   <th scope="col" className="px-3 py-2 text-start font-medium">الباحث</th>
                   <th scope="col" className="px-3 py-2 text-start font-medium">الحالة</th>
                   <th scope="col" className="px-3 py-2 text-start font-medium">الخطورة</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">تاريخ الاستلام</th>
+                  <th scope="col" className="px-3 py-2 text-start font-medium">آخر تحديث</th>
                   <th scope="col" className="px-3 py-2 text-start font-medium">SLA</th>
                   <th scope="col" className="px-3 py-2 text-start font-medium">المكلف</th>
                 </tr>
@@ -233,16 +244,21 @@ export function TriageInbox({
               <tbody>
                 {filtered.map((r) => {
                   const slaStatus = getSLAStatus({ status: r.status, created_at: r.created_at, submitted_at: r.submitted_at } as SLAReport);
+                  const isNew = (UNREVIEWED_REPORT_STATUSES as readonly string[]).includes(r.status);
+                  const receiveDate = r.submitted_at || r.created_at;
                   return (
-                    <tr key={r.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
+                    <tr key={r.id} className={`border-b transition-colors last:border-0 hover:bg-muted/40 ${isNew ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
                       <td className="whitespace-nowrap px-3 py-2 font-mono text-xs" dir="ltr">{r.report_number}</td>
                       <td className="px-3 py-2">
                         <Link href={`/company/reports/${r.id}`} className="font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1">{r.title}</Link>
+                        {isNew && <Badge className="ms-2 bg-blue-600 text-[10px] text-white">جديد — لم يُراجع</Badge>}
                         <span className="ms-2 text-xs text-muted-foreground" dir="ltr">{r.program_name}</span>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{r.researcher_name}</td>
                       <td className="px-3 py-2"><StatusPill value={r.status} /></td>
                       <td className="px-3 py-2"><StatusPill value={r.severity} kind="severity" /></td>
+                      <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground" title={receiveDate}>{new Date(receiveDate).toLocaleDateString('ar-EG')}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground" title={r.updated_at}>{timeAgo(r.updated_at || r.created_at)}</td>
                       <td className="px-3 py-2">
                         <Badge variant={slaStatus === 'overdue' ? 'destructive' : slaStatus === 'at_risk' ? 'outline' : 'secondary'} className={slaStatus === 'at_risk' ? 'border-amber-500 text-amber-700 dark:border-amber-800 dark:text-amber-300' : ''}>
                           <span className="me-1">{slaIcon(slaStatus)}</span>{slaLabel(slaStatus)}

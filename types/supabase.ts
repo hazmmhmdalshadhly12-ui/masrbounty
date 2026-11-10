@@ -166,6 +166,7 @@ export interface Database {
         | 'informative'
         | 'duplicate'
         | 'not_applicable'
+        | 'spam'
         | 'rejected'
         | 'accepted'
         | 'reward_approved'
