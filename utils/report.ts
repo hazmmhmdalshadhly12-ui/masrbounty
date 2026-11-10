@@ -1,19 +1,21 @@
-/** Report status machine + severity presentation helpers. Pure functions. */
+/**
+ * Report status machine + severity presentation helpers. Pure functions.
+ *
+ * @deprecated as a source of truth — the canonical lifecycle lives in
+ * `@/constants/statuses.ts` (single source shared by UI, server actions and
+ * the DB trigger `fn_enforce_report_transitions`). This shim keeps the old
+ * import path working and delegates everything to the canonical module.
+ */
+export {
+  REPORT_STATUSES,
+  SEVERITIES,
+  allowedTransitions,
+  canTransition,
+  CLOSED_REPORT_STATUSES,
+  REASON_REQUIRED_STATUSES,
+} from '@/constants/statuses';
 
-export const REPORT_STATUSES = [
-  'draft',
-  'submitted',
-  'triaging',
-  'accepted',
-  'rejected',
-  'duplicate',
-  'resolved',
-  'closed',
-] as const;
-
-export type ReportStatus = (typeof REPORT_STATUSES)[number];
-
-export const SEVERITIES = ['informational', 'low', 'medium', 'high', 'critical'] as const;
+export type { ReportStatus } from '@/constants/statuses';
 
 const BADGE: Record<string, string> = {
   critical: 'bg-red-500',
@@ -25,31 +27,11 @@ const BADGE: Record<string, string> = {
 
 export const badgeColor = (s: string): string => BADGE[s] || 'bg-gray-500';
 
-const TRANSITIONS: Record<string, string[]> = {
-  draft: ['submitted', 'closed'],
-  submitted: ['triaging', 'duplicate', 'rejected', 'closed'],
-  triaging: ['accepted', 'rejected', 'duplicate', 'closed'],
-  accepted: ['resolved', 'closed'],
-  rejected: ['closed'],
-  duplicate: ['closed'],
-  resolved: ['closed'],
-  closed: ['closed'],
-};
+import { CLOSED_REPORT_STATUSES, SEVERITIES } from '@/constants/statuses';
 
-export function allowedTransitions(from: string): string[] {
-  return TRANSITIONS[from] ? [...(TRANSITIONS[from] as string[])] : [];
-}
-
-/** Closed reports are terminal (may only stay closed); same-status is a no-op allow. */
-export const canTransition = (from: string, to: string): boolean => {
-  if (from === to) return true;
-  if (from === 'closed') return false;
-  const next = TRANSITIONS[from];
-  if (!next) return true;
-  return next.includes(to);
-};
-
-export const isTerminalStatus = (s: string): boolean => s === 'closed' || s === 'resolved';
+/** Terminal states — no further transitions expected. */
+export const isTerminalStatus = (s: string): boolean =>
+  (CLOSED_REPORT_STATUSES as readonly string[]).includes(s) || s === 'closed';
 
 export function severityRank(s: string): number {
   const i = (SEVERITIES as readonly string[]).indexOf(s);

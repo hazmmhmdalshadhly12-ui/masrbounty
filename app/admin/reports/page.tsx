@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
 import { requireStaff } from '@/lib/auth/admin-actions';
 import { logAudit } from '@/services/audit';
+import { canTransition, REASON_REQUIRED_STATUSES, REPORT_STATUS_LABELS, allowedTransitions, type ReportStatus } from '@/constants/statuses';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,9 +23,21 @@ async function triageReport(reportId: string, formData: FormData) {
   'use server';
   const { supabase, user } = await staff();
   const to = String(formData.get(`to_${reportId}`) ?? '').trim();
-  const note = String(formData.get(`note_${reportId}`) ?? '').trim();
-  const allowed = ['triaged', 'informative', 'duplicate', 'not_applicable', 'accepted', 'resolved', 'closed'];
-  if (!allowed.includes(to)) throw new Error('حالة غير صالحة');
+  const note = String(formData.get(`note_${reportId}`) ?? '').trim().slice(0, 1000);
+  if (!to || !(to in REPORT_STATUS_LABELS)) throw new Error('حالة غير صالحة');
+
+  // Fetch the current status and enforce the canonical lifecycle map.
+  // Staff may reopen closed reports (closed → under_review); everything else
+  // follows the same from → to rules as the company flow. The DB trigger
+  // fn_enforce_report_transitions enforces this again at the storage layer.
+  const { data: current } = await supabase.from('reports').select('status,report_number').eq('id', reportId).single();
+  if (!current) throw new Error('التقرير غير موجود');
+  if (!canTransition((current as { status: string }).status, to, { staff: true })) {
+    throw new Error(`انتقال غير صالح: ${(current as { status: string }).status} ← ${to}`);
+  }
+  if ((REASON_REQUIRED_STATUSES as readonly string[]).includes(to as never) && note.length < 5) {
+    throw new Error('سبب القرار مطلوب (5 أحرف على الأقل)');
+  }
 
   // Duplicate link handling
   if (to === 'duplicate') {
@@ -37,7 +50,12 @@ async function triageReport(reportId: string, formData: FormData) {
   const { error } = await supabase.from('reports').update({ status: to }).eq('id', reportId);
   if (error) throw new Error(error.message);
 
-  await supabase.from('report_events').insert({ report_id: reportId, actor_id: user.id, to_status: to, note: note || `admin triage → ${to}` });
+  // NOTE: no manual report_events insert — the DB trigger log_report_event
+  // already records every status change (the old code wrote a duplicate row).
+  // The decision reason is stored as its own timeline note event.
+  if (note) {
+    await supabase.from('report_events').insert({ report_id: reportId, actor_id: user.id, note: `سبب القرار (${REPORT_STATUS_LABELS[to as ReportStatus]?.ar ?? to}): ${note}` });
+  }
   await supabase.from('moderation_actions').insert({ moderator_id: user.id, target_type: 'report', target_id: reportId, action: `triage:${to}`, reason: note || null });
   await logAudit('moderate', 'reports', reportId, { to, note }, user.id);
 
@@ -50,7 +68,7 @@ async function triageReport(reportId: string, formData: FormData) {
         const { notify } = await import('@/lib/notify');
         await notify(supabase, (rp as { user_id: string }).user_id, {
           type: 'report',
-          title: `تحديث تقرير ${r.report_number}: ${to}`,
+          title: `تحديث تقرير ${r.report_number}: ${REPORT_STATUS_LABELS[to as ReportStatus]?.ar ?? to}`,
           body: note || undefined,
           link: `/dashboard/reports/${reportId}`,
         });
@@ -63,17 +81,9 @@ async function triageReport(reportId: string, formData: FormData) {
   revalidatePath('/admin/reports');
 }
 
-const statusAr: Record<string, string> = {
-  draft: 'مسودة',
-  submitted: 'مقدّم',
-  triaged: 'مُفرز',
-  informative: 'معلوماتي',
-  duplicate: 'مكرر',
-  not_applicable: 'غير منطبق',
-  accepted: 'مقبول',
-  resolved: 'محلول',
-  closed: 'مغلق',
-};
+const statusAr: Record<string, string> = Object.fromEntries(
+  Object.entries(REPORT_STATUS_LABELS).map(([k, v]) => [k, v.ar])
+);
 
 const severityAr: Record<string, string> = {
   critical: 'حرجة',
@@ -95,12 +105,15 @@ export default async function AdminReports({
   let query = supabase.from('reports').select('id,report_number,title,status,severity,bounty_amount,created_at,program_id,researcher_id').order('created_at', { ascending: false }).limit(80);
 
   if (status === 'needs_review') {
-    query = query.in('status', ['submitted', 'triaged']);
+    query = query.in('status', ['submitted', 'under_review', 'triaged', 'need_more_info']);
   } else if (status !== 'all' && status) {
     query = query.eq('status', status);
   }
   if (severity) query = query.eq('severity', severity);
-  if (q.trim()) query = query.ilike('title', `%${q.trim().replace(/[%_\\]/g, '\\$&')}%`);
+  if (q.trim()) {
+    const esc = q.trim().replace(/[%_\\]/g, '\\$&');
+    query = query.or(`title.ilike.%${esc}%,report_number.ilike.%${esc}%`);
+  }
 
   const { data: reports, error } = await query;
   const rows = (reports ?? []) as {
@@ -140,15 +153,11 @@ export default async function AdminReports({
         <CardContent>
           <form className="flex flex-wrap gap-2">
             <select name="status" defaultValue={status} className="h-9 rounded-md border bg-background px-2 text-sm">
-              <option value="needs_review">تحتاج مراجعة (مقدّم + مُفرز)</option>
+              <option value="needs_review">تحتاج مراجعة</option>
               <option value="all">الكل</option>
-              <option value="submitted">مقدّم</option>
-              <option value="triaged">مُفرز</option>
-              <option value="informative">معلوماتي</option>
-              <option value="duplicate">مكرر</option>
-              <option value="not_applicable">غير منطبق</option>
-              <option value="accepted">مقبول</option>
-              <option value="resolved">محلول</option>
+              {(['submitted','under_review','triaged','need_more_info','accepted','reward_approved','paid','resolved','rejected','duplicate','informative','not_applicable','spam','closed','draft'] as const).map((s) => (
+                <option key={s} value={s}>{REPORT_STATUS_LABELS[s].ar}</option>
+              ))}
             </select>
             <select name="severity" defaultValue={severity} className="h-9 rounded-md border bg-background px-2 text-sm">
               <option value="">كل الخطورة</option>
@@ -158,7 +167,7 @@ export default async function AdminReports({
               <option value="low">منخفضة</option>
               <option value="informational">معلوماتية</option>
             </select>
-            <Input name="q" defaultValue={q} placeholder="بحث بالعنوان…" className="h-9 w-56" />
+            <Input name="q" defaultValue={q} placeholder="بحث بالعنوان أو الرقم المرجعي…" className="h-9 w-56" />
             <Button size="sm" variant="outline" type="submit">
               تطبيق
             </Button>
@@ -207,16 +216,12 @@ export default async function AdminReports({
                 <form action={triageReport.bind(null, r.id)} className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
                   <Flag className="h-4 w-4 text-muted-foreground" />
                   <select name={`to_${r.id}`} defaultValue={r.status === 'submitted' ? 'triaged' : 'accepted'} className="h-8 rounded-md border bg-background px-2 text-xs">
-                    <option value="triaged">مُفرز</option>
-                    <option value="informative">معلوماتي</option>
-                    <option value="duplicate">مكرر</option>
-                    <option value="not_applicable">غير منطبق</option>
-                    <option value="accepted">مقبول</option>
-                    <option value="resolved">محلول</option>
-                    <option value="closed">مغلق</option>
+                    {allowedTransitions(r.status, { staff: true }).map((s) => (
+                      <option key={s} value={s}>{REPORT_STATUS_LABELS[s].ar}</option>
+                    ))}
                   </select>
                   <Input name={`dup_${r.id}`} placeholder="معرّف التقرير الأصلي (للمكرر)" className="h-8 w-56 text-xs" dir="ltr" />
-                  <Input name={`note_${r.id}`} placeholder="ملاحظة الترياج" className="h-8 flex-1 text-xs" />
+                  <Input name={`note_${r.id}`} placeholder="سبب القرار / ملاحظة الترياج" className="h-8 flex-1 text-xs" />
                   <Button size="sm" type="submit" className="bg-slate-900 text-white hover:bg-slate-700">
                     <Check className="ml-1 h-3 w-3" /> تطبيق
                   </Button>

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import { addCommentAction, submitReportAction } from '@/features/reports/services';
 import { openDisputeAction } from '@/features/disputes/services';
-import { uploadAttachmentAction } from '@/features/reports/attachments';
+import { uploadAttachmentAction, downloadAttachmentAction } from '@/features/reports/attachments';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,9 +12,17 @@ import { ReportStepper } from '@/components/reports/report-stepper';
 import { Avatar } from '@/components/shared/avatar';
 import { timeAgo } from '@/utils/time';
 
-export default async function ReportDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReportDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ submitted?: string }>;
+}) {
   const supabase = await createServerClient();
   const { id: reportId } = await params;
+  const sp = await searchParams;
+  const justSubmitted = sp?.submitted === '1';
   const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
   if (!report) notFound();
   const [{ data: comments }, { data: events }, { data: attachments }, { data: award }, { data: payments }] = await Promise.all([
@@ -28,6 +36,14 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
 
   return (
     <div className="py-2 max-w-3xl space-y-4">
+      {justSubmitted && (
+        <div className="rounded-lg border border-green-500/50 bg-green-50 p-4 text-sm dark:bg-green-950/40" role="status">
+          <p className="font-bold text-green-800 dark:text-green-300">✅ تم إرسال التقرير بنجاح</p>
+          <p className="mt-1 text-green-700 dark:text-green-400">
+            رقمك المرجعي: <span className="font-mono" dir="ltr">{report.report_number}</span> — وصل التقرير إلى الشركة وستصلك إشعارات عند أي تحديث في الحالة.
+          </p>
+        </div>
+      )}
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-mono text-sm text-muted-foreground" dir="ltr">{report.report_number}</p>
@@ -92,7 +108,14 @@ export default async function ReportDetail({ params }: { params: Promise<{ id: s
       <Card><CardHeader><CardTitle className="text-sm">المرفقات (خاصة — 10MB كحد أقصى)</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {!attachments?.length ? <p className="text-sm text-muted-foreground">لا توجد مرفقات.</p> :
-            attachments.map((a) => <p key={a.id} className="rounded-md border p-2 text-sm">{a.file_name} <span className="text-muted-foreground">({a.mime_type}، {Math.round(a.file_size / 1024)}KB)</span></p>)}
+            ((attachments ?? []) as { id: string; file_name: string; file_size: number; mime_type: string; created_at: string }[]).map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <span className="min-w-0 truncate">{a.file_name} <span className="text-muted-foreground">({a.mime_type}، {Math.round(a.file_size / 1024)}KB)</span></span>
+                <form action={downloadAttachmentAction.bind(null, report.id, a.id)}>
+                  <Button type="submit" size="sm" variant="outline" aria-label={`تحميل المرفق ${a.file_name}`}>تحميل</Button>
+                </form>
+              </div>
+            ))}
           <form action={uploadAttachmentAction.bind(null, report.id)} className="flex flex-wrap items-center gap-2">
             <input type="file" name="file" required accept=".png,.jpg,.jpeg,.webp,.pdf,.txt" className="text-sm" />
             <Button type="submit" size="sm">رفع</Button>

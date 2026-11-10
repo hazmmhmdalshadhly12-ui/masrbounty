@@ -15,7 +15,7 @@ DO $$ BEGIN CREATE TYPE company_member_role AS ENUM ('owner','admin','triager','
 DO $$ BEGIN CREATE TYPE program_status AS ENUM ('draft','pending_review','active','paused','closed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE program_visibility AS ENUM ('public','private'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE asset_type AS ENUM ('web','api','mobile','network','other'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE report_status AS ENUM ('draft','submitted','triaged','informative','duplicate','not_applicable','accepted','resolved','closed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE report_status AS ENUM ('draft','submitted','triaged','informative','duplicate','not_applicable','accepted','resolved','closed','spam'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE severity_level AS ENUM ('informational','low','medium','high','critical'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE bounty_status AS ENUM ('pending','approved','rejected','paid'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('pending','processing','completed','failed','cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -570,6 +570,8 @@ CREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);
 CREATE INDEX IF NOT EXISTS idx_reports_severity ON public.reports(severity);
 CREATE INDEX IF NOT EXISTS idx_reports_number ON public.reports(report_number);
 CREATE INDEX IF NOT EXISTS idx_reports_title_trgm ON public.reports USING gin (title gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_reports_submitted_at ON public.reports(submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_updated_at ON public.reports(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_programs_company ON public.programs(company_id);
 CREATE INDEX IF NOT EXISTS idx_programs_status ON public.programs(status);
 CREATE INDEX IF NOT EXISTS idx_programs_slug ON public.programs(slug);
@@ -587,7 +589,7 @@ CREATE SEQUENCE IF NOT EXISTS report_number_seq START 1;
 
 -- 5. FUNCTIONS
 CREATE OR REPLACE FUNCTION public.generate_report_number() RETURNS TEXT AS $$
-DECLARE n BIGINT; BEGIN n := nextval('report_number_seq'); RETURN 'MB-' || lpad(n::TEXT, 6, '0'); END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+DECLARE n BIGINT; BEGIN n := nextval('report_number_seq'); RETURN 'MB-' || to_char(now(), 'YYYY') || '-' || lpad(n::TEXT, 6, '0'); END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.touch_updated_at() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION public.log_report_event() RETURNS TRIGGER AS $$
 BEGIN
@@ -789,7 +791,21 @@ DROP POLICY IF EXISTS "rep_select" ON public.reports; CREATE POLICY "rep_select"
   EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
   OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND public.is_company_member(p.company_id, auth.uid()))
   OR public.has_role('admin') OR public.has_role('moderator'));
-DROP POLICY IF EXISTS "rep_insert" ON public.reports; CREATE POLICY "rep_insert" ON public.reports FOR INSERT WITH CHECK (EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid()));
+DROP POLICY IF EXISTS "rep_insert" ON public.reports; CREATE POLICY "rep_insert" ON public.reports FOR INSERT WITH CHECK (
+  EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
+  AND EXISTS(
+    SELECT 1 FROM public.programs p
+    WHERE p.id = program_id
+      AND p.status = 'active'
+      AND (
+        p.visibility = 'public'
+        OR EXISTS(
+          SELECT 1 FROM public.program_researchers pri
+          WHERE pri.program_id = p.id AND pri.researcher_id = researcher_id AND pri.status = 'accepted'
+        )
+      )
+  )
+);
 DROP POLICY IF EXISTS "rep_update" ON public.reports; CREATE POLICY "rep_update" ON public.reports FOR UPDATE USING (
   EXISTS(SELECT 1 FROM public.researcher_profiles rp WHERE rp.id=researcher_id AND rp.user_id=auth.uid())
   OR EXISTS(SELECT 1 FROM public.programs p WHERE p.id=program_id AND public.is_company_member(p.company_id, auth.uid()))
@@ -1196,7 +1212,9 @@ BEGIN
   UPDATE public.wallets SET pending_balance = pending_balance + v_net, total_earned = total_earned + v_net, updated_at = now() WHERE id = v_wallet;
   INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
   SELECT v_wallet, 'bounty', v_net, balance, p_report, 'Bounty approved net of ' || v_fee_pct || '% platform fee (pending payment)', v_uid FROM public.wallets WHERE id = v_wallet;
-  UPDATE public.reports SET status = 'accepted', bounty_amount = v_net, updated_at = now() WHERE id = p_report;
+  UPDATE public.reports SET status = 'accepted', bounty_amount = v_net, updated_at = now()
+   WHERE id = p_report
+     AND status IN ('submitted','under_review','need_more_info','triaged','accepted');
   INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
   VALUES (v_uid, 'award', 'bounty_awards', v_award, jsonb_build_object('report_id', p_report, 'gross', p_amount, 'fee', v_fee, 'net', v_net));
   RETURN v_award;
@@ -2175,16 +2193,32 @@ CREATE POLICY "rpa_read" ON public.researcher_program_activity FOR SELECT USING 
 );
 
 -- ------------------------------------------------------------
--- 18.8 reports UPDATE: researchers must not flip triage fields
--- (P1) Trigger guard: status / severity / bounty_amount can only
--- change by the program company (triage rank+) or staff. The
--- reporter may still edit their own draft content fields.
+-- 18.8 reports UPDATE guards (fixed in migration 27):
+--   * trg_protect_report_triage — status/severity/bounty_amount change
+--     only by company triage rank+ or staff, EXCEPT the reporter's own
+--     legitimate draft → submitted transition (the original version
+--     blocked it, breaking report submission entirely — P0).
+--   * trg_report_transitions — canonical lifecycle map, mirroring
+--     constants/statuses.ts REPORT_TRANSITIONS; unknown source
+--     statuses are denied; closed → under_review is staff-only.
+--   * trg_protect_report_content — original content is immutable after
+--     submission (reporter may edit drafts only; company triage rank+
+--     keeps the audited severity-only flow).
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.protect_report_triage_fields() RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.status IS DISTINCT FROM OLD.status
      OR NEW.severity IS DISTINCT FROM OLD.severity
      OR NEW.bounty_amount IS DISTINCT FROM OLD.bounty_amount THEN
+    IF OLD.status = 'draft' AND NEW.status = 'submitted'
+       AND NEW.severity IS NOT DISTINCT FROM OLD.severity
+       AND NEW.bounty_amount IS NOT DISTINCT FROM OLD.bounty_amount
+       AND EXISTS(
+         SELECT 1 FROM public.researcher_profiles rp
+         WHERE rp.id = NEW.researcher_id AND rp.user_id = auth.uid()
+       ) THEN
+      RETURN NEW;
+    END IF;
     IF public.has_role('admin') OR public.has_role('moderator')
        OR EXISTS(
          SELECT 1 FROM public.programs p
@@ -2200,6 +2234,106 @@ END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 DROP TRIGGER IF EXISTS trg_protect_report_triage ON public.reports;
 CREATE TRIGGER trg_protect_report_triage BEFORE UPDATE ON public.reports
   FOR EACH ROW EXECUTE FUNCTION public.protect_report_triage_fields();
+
+CREATE OR REPLACE FUNCTION public.fn_enforce_report_transitions() RETURNS TRIGGER AS $$
+DECLARE v_allowed TEXT[];
+BEGIN
+  IF NEW.status IS NOT DISTINCT FROM OLD.status THEN RETURN NEW; END IF;
+  IF NEW.status = 'draft' THEN
+    RAISE EXCEPTION 'invalid transition: % → draft', OLD.status;
+  END IF;
+  v_allowed := CASE OLD.status
+    WHEN 'draft'           THEN ARRAY['submitted']
+    WHEN 'submitted'       THEN ARRAY['under_review','triaged','need_more_info','accepted','informative','duplicate','not_applicable','rejected','spam','closed']
+    WHEN 'under_review'    THEN ARRAY['triaged','need_more_info','accepted','informative','duplicate','not_applicable','rejected','spam','closed']
+    WHEN 'need_more_info'  THEN ARRAY['under_review','triaged','accepted','informative','duplicate','not_applicable','rejected','spam','closed']
+    WHEN 'triaged'         THEN ARRAY['under_review','need_more_info','accepted','informative','duplicate','not_applicable','rejected','spam','resolved','closed']
+    WHEN 'accepted'        THEN ARRAY['reward_approved','resolved','closed']
+    WHEN 'reward_approved' THEN ARRAY['paid','accepted']
+    WHEN 'rejected'        THEN ARRAY['closed']
+    WHEN 'informative'     THEN ARRAY['closed']
+    WHEN 'duplicate'       THEN ARRAY['closed']
+    WHEN 'not_applicable'  THEN ARRAY['closed']
+    WHEN 'spam'            THEN ARRAY['closed']
+    WHEN 'resolved'        THEN ARRAY['closed']
+    WHEN 'paid'            THEN ARRAY['closed']
+    WHEN 'closed'          THEN ARRAY[]::TEXT[]
+    ELSE ARRAY[]::TEXT[]
+  END;
+  IF NOT (NEW.status = ANY(v_allowed)) THEN
+    IF OLD.status = 'closed' AND NEW.status = 'under_review'
+       AND (public.has_role('admin') OR public.has_role('moderator')) THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'invalid transition: % → %', OLD.status, NEW.status;
+  END IF;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+DROP TRIGGER IF EXISTS trg_report_transitions ON public.reports;
+CREATE TRIGGER trg_report_transitions BEFORE UPDATE ON public.reports
+  FOR EACH ROW EXECUTE FUNCTION public.fn_enforce_report_transitions();
+
+CREATE OR REPLACE FUNCTION public.fn_protect_report_content() RETURNS TRIGGER AS $$
+DECLARE
+  v_is_reporter BOOLEAN;
+  v_company_rank TEXT;
+  v_severity_only BOOLEAN;
+BEGIN
+  IF NEW.title IS NOT DISTINCT FROM OLD.title
+     AND NEW.summary IS NOT DISTINCT FROM OLD.summary
+     AND NEW.vulnerability_type IS NOT DISTINCT FROM OLD.vulnerability_type
+     AND NEW.severity IS NOT DISTINCT FROM OLD.severity
+     AND NEW.affected_asset IS NOT DISTINCT FROM OLD.affected_asset
+     AND NEW.description IS NOT DISTINCT FROM OLD.description
+     AND NEW.impact IS NOT DISTINCT FROM OLD.impact
+     AND NEW.reproduction_steps IS NOT DISTINCT FROM OLD.reproduction_steps
+     AND NEW.remediation IS NOT DISTINCT FROM OLD.remediation
+     AND NEW.cvss_score IS NOT DISTINCT FROM OLD.cvss_score
+     AND NEW.cwe IS NOT DISTINCT FROM OLD.cwe
+     AND NEW.program_id IS NOT DISTINCT FROM OLD.program_id
+     AND NEW.asset_id IS NOT DISTINCT FROM OLD.asset_id THEN
+    RETURN NEW;
+  END IF;
+  IF public.has_role('admin') OR public.has_role('moderator') THEN
+    RETURN NEW;
+  END IF;
+  SELECT EXISTS(
+    SELECT 1 FROM public.researcher_profiles rp
+    WHERE rp.id = NEW.researcher_id AND rp.user_id = auth.uid()
+  ) INTO v_is_reporter;
+  SELECT public.company_role(p.company_id, auth.uid())
+    INTO v_company_rank
+    FROM public.programs p WHERE p.id = NEW.program_id;
+  IF v_is_reporter THEN
+    IF OLD.status = 'draft' AND NEW.status = 'draft' THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'forbidden: report content is locked after submission — use comments/clarifications';
+  END IF;
+  v_severity_only :=
+       NEW.title IS NOT DISTINCT FROM OLD.title
+   AND NEW.summary IS NOT DISTINCT FROM OLD.summary
+   AND NEW.vulnerability_type IS NOT DISTINCT FROM OLD.vulnerability_type
+   AND NEW.affected_asset IS NOT DISTINCT FROM OLD.affected_asset
+   AND NEW.description IS NOT DISTINCT FROM OLD.description
+   AND NEW.impact IS NOT DISTINCT FROM OLD.impact
+   AND NEW.reproduction_steps IS NOT DISTINCT FROM OLD.reproduction_steps
+   AND NEW.remediation IS NOT DISTINCT FROM OLD.remediation
+   AND NEW.cvss_score IS NOT DISTINCT FROM OLD.cvss_score
+   AND NEW.cwe IS NOT DISTINCT FROM OLD.cwe
+   AND NEW.program_id IS NOT DISTINCT FROM OLD.program_id
+   AND NEW.asset_id IS NOT DISTINCT FROM OLD.asset_id;
+  IF v_company_rank IN ('owner','admin','triager','finance') THEN
+    IF v_severity_only THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'forbidden: original report content is immutable — evidence integrity';
+  END IF;
+  RAISE EXCEPTION 'forbidden: you cannot edit this report';
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+DROP TRIGGER IF EXISTS trg_protect_report_content ON public.reports;
+CREATE TRIGGER trg_protect_report_content BEFORE UPDATE ON public.reports
+  FOR EACH ROW EXECUTE FUNCTION public.fn_protect_report_content();
 
 -- ------------------------------------------------------------
 -- 18.9 Money RPCs: role-rank enforcement (P1)
@@ -2244,7 +2378,9 @@ BEGIN
   UPDATE public.wallets SET pending_balance = pending_balance + v_net, total_earned = total_earned + v_net, updated_at = now() WHERE id = v_wallet;
   INSERT INTO public.wallet_transactions(wallet_id, type, amount, balance_after, reference_id, note, created_by)
   SELECT v_wallet, 'bounty', v_net, balance, p_report, 'Bounty approved net of ' || v_fee_pct || '% platform fee (pending payment)', v_uid FROM public.wallets WHERE id = v_wallet;
-  UPDATE public.reports SET status = 'accepted', bounty_amount = v_net, updated_at = now() WHERE id = p_report;
+  UPDATE public.reports SET status = 'accepted', bounty_amount = v_net, updated_at = now()
+   WHERE id = p_report
+     AND status IN ('submitted','under_review','need_more_info','triaged','accepted');
   INSERT INTO public.audit_logs(actor_id, action, entity, entity_id, metadata)
   VALUES (v_uid, 'award', 'bounty_awards', v_award, jsonb_build_object('report_id', p_report, 'gross', p_amount, 'fee', v_fee, 'net', v_net));
   RETURN v_award;

@@ -16,8 +16,10 @@ export interface SLAReport {
   resolved_at?: string | null;
 }
 
-const TERMINAL = new Set(['resolved', 'closed', 'duplicate', 'not_applicable', 'informative']);
-const TRIAGED = new Set(['triaged', 'accepted', 'resolved', 'closed']);
+// Terminal = decided/closed: no SLA clock should keep running.
+// (Includes finance states reward_approved/paid — accepted work awaiting payout.)
+const TERMINAL = new Set(['resolved', 'closed', 'duplicate', 'not_applicable', 'informative', 'rejected', 'spam', 'reward_approved', 'paid']);
+const TRIAGED = new Set(['triaged', 'accepted', 'resolved', 'closed', 'reward_approved', 'paid']);
 
 function baseTime(report: SLAReport): number | null {
   if (report.submitted_at) return new Date(report.submitted_at).getTime();

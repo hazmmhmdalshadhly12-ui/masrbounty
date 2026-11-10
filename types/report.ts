@@ -6,11 +6,17 @@ export type ReportInput = z.infer<typeof reportSchema>;
 export type ReportStatus =
   | 'draft'
   | 'submitted'
+  | 'under_review'
+  | 'need_more_info'
   | 'triaged'
   | 'informative'
   | 'duplicate'
   | 'not_applicable'
+  | 'spam'
+  | 'rejected'
   | 'accepted'
+  | 'reward_approved'
+  | 'paid'
   | 'resolved'
   | 'closed';
 
