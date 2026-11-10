@@ -7,7 +7,7 @@ import { RewardApproval } from '@/components/company/reward-approval';
 import { assignReportAction as legacyAssign, unassignReportAction as legacyUnassign } from '@/features/company/services';
 import { assignReport, unassignReport } from '@/services/assignment';
 import { addCommentAction } from '@/features/reports/services';
-import { allowedTransitions, REASON_REQUIRED_STATUSES, REPORT_STATUS_LABELS, SEVERITY_LABELS, type ReportStatus } from '@/constants/statuses';
+import { allowedTransitions, COMPANY_TRIAGE_STATUSES, REASON_REQUIRED_STATUSES, REPORT_STATUS_LABELS, SEVERITY_LABELS, type ReportStatus } from '@/constants/statuses';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,8 +97,13 @@ export default async function CompanyReport({ params }: { params: Promise<{ id: 
   const { data: attachments } = await supabase.from('report_attachments').select('id,file_name,file_size,mime_type,created_at').eq('report_id', id).order('created_at');
 
   // Lifecycle-aware triage: only transitions valid FROM the current status
-  // are offered (mirrors the DB trigger fn_enforce_report_transitions).
-  const nextStatuses = allowedTransitions(report.status);
+  // are offered (mirrors the DB trigger fn_enforce_report_transitions),
+  // MINUS finance-only states (reward_approved/paid) which are set exclusively
+  // by the money RPCs — offering them here would make the action throw and
+  // hit the error boundary right after the user picks the option.
+  const nextStatuses = allowedTransitions(report.status).filter(
+    (s) => (COMPANY_TRIAGE_STATUSES as readonly string[]).includes(s)
+  );
   const reasonRequired = (s: string) => (REASON_REQUIRED_STATUSES as readonly string[]).includes(s);
 
   // Smart-wallet data for the reward approval flow (spec A): effective

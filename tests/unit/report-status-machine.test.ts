@@ -104,4 +104,51 @@ describe('professional report status machine', () => {
     expect(from).not.toContain('draft');
     expect(from).not.toContain('reward_approved'); // company cannot set finance states
   });
+
+  // ============================================================
+  // REGRESSION SUITE — production incident 2026-11-10, ref 2310796611:
+  // company opened a legacy draft report, picked the only offered option
+  // (جديد / submitted), and the action threw because COMPANY_TRIAGE_STATUSES
+  // was missing 'submitted' → full-page error boundary "حدث خطأً ما".
+  // These tests assert the UI ↔ action contract so this class of bug
+  // (offered option that the action rejects) can never ship again.
+  // ============================================================
+
+  test('REGRESSION: company can intake a legacy draft (draft → submitted)', () => {
+    expect(canTransition('draft', 'submitted')).toBe(true);
+    expect(allowedTransitions('draft')).toEqual(['submitted']);
+    expect(COMPANY_TRIAGE_STATUSES).toContain('submitted');
+  });
+
+  test('REGRESSION: every non-finance transition the UI offers is accepted by triageReportAction', () => {
+    // The company detail page renders allowedTransitions(status) filtered to
+    // COMPANY_TRIAGE_STATUSES, and the action allows exactly COMPANY_TRIAGE_STATUSES.
+    // Invariant: whatever remains offered must be actionable — otherwise the
+    // user picks it and hits the error boundary.
+    for (const s of REPORT_STATUSES) {
+      const offered = allowedTransitions(s).filter(
+        (t) => !(FINANCE_REPORT_STATUSES as readonly string[]).includes(t)
+      );
+      for (const t of offered) {
+        expect({ from: s, to: t, ok: COMPANY_TRIAGE_STATUSES.includes(t) })
+          .toEqual({ from: s, to: t, ok: true });
+      }
+    }
+  });
+
+  test('finance states stay exclusive to the money RPCs (never company-settable)', () => {
+    for (const f of FINANCE_REPORT_STATUSES) {
+      expect(COMPANY_TRIAGE_STATUSES).not.toContain(f);
+    }
+    // even though the raw map reaches finance states (accepted → reward_approved),
+    // the company-facing filter removes them everywhere it is applied
+    for (const s of REPORT_STATUSES) {
+      const financeOffered = allowedTransitions(s).filter((t) =>
+        (FINANCE_REPORT_STATUSES as readonly string[]).includes(t)
+      );
+      for (const f of financeOffered) {
+        expect(COMPANY_TRIAGE_STATUSES).not.toContain(f);
+      }
+    }
+  });
 });

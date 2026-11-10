@@ -54,7 +54,8 @@ async function triageReport(reportId: string, formData: FormData) {
   // already records every status change (the old code wrote a duplicate row).
   // The decision reason is stored as its own timeline note event.
   if (note) {
-    await supabase.from('report_events').insert({ report_id: reportId, actor_id: user.id, note: `سبب القرار (${REPORT_STATUS_LABELS[to as ReportStatus]?.ar ?? to}): ${note}` });
+    const { error: evErr } = await supabase.from('report_events').insert({ report_id: reportId, actor_id: user.id, note: `سبب القرار (${REPORT_STATUS_LABELS[to as ReportStatus]?.ar ?? to}): ${note}` });
+    if (evErr) throw new Error(`تم تحديث الحالة لكن تعذّر حفظ سبب القرار: ${evErr.message}`);
   }
   await supabase.from('moderation_actions').insert({ moderator_id: user.id, target_type: 'report', target_id: reportId, action: `triage:${to}`, reason: note || null });
   await logAudit('moderate', 'reports', reportId, { to, note }, user.id);

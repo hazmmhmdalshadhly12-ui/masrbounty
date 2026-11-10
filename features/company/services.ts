@@ -79,12 +79,15 @@ export async function triageReportAction(reportId: string, formData: FormData) {
   if (error) throw friendlyTriageError(error.message);
   // Decision reason is preserved permanently on the timeline as its own
   // note event (the status change itself is auto-logged by the DB trigger).
+  // A failed insert must NEVER be silent — the UI promises the reason is
+  // stored, so losing it quietly would break the decision audit trail.
   if (reason) {
-    await supabase.from('report_events').insert({
+    const { error: evErr } = await supabase.from('report_events').insert({
       report_id: reportId,
       actor_id: actor.user?.id ?? null,
       note: `سبب القرار (${REPORT_STATUS_LABELS[status as ReportStatus]?.ar ?? status}): ${reason}`,
     });
+    if (evErr) throw new Error(`تم تحديث الحالة لكن تعذّر حفظ سبب القرار: ${evErr.message}`);
   }
   if (status === 'resolved') {
     const { data: rr } = await supabase.from('reports').select('researcher_id').eq('id', reportId).single();
@@ -128,12 +131,13 @@ export async function changeSeverityAction(reportId: string, formData: FormData)
   const { error } = await supabase.from('reports').update({ severity }).eq('id', reportId);
   if (error) throw new Error(error.message);
   const actor = (await supabase.auth.getUser()).data.user?.id;
-  // Reason is preserved permanently on the timeline
-  await supabase.from('report_events').insert({
+  // Reason is preserved permanently on the timeline (fail loudly — never silent)
+  const { error: evErr } = await supabase.from('report_events').insert({
     report_id: reportId,
     actor_id: actor ?? null,
     note: `Severity changed ${report.severity} → ${severity}. Reason: ${reason}`,
   });
+  if (evErr) throw new Error(`تم تحديث الخطورة لكن تعذّر حفظ السبب: ${evErr.message}`);
   await logAudit('update', 'reports', reportId, { severity, reason }, actor);
   const parties = await reportParties(supabase, reportId);
   if (parties.reporterUserId) {
@@ -151,9 +155,19 @@ export async function markDuplicateAction(reportId: string, formData: FormData) 
   const duplicateOf = String(formData.get('duplicate_of') ?? '').trim();
   if (!duplicateOf) throw new Error('Original report id/number required');
   const supabase = await createServerClient();
-  const { data: report } = await supabase.from('reports').select('program_id').eq('id', reportId).single();
+  const { data: report } = await supabase.from('reports').select('program_id,status').eq('id', reportId).single();
   if (!report) throw new Error('Not found');
   await requireCompanyRole(report.program_id);
+  // Lifecycle guard: 'duplicate' is reachable only from pre-decision states.
+  // Without this check the DB trigger (migration 27) would raise a raw
+  // "invalid transition" — and if the migration is not applied yet the
+  // update would silently succeed and lie to the researcher.
+  const fromStatus = (report as unknown as { status: string }).status;
+  if (!canTransition(fromStatus, 'duplicate')) {
+    throw new Error(
+      `انتقال غير صالح: ${REPORT_STATUS_LABELS[fromStatus as ReportStatus]?.ar ?? fromStatus} ← مكرر — القرار النهائي لا يُعاد فتحه من هنا`
+    );
+  }
   // Accept either UUID or MB-000001 number for the original
   let originalId = duplicateOf;
   if (!/^[0-9a-f-]{36}$/i.test(duplicateOf)) {
@@ -163,7 +177,8 @@ export async function markDuplicateAction(reportId: string, formData: FormData) 
   }
   if (originalId === reportId) throw new Error('A report cannot duplicate itself');
   await supabase.from('report_duplicates').insert({ report_id: reportId, duplicate_of: originalId, marked_by: (await supabase.auth.getUser()).data.user?.id ?? null });
-  await supabase.from('reports').update({ status: 'duplicate' }).eq('id', reportId);
+  const { error } = await supabase.from('reports').update({ status: 'duplicate' }).eq('id', reportId);
+  if (error) throw friendlyTriageError(error.message);
   const parties = await reportParties(supabase, reportId);
   if (parties.reporterUserId) {
     await notify(supabase, parties.reporterUserId, {

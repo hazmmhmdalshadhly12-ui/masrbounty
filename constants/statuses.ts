@@ -166,9 +166,20 @@ export const REASON_REQUIRED_STATUSES: readonly ReportStatus[] = [
   'rejected', 'duplicate', 'not_applicable', 'spam',
 ];
 
-/** Statuses a company triager may set directly (finance states excluded). */
+/**
+ * Statuses a company triager may set directly (finance states excluded —
+ * they are set exclusively by the money RPCs).
+ *
+ * 'submitted' IS included: the company inbox can hold legacy reports stuck
+ * in 'draft' (created before the P0 submit fix), and the detail page offers
+ * draft → submitted as the intake action into the professional lifecycle.
+ * This is safe because canTransition() permits 'submitted' ONLY from
+ * 'draft' — a company can never "un-decide" a reviewed report back to New.
+ * Removing it again reintroduces the production error boundary
+ * (حدث خطأً ما) on the company report page.
+ */
 export const COMPANY_TRIAGE_STATUSES: readonly ReportStatus[] = [
-  'under_review', 'need_more_info', 'triaged', 'informative', 'duplicate',
+  'submitted', 'under_review', 'need_more_info', 'triaged', 'informative', 'duplicate',
   'not_applicable', 'spam', 'rejected', 'accepted', 'resolved', 'closed',
 ];
 
