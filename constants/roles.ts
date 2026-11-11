@@ -1,6 +1,6 @@
 import type { Locale } from '@/types/index';
 
-export const ROLES = ['researcher', 'company', 'moderator', 'admin'] as const;
+export const ROLES = ['researcher', 'company', 'member', 'moderator', 'admin'] as const;
 export const MEMBER_ROLES = ['owner', 'admin', 'triager', 'analyst', 'finance', 'viewer'] as const;
 export const STAFF_ROLES = ['admin', 'moderator'] as const;
 
@@ -13,6 +13,7 @@ export const DEFAULT_ROLE: UserRole = 'researcher';
 export const ROLE_LABELS: Record<UserRole, { ar: string; en: string }> = {
   researcher: { ar: 'باحث', en: 'Researcher' },
   company: { ar: 'شركة', en: 'Company' },
+  member: { ar: 'عضو', en: 'Member' },
   moderator: { ar: 'مشرف', en: 'Moderator' },
   admin: { ar: 'مدير', en: 'Admin' },
 };

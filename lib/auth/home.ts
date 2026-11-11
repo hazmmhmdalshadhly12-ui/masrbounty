@@ -17,6 +17,9 @@ export async function roleHome(sb: SupabaseClient, userId: string): Promise<stri
       sb.from('company_members').select('id').eq('user_id', userId).limit(1),
     ]);
     if ((owned ?? []).length || (member ?? []).length) return '/company';
+    // member accounts land on the memberships dashboard (they may still hold
+    // other roles — researcher/company always win above per the platform rules)
+    if (mine.has('member') && mine.size === 1) return '/dashboard/member';
   } catch {
     /* fall through to researcher default */
   }

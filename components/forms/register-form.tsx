@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Building2, Check, Loader2, Plus, SearchCheck, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Check, Loader2, Plus, SearchCheck, UsersRound, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
   registerSchema,
@@ -27,12 +27,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { PasswordField } from '@/components/forms/password-field';
 
-type Role = 'researcher' | 'company';
+type Role = 'researcher' | 'company' | 'member';
 type FieldErrors = Record<string, string>;
 
 const ROLE_OPTIONS: Array<{ value: Role; title: string; desc: string; icon: typeof SearchCheck }> = [
   { value: 'researcher', title: 'باحث أمني', desc: 'اكتشف الثغرات، أرسل تقاريرك، واكسب المكافآت', icon: SearchCheck },
   { value: 'company', title: 'شركة', desc: 'انشر برنامج مكافآت واستقبل تقارير باحثي الأمان', icon: Building2 },
+  { value: 'member', title: 'عضو', desc: 'انضم إلى فرق الباحثين أو فرق الشركات عبر دعوة رسمية — بنفس حسابك', icon: UsersRound },
 ];
 
 const EXPERIENCE_OPTIONS: Array<{ value: 'beginner' | 'intermediate' | 'advanced' | 'expert'; label: string; hint: string }> = [
@@ -175,6 +176,12 @@ export function RegisterForm({ next = '' }: { next?: string }) {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
+    if (role === 'member') {
+      // Member accounts skip role-specific onboarding — membership is an
+      // experience layer granted by invitations, not a profile to fill now.
+      setStep(3);
+      return;
+    }
     const step2 = role === 'researcher' ? registerResearcherStep : registerCompanyStep;
     const parsed = step2.safeParse(formValues);
     if (!parsed.success) {
@@ -486,6 +493,25 @@ export function RegisterForm({ next = '' }: { next?: string }) {
 
           <Button type="button" onClick={goToStep2} className="h-11 w-full text-base">
             متابعة للتخصيص
+            <ArrowLeft className="mr-2 h-4 w-4" />
+          </Button>
+        </>
+      )}
+
+      {step === 2 && role === 'member' && (
+        <>
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-sm leading-relaxed dark:border-amber-900 dark:bg-amber-950/30">
+            <p className="mb-1.5 flex items-center gap-1.5 font-bold">
+              <UsersRound className="h-4 w-4" /> حساب العضو جاهز للتخصيص
+            </p>
+            <p className="text-muted-foreground">
+              عضويتك تُمنح عبر دعوات رسمية من قادة فرق الباحثين أو الشركات. بعد إنشاء الحساب:
+              اقبل الدعوات من صفحة «دعواتي»، وتنقّل بين مساحات العمل من لوحة العضويات —
+              ويمكنك لاحقًا الترقية إلى باحث دون إنشاء حساب جديد.
+            </p>
+          </div>
+          <Button type="button" onClick={goToStep3} className="h-11 w-full text-base">
+            متابعة للاتفاقية
             <ArrowLeft className="mr-2 h-4 w-4" />
           </Button>
         </>

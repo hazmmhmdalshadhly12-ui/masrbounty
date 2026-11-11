@@ -40,7 +40,7 @@ export const registerFields = z.object({
   confirmPassword: z.string().min(8, 'تأكيد كلمة السر مطلوب'),
   full_name: z.string().min(2, 'الاسم الكامل مطلوب').max(100, 'الاسم الكامل يجب ألا يتجاوز 100 حرف'),
   phone: z.string().regex(/^01[0-9]{9}$/, 'رقم الهاتف يجب أن يكون 11 رقمًا يبدأ بـ 01'),
-  role: z.enum(['researcher', 'company']),
+  role: z.enum(['researcher', 'company', 'member']),
 
   // ── Onboarding answers (registration wizard, step 2) ──────────────
   // Researcher
