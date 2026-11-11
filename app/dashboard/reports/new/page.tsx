@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { ReportCreateForm } from '@/components/reports/report-create-form';
+import { getSubmittableTeams } from '@/lib/teams/queries';
 
 export default async function NewReportPage() {
   const supabase = await createServerClient();
@@ -24,7 +25,11 @@ export default async function NewReportPage() {
     invitedIds.length > 0
       ? supabase.from('programs').select('id,name,visibility').eq('status', 'active').in('id', invitedIds)
       : Promise.resolve({ data: [] } as unknown as { data: { id: string; name: string; visibility: string }[] | null });
-  const [{ data: publicPrograms }, { data: invitedPrograms }] = await Promise.all([publicActive, invitedActive]);
+  const [{ data: publicPrograms }, { data: invitedPrograms }, teams] = await Promise.all([
+    publicActive,
+    invitedActive,
+    user.user ? getSubmittableTeams(user.user.id) : Promise.resolve([]),
+  ]);
   const seen = new Set<string>();
   const allowed: { id: string; name: string; visibility: string }[] = [];
   for (const p of [...(publicPrograms ?? []), ...(invitedPrograms ?? [])] as { id: string; name: string; visibility: string }[]) {
@@ -34,7 +39,7 @@ export default async function NewReportPage() {
   }
   return (
     <div className="py-2">
-      <ReportCreateForm programs={allowed} />
+      <ReportCreateForm programs={allowed} teams={teams} />
     </div>
   );
 }

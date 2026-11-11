@@ -1,9 +1,10 @@
 import { ROLES, STAFF_ROLES, isRole, isStaff, isAdmin, hasRole, canTriage } from '@/constants/roles';
 import { can } from '@/lib/auth/permissions';
 
-test('role catalog covers all four platform roles', () => {
-  expect(ROLES).toEqual(['researcher', 'company', 'moderator', 'admin']);
+test('role catalog covers all platform roles including member', () => {
+  expect(ROLES).toEqual(['researcher', 'company', 'member', 'moderator', 'admin']);
   expect(isRole('researcher')).toBe(true);
+  expect(isRole('member')).toBe(true);
   expect(isRole('root')).toBe(false);
 });
 

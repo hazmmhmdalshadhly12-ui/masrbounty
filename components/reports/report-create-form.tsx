@@ -31,11 +31,13 @@ function Counter({ value, min }: { value: string; min?: number }) {
   );
 }
 
-export function ReportCreateForm({ programs }: { programs: { id: string; name: string }[] }) {
+export function ReportCreateForm({ programs, teams = [] }: { programs: { id: string; name: string }[]; teams?: { id: string; name: string }[] }) {
   const [step, setStep] = useState(0);
   const [fields, setFields] = useState<Fields>(EMPTY);
   const [confirm, setConfirm] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [scope, setScope] = useState<'personal' | 'team'>('personal');
+  const [teamId, setTeamId] = useState('');
 
   // Draft autosave + recovery
   useEffect(() => {
@@ -73,7 +75,7 @@ export function ReportCreateForm({ programs }: { programs: { id: string; name: s
 
   const stepValid = useMemo(() => {
     switch (step) {
-      case 0: return fields.program_id.length > 0;
+      case 0: return fields.program_id.length > 0 && (scope === 'personal' || teamId.length > 0);
       case 1:
         return fields.title.trim().length >= MIN.title && fields.vulnerability_type.trim().length >= 2 && fields.affected_asset.trim().length >= 2;
       case 2: return fields.summary.trim().length >= MIN.summary && fields.description.trim().length >= MIN.description;
@@ -81,7 +83,7 @@ export function ReportCreateForm({ programs }: { programs: { id: string; name: s
       case 4: return true;
       default: return confirm;
     }
-  }, [step, fields, confirm]);
+  }, [step, fields, confirm, scope, teamId]);
 
   async function onSubmit(formData: FormData) {
     await createReportAction(formData);
@@ -121,6 +123,8 @@ export function ReportCreateForm({ programs }: { programs: { id: string; name: s
         </CardHeader>
         <CardContent>
           <form action={onSubmit} className="space-y-4">
+            <input type="hidden" name="submission_scope" value={scope} />
+            <input type="hidden" name="team_id" value={teamId} />
             {step === 0 && (
               <div>
                 <Label htmlFor="f-program">البرنامج المستهدف</Label>
@@ -129,6 +133,38 @@ export function ReportCreateForm({ programs }: { programs: { id: string; name: s
                   {programs?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <p className="mt-2 text-xs text-muted-foreground">اختبر فقط الأصول داخل نطاق هذا البرنامج.</p>
+                {teams.length > 0 && (
+                  <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+                    <p className="mb-2 text-xs font-bold">نطاق التقديم</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-2 text-xs ${scope === 'personal' ? 'border-primary/50 bg-primary/5 font-medium' : ''}`}>
+                        <input type="radio" name="scope-radio" checked={scope === 'personal'} onChange={() => setScope('personal')} className="h-3.5 w-3.5" />
+                        إرسال بصفتي الشخصية
+                      </label>
+                      <label className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-2 text-xs ${scope === 'team' ? 'border-primary/50 bg-primary/5 font-medium' : ''}`}>
+                        <input type="radio" name="scope-radio" checked={scope === 'team'} onChange={() => setScope('team')} className="h-3.5 w-3.5" />
+                        إرسال باسم الفريق
+                      </label>
+                    </div>
+                    {scope === 'team' && (
+                      <select
+                        aria-label="الفريق المقدّم"
+                        value={teamId}
+                        onChange={(e) => setTeamId(e.target.value)}
+                        className="mt-2 h-10 w-full rounded-md border px-3 text-sm"
+                      >
+                        <option value="" disabled>اختر الفريق…</option>
+                        {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    )}
+                    {scope === 'team' && !teamId && (
+                      <p className="mt-1 text-[11px] font-bold text-red-600">اختر الفريق المقدّم للتقرير قبل المتابعة.</p>
+                    )}
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      التقارير باسم الفريق ترى أعضاءه المصرّح لهم فقط — واسمك يبقى مسجّلًا كمُرسِل فعلي.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             {step === 1 && (

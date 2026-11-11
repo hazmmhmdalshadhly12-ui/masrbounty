@@ -63,6 +63,38 @@ export async function createReportAction(formData: FormData) {
   // fake number would break the reference contract — fail loudly instead.
   const { data: num } = await supabase.rpc('generate_report_number');
   if (!num) throw new Error('تعذّر توليد الرقم المرجعي — تأكد من تنفيذ الترحيلات ثم أعد المحاولة');
+  // Team scope: submitting "as a team" requires an active membership holding
+  // researcher.submit_reports (verified here AND in the rep_insert RLS policy).
+  // Personal reports stay untouched: team_id NULL = personal (legacy rows).
+  const scope = String(formData.get('submission_scope') ?? 'personal');
+  let teamId: string | null = null;
+  if (scope === 'team') {
+    teamId = String(formData.get('team_id') ?? '');
+    if (!teamId) throw new Error('اختر الفريق المقدِّم للتقرير');
+    const { data: me } = await supabase.auth.getUser();
+    const uid = me.user?.id;
+    if (!uid) throw new Error('Unauthorized');
+    const { data: tm } = await supabase
+      .from('team_members')
+      .select('id,role,permissions')
+      .eq('team_id', teamId)
+      .eq('user_id', uid)
+      .maybeSingle();
+    const member = tm as { id: string; role: string; permissions: unknown } | null;
+    const isOwner =
+      !!member &&
+      !!(await supabase.from('teams').select('owner_id').eq('id', teamId).eq('owner_id', uid).maybeSingle()).data;
+    const { hasPermission, parseOverrides } = await import('@/lib/teams/permissions');
+    if (
+      !member ||
+      !hasPermission(
+        { role: isOwner ? 'owner' : member.role, isOwner, overrides: parseOverrides(member.permissions) },
+        'researcher.submit_reports'
+      )
+    ) {
+      throw new Error('لا تملك صلاحية إرسال التقارير باسم هذا الفريق');
+    }
+  }
   const { data: report, error } = await supabase
     .from('reports')
     .insert({
@@ -70,6 +102,8 @@ export async function createReportAction(formData: FormData) {
       researcher_id: researcherId,
       report_number: num as string,
       status: 'draft',
+      team_id: teamId,
+      submission_scope: teamId ? 'team' : 'personal',
     })
     .select('id')
     .single();

@@ -125,6 +125,9 @@ export async function registerAction(formData: FormData) {
       });
     }
   }
+  // 'member' accounts keep the same Supabase Auth identity — membership is an
+  // experience layer (team invitations), NOT a separate auth type. They can
+  // still become researchers later (promoteToResearcherAction).
   redirect('/login?ok=' + encodeURIComponent('تم إنشاء الحساب — سجّل الدخول الآن'));
 }
 

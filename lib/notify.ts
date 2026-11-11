@@ -10,7 +10,8 @@ export type NotifyType =
   | 'message'
   | 'system'
   | 'dispute'
-  | 'badge';
+  | 'badge'
+  | 'team';
 
 /**
  * Best-effort in-app notification. Never throws.

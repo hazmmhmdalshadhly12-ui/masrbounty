@@ -1,4 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  hasPermission as effectiveHasPermission,
+  parseOverrides,
+  resolvePermissionName,
+  type PermissionSubject,
+} from '@/lib/teams/permissions';
 
 export const ROLE_HIERARCHY = {
   owner: 100,
@@ -69,17 +75,38 @@ export async function getCompanyRole(
   return null;
 }
 
-/** Check if a user has a specific permission inside a company. */
+/**
+ * Check if a user has a specific permission inside a company.
+ *
+ * Since the Teams & Memberships system this resolves legacy permission
+ * names (manage_members → company.manage_members …) against the granular
+ * engine: role defaults + per-member grant/revoke overrides stored on
+ * company_members.permissions.
+ */
 export async function hasPermission(
   supabase: SupabaseClient,
   companyId: string,
   userId: string,
   permission: Permission
 ): Promise<boolean> {
-  const role = await getCompanyRole(supabase, companyId, userId);
-  if (!role) return false;
-  const allowed = PERMISSIONS[permission];
-  return (allowed as readonly string[]).includes(role);
+  const perm = resolvePermissionName(permission);
+  const { data: company } = await supabase
+    .from('company_profiles')
+    .select('owner_id')
+    .eq('id', companyId)
+    .maybeSingle();
+  const isOwner = !!company && (company as { owner_id: string }).owner_id === userId;
+  if (isOwner) return true;
+  const { data: membership } = await supabase
+    .from('company_members')
+    .select('role,permissions')
+    .eq('company_id', companyId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  const m = membership as { role: string; permissions: unknown } | null;
+  if (!m?.role) return false;
+  const subject: PermissionSubject = { role: m.role, isOwner: false, overrides: parseOverrides(m.permissions) };
+  return effectiveHasPermission(subject, perm);
 }
 
 /**

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/page-header';
 import { EmptyState } from '@/components/shared/empty-state';
 import { notify } from '@/lib/notify';
+import { invitationTokenHash } from '@/lib/teams/token';
 import { UserCheck, ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -27,65 +28,40 @@ async function acceptInvite(formData: FormData) {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) redirect('/login?next=' + encodeURIComponent(`/company/team/accept?token=${token}`));
 
-  const admin = createAdminClient();
-  const { data: inv } = await admin
-    .from('company_invitations')
-    .select('id,company_id,email,role,expires_at,accepted_at')
-    .eq('token', token)
-    .maybeSingle();
-  const invitation = inv as
-    | { id: string; company_id: string; email: string; role: string; expires_at: string; accepted_at: string | null }
-    | null;
-
-  if (!invitation) {
-    redirect('/company/team/accept?token=' + encodeURIComponent(token) + '&e=' + encodeURIComponent('رابط الدعوة غير صالح'));
-  }
-  if (invitation.accepted_at) {
-    redirect('/company/team/accept?token=' + encodeURIComponent(token) + '&e=' + encodeURIComponent('تم استخدام هذه الدعوة بالفعل'));
-  }
-  if (new Date(invitation.expires_at) < new Date()) {
-    redirect('/company/team/accept?token=' + encodeURIComponent(token) + '&e=' + encodeURIComponent('انتهت صلاحية الدعوة — اطلب دعوة جديدة من مدير الشركة'));
-  }
-  const userEmail = (user.user?.email ?? '').toLowerCase();
-  if (!userEmail || userEmail !== invitation.email.toLowerCase()) {
-    redirect(
-      '/company/team/accept?token=' +
-        encodeURIComponent(token) +
-        '&e=' +
-        encodeURIComponent(`هذه الدعوة صادرة للبريد ${invitation.email} — سجّل الدخول بنفس البريد للانضمام`)
-    );
+  // The RPC re-validates: status, expiry, email match, capacity — atomically.
+  const { error } = await supabase.rpc('fn_respond_company_invitation', {
+    p_token: token,
+    p_accept: true,
+    p_invitation_id: null,
+  });
+  if (error) {
+    const raw = error.message;
+    const msg =
+      /expired/.test(raw) ? 'انتهت صلاحية الدعوة — اطلب دعوة جديدة من مدير الشركة' :
+      /different email/.test(raw) ? 'هذه الدعوة صادرة لبريد مختلف — سجّل الدخول بنفس البريد للانضمام' :
+      /invitation is/.test(raw) ? 'تم استخدام هذه الدعوة بالفعل' :
+      /not found/.test(raw) ? 'رابط الدعوة غير صالح' :
+      'تعذر إضافتك للفريق — تواصل مع مدير الشركة';
+    redirect('/company/team/accept?token=' + encodeURIComponent(token) + '&e=' + encodeURIComponent(msg));
   }
 
-  // Already a member? Just go to the team page.
-  const { data: existing } = await admin
-    .from('company_members')
-    .select('id')
-    .eq('company_id', invitation.company_id)
-    .eq('user_id', user.user!.id)
-    .maybeSingle();
-  if (!existing) {
-    const { error: insertErr } = await admin.from('company_members').insert({
-      company_id: invitation.company_id,
-      user_id: user.user!.id,
-      role: invitation.role,
-    });
-    if (insertErr) {
-      redirect('/company/team/accept?token=' + encodeURIComponent(token) + '&e=' + encodeURIComponent('تعذر إضافتك للفريق — تواصل مع مدير الشركة'));
-    }
-  }
-  await admin.from('company_invitations').update({ accepted_at: new Date().toISOString() }).eq('id', invitation.id);
   // Notify the team owner that the invite was accepted
   try {
-    const { data: company } = await admin
-      .from('company_profiles')
-      .select('owner_id,name')
-      .eq('id', invitation.company_id)
+    const admin = createAdminClient();
+    const hash = await invitationTokenHash(token);
+    const { data: invRow } = await admin
+      .from('company_invitations')
+      .select('company_id,role,company_profiles(name,owner_id)')
+      .or(`token_hash.eq.${hash},token.eq.${token}`)
       .maybeSingle();
-    if (company?.owner_id) {
-      await notify(supabase, company.owner_id, {
-        type: 'system',
-        title: `انضم عضو جديد إلى فريق ${company.name}`,
-        body: `قَبِل الدعوة بدور ${ROLE_AR[invitation.role] ?? invitation.role}`,
+    const row = invRow as
+      | { company_id: string; role: string; company_profiles: { name: string; owner_id: string } | null }
+      | null;
+    if (row?.company_profiles?.owner_id) {
+      await notify(supabase, row.company_profiles.owner_id, {
+        type: 'team',
+        title: `انضم عضو جديد إلى فريق ${row.company_profiles.name}`,
+        body: `قَبِل الدعوة بدور ${ROLE_AR[row.role] ?? row.role}`,
         link: '/company/team',
       });
     }
@@ -127,16 +103,22 @@ export default async function AcceptInvitePage({
     | null = null;
   try {
     const admin = createAdminClient();
+    const hash = await invitationTokenHash(token);
     const { data: inv } = await admin
       .from('company_invitations')
-      .select('email,role,expires_at,accepted_at,company_profiles(name)')
-      .eq('token', token)
+      .select('email,role,expires_at,accepted_at,status,company_profiles(name)')
+      .or(`token_hash.eq.${hash},token.eq.${token}`)
       .maybeSingle();
     const row = inv as
-      | { email: string; role: string; expires_at: string; accepted_at: string | null; company_profiles: { name: string } | null }
+      | { email: string; role: string; expires_at: string; accepted_at: string | null; status: string | null; company_profiles: { name: string } | null }
       | null;
     if (row) {
-      const state = row.accepted_at ? 'accepted' : new Date(row.expires_at) < new Date() ? 'expired' : 'pending';
+      const expired = new Date(row.expires_at) < new Date();
+      const state =
+        row.status === 'accepted' || row.accepted_at ? 'accepted'
+        : row.status === 'expired' || expired ? 'expired'
+        : row.status === 'pending' || !row.status ? 'pending'
+        : 'invalid';
       invitation = { company_name: row.company_profiles?.name ?? 'شركة', email: row.email, role: row.role, state };
     } else {
       invitation = { company_name: '', email: '', role: '', state: 'invalid' };
