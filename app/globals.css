@@ -167,28 +167,13 @@
       linear-gradient(to bottom, rgb(148 163 184 / 0.14) 1px, transparent 1px);
     background-size: 100% 100%, 44px 44px, 44px 44px;
   }
-  /* Same grid for light sections */
-  .bg-grid-paper {
-    background-image:
-      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(38 92% 50% / 0.07), transparent 60%),
-      linear-gradient(to left, hsl(var(--border) / 0.7) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border) / 0.7) 1px, transparent 1px);
-    background-size: 100% 100%, 44px 44px, 44px 44px;
+  /* Section kicker — small label above headings (no pill, no badge) */
+  .kicker {
+    @apply inline-flex items-center gap-2 text-xs font-bold;
   }
-  /* Soft radial gold glow for CTA bands / hero corners */
-  .bg-gold-bloom {
-    background: radial-gradient(ellipse 55% 70% at 85% 20%, hsl(45 96% 55% / 0.16), transparent 65%);
-  }
-  /* Gold text gradient — headlines only */
-  .text-gradient-gold {
-    background: linear-gradient(120deg, hsl(45 96% 58%) 0%, hsl(38 92% 52%) 55%, hsl(30 88% 48%) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  /* Elevated card surface */
-  .card-elevated {
-    @apply rounded-xl border bg-card shadow-[0_1px_2px_rgb(10_22_40/0.05),0_2px_10px_-2px_rgb(10_22_40/0.07)];
+  .kicker::before {
+    content: '';
+    @apply inline-block h-0.5 w-6 rounded-full bg-current opacity-70;
   }
   /* Hairline divider between navy sections */
   .hairline-x {

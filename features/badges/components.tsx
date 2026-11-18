@@ -1,5 +1,6 @@
 'use client';
 
+import { Award } from 'lucide-react';
 import type { Badge, ResearcherBadge } from './types';
 
 export function BadgesView({ badges }: { badges: Badge[] }) {
@@ -8,7 +9,7 @@ export function BadgesView({ badges }: { badges: Badge[] }) {
     <div className="grid gap-4 md:grid-cols-3">
       {badges.map((b) => (
         <div key={b.id} className="rounded-lg border p-4">
-          <p className="text-2xl">{b.icon ?? '🏅'}</p>
+          <p className="text-2xl">{b.icon ? b.icon : <Award className="h-5 w-5" aria-hidden="true" />}</p>
           <p className="font-medium">{b.name_en}</p>
           <p className="text-sm text-muted-foreground">{b.description_en ?? b.code}</p>
         </div>

@@ -168,18 +168,6 @@ const config: Config = {
           from: { transform: 'scale(1)', opacity: '1' },
           to: { transform: 'scale(0.95)', opacity: '0' },
         },
-        'spin-slow': {
-          from: { transform: 'rotate(0deg)' },
-          to: { transform: 'rotate(360deg)' },
-        },
-        'pulse-slow': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.5' },
-        },
-        'bounce-slow': {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-10px)' },
-        },
         'fade-up': {
           from: { opacity: '0', transform: 'translateY(14px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -200,20 +188,12 @@ const config: Config = {
         'slide-in-from-right': 'slide-in-from-right 0.3s ease-out',
         'zoom-in': 'zoom-in 0.2s ease-out',
         'zoom-out': 'zoom-out 0.2s ease-out',
-        'spin-slow': 'spin-slow 3s linear infinite',
-        'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
-        'bounce-slow': 'bounce-slow 2s ease-in-out infinite',
         'fade-up': 'fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(10 22 40 / 0.05), 0 2px 8px -2px rgb(10 22 40 / 0.06)',
         lift: '0 6px 16px -4px rgb(10 22 40 / 0.12), 0 2px 6px -2px rgb(10 22 40 / 0.07)',
         gold: '0 4px 14px -4px hsl(38 92% 50% / 0.5)',
-      },
-      backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'mesh-gradient': 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)',
       },
     },
   },

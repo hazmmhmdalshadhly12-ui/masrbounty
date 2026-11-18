@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/shared/empty-state';
 import { PageHeader } from '@/components/shared/page-header';
-import { Award, Lock } from 'lucide-react';
+import { Award, Lock, Check } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -124,7 +124,7 @@ export default async function BadgesPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">{row.description_ar || row.description_en}</p>
                 {has ? (
-                  <Badge className="mt-3">مكتسبة ✓</Badge>
+                  <Badge className="mt-3"><span className="inline-flex items-center gap-1">مكتسبة <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>
                 ) : (
                   <Badge variant="secondary" className="mt-3">
                     مقفلة

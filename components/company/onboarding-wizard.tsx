@@ -152,7 +152,7 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
     const fd = new FormData();
     fd.set('domain_id', domainId);
     const r = await verifyDomainAction(fd);
-    setMsg(r.ok ? { ok: true, text: 'تم التوثيق بنجاح ✓' } : { ok: false, text: r.error ?? 'لم يتم العثور على السجل بعد — تأكد من DNS ثم حاول مجددًا' });
+    setMsg(r.ok ? { ok: true, text: 'تم التوثيق بنجاح' } : { ok: false, text: r.error ?? 'لم يتم العثور على السجل بعد — تأكد من DNS ثم حاول مجددًا' });
     setPendingAction(null);
     if (r.ok) window.location.reload();
     else setTimeout(() => window.location.reload(), 1200);
@@ -174,7 +174,8 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
       <Stepper current={currentStep} />
 
       {msg && (
-        <div className={['rounded-lg border p-3 text-sm', msg.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'].join(' ')}>
+        <div className={['flex items-center gap-1.5 rounded-lg border p-3 text-sm', msg.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'].join(' ')}>
+          {msg.ok && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
           {msg.text}
         </div>
       )}
@@ -213,7 +214,7 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
                 ))}
               </select>
               <Button type="submit" disabled={pendingAction === 'create'} className="w-full">
-                {pendingAction === 'create' && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                {pendingAction === 'create' && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                 إنشاء المؤسسة
               </Button>
               <p className="text-xs text-muted-foreground">بالإنشاء توافق على شروط المنصة وسياسة التجريب الآمن.</p>
@@ -246,7 +247,7 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
               <input type="hidden" name="company_id" value={company.id} />
               <Input name="domain" required placeholder="example.com" dir="ltr" className="flex-1" />
               <Button type="submit" disabled={pendingAction === 'add'}>
-                {pendingAction === 'add' && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                {pendingAction === 'add' && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                 إضافة النطاق
               </Button>
             </form>
@@ -278,7 +279,7 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
                       {d.domain}
                     </span>
                     {d.status === 'verified' ? (
-                      <Badge className="bg-emerald-600">موثّق ✓</Badge>
+                      <Badge className="bg-emerald-600"><span className="inline-flex items-center gap-1">موثّق <Check className="h-3.5 w-3.5 shrink-0 text-current" aria-hidden="true" /></span></Badge>
                     ) : d.status === 'failed' ? (
                       <Badge variant="destructive">فشل — حاول مجددًا</Badge>
                     ) : expired ? (
@@ -317,12 +318,12 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={() => handleVerify(d.id)} disabled={pendingAction === `verify-${d.id}`} size="sm">
-                          {pendingAction === `verify-${d.id}` && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                          <Shield className="ml-1 h-4 w-4" />
+                          {pendingAction === `verify-${d.id}` && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                          <Shield className="ms-1 h-4 w-4" />
                           {d.status === 'failed' || expired ? 'إعادة تحقق' : 'تحقق الآن'}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleDelete(d.id)} disabled={pendingAction === `del-${d.id}`}>
-                          <Trash2 className="ml-1 h-4 w-4" />
+                          <Trash2 className="ms-1 h-4 w-4" />
                           حذف
                         </Button>
                       </div>
@@ -359,7 +360,7 @@ export function OnboardingWizard({ company, domains, currentStep, isVerified, pr
         <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-              <BadgeCheck className="h-6 w-6" /> المؤسسة موثّقة بنجاح ✓
+              <BadgeCheck className="h-6 w-6" /> المؤسسة موثّقة بنجاح
             </CardTitle>
             <CardDescription className="text-emerald-700 dark:text-emerald-400">
               تم توثيق ملكية النطاق. يمكنك الآن إنشاء برامج المكافآت واستقبال التقارير.

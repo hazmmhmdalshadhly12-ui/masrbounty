@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowRight, Clock, Target, FileDown } from 'lucide-react';
+import { ArrowRight, Clock, Target, FileDown, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-black">{l.title_ar}</h1>
         <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" /> {l.duration_minutes} دقيقة</Badge>
-        {l.completed && <Badge className="bg-emerald-600">مكتمل ✓</Badge>}
+        {l.completed && <Badge className="bg-emerald-600"><span className="inline-flex items-center gap-1">مكتمل <Check className="h-3.5 w-3.5 shrink-0 text-current" aria-hidden="true" /></span></Badge>}
       </div>
 
       {!res.enrolled && (

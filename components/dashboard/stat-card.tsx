@@ -74,7 +74,7 @@ function StatCard({
     </CardContent>
   );
   return (
-    <Card className={cn('overflow-hidden transition-colors hover:border-slate-400', className)} {...props}>
+    <Card className={cn('overflow-hidden transition-colors', className)} {...props}>
       {href ? (
         <Link href={href} className="block">
           {body}

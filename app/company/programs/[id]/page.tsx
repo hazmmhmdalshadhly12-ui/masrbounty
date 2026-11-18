@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { notFound } from 'next/navigation';
+import { Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { notify } from '@/lib/notify';
 import { requireCompanyRole } from '@/features/company/services';
@@ -201,7 +202,7 @@ export default async function ManageProgram({ params }: { params: Promise<{ id: 
           <CardContent className="space-y-3">
             {canPublish ? (
               <div className="flex items-center gap-2">
-                <Badge>جاهز للنشر ✓</Badge>
+                <Badge><span className="inline-flex items-center gap-1">جاهز للنشر <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>
                 <span className="text-xs text-muted-foreground">كل المتطلبات مكتملة — يمكنك النشر الآن (ينقل draft → active ويظهر في /programs)</span>
               </div>
             ) : (

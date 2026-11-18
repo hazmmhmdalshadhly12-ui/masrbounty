@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireSession } from '@/lib/auth/guard';
+import { Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +30,7 @@ export default async function ProfilePage() {
           <div className="mt-2 flex flex-wrap gap-2">
             {(roles ?? []).map((r: { role: string }) => <Badge key={r.role} variant="secondary">{r.role}</Badge>)}
             {(verifs ?? []).map((v: { kind: string; status: string }) =>
-              v.status === 'verified' ? <Badge key={v.kind}>{v.kind} ✓</Badge> : null
+              v.status === 'verified' ? <Badge key={v.kind}><span className="inline-flex items-center gap-1">{v.kind} <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge> : null
             )}
           </div>
           {profile?.bio && <p className="mt-3 text-sm leading-relaxed">{profile.bio}</p>}

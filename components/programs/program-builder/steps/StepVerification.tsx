@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw, Globe, BadgeCheck } from 'lucide-react';
+import { CheckCircle, Copy, ExternalLink, ShieldCheck, Loader2, AlertTriangle, RefreshCw, Globe, BadgeCheck, Check } from 'lucide-react';
 import { createVerificationTokenAction, verifyDomainFileAction, verifyDomainTxtAction, getVerifiedDomainsAction } from '../actions';
 import { friendlyActionError } from '../action-errors';
 
@@ -122,7 +122,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
         if (res.verified) {
           updateVerification({ verified: false });
           setOk(true);
-          setMsg(`نجح الفحص التقني عبر سجل DNS${res.host ? ` (${res.host})` : ''} ✓ — أُرسل الطلب لموافقة مشرف أو أدمن المنصة، وسيعتمد التوثيق بعد مراجعتهم`);
+          setMsg(`نجح الفحص التقني عبر سجل DNS${res.host ? ` (${res.host})` : ''} — أُرسل الطلب لموافقة مشرف أو أدمن المنصة، وسيعتمد التوثيق بعد مراجعتهم`);
         } else {
           setOk(false);
           setMsg(res.error ?? 'لم يتم العثور على سجل TXT — تأكد من المضيف والقيمة وأعد المحاولة');
@@ -132,7 +132,7 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
         if (res.verified) {
           updateVerification({ verified: false });
           setOk(true);
-          setMsg('نجح الفحص التقني للملف ✓ — أُرسل الطلب لموافقة مشرف أو أدمن المنصة، وسيعتمد التوثيق بعد مراجعتهم');
+          setMsg('نجح الفحص التقني للملف — أُرسل الطلب لموافقة مشرف أو أدمن المنصة، وسيعتمد التوثيق بعد مراجعتهم');
         } else {
           setOk(false);
           setMsg(res.error ?? 'الملف غير موجود أو الجملة غير مطابقة — تأكد من المسار والمحتوى');
@@ -348,7 +348,12 @@ export function StepVerification({ errors }: { errors: string[] }): React.JSX.El
                     <BadgeCheck className="h-3.5 w-3.5" /> لديك دومينات موثقة في حسابك
                   </Badge>
                 )}
-                {msg && <span className={`text-sm ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>{msg}</span>}
+                {msg && (
+                  <span className={`inline-flex items-center gap-1 text-sm ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {ok && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                    {msg}
+                  </span>
+                )}
               </div>
               {!v.token && !domainValid && (
                 <p className="text-xs text-amber-600">أدخل دومينًا بصيغة صحيحة (مثال: example.com) لتفعيل إنشاء الرمز.</p>

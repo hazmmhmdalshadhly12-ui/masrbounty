@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/page-header';
-import { ShieldCheck, Globe, Copy, CheckCircle2, XCircle, Search, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Globe, Copy, CheckCircle2, XCircle, Search, AlertTriangle, Check } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth/admin-actions';
 
@@ -391,10 +391,10 @@ export default async function VerificationCenter({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-xs text-muted-foreground">
-                      <th className="p-2 text-right">الشركة</th>
-                      <th className="p-2 text-right">النطاق</th>
-                      <th className="p-2 text-right">الفحص التقني</th>
-                      <th className="p-2 text-right">إجراءات</th>
+                      <th className="p-2 text-start">الشركة</th>
+                      <th className="p-2 text-start">النطاق</th>
+                      <th className="p-2 text-start">الفحص التقني</th>
+                      <th className="p-2 text-start">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -411,20 +411,20 @@ export default async function VerificationCenter({
                           {d.checked_at && <span className="block text-[11px] text-muted-foreground">آخر فحص: {new Date(d.checked_at).toLocaleString('ar-EG')}</span>}
                         </td>
                         <td className="p-2">
-                          {d.technical_check_passed ? <Badge className="bg-emerald-600 text-[10px]">اجتاز ✓</Badge> : <Badge variant="secondary" className="text-[10px]">غير محسوم</Badge>}
+                          {d.technical_check_passed ? <Badge className="bg-emerald-600 text-[10px]"><span className="inline-flex items-center gap-1">اجتاز <Check className="h-3 w-3 shrink-0 text-current" aria-hidden="true" /></span></Badge> : <Badge variant="secondary" className="text-[10px]">غير محسوم</Badge>}
                         </td>
                         <td className="p-2">
                           <div className="flex flex-wrap gap-1.5">
                             <form action={approveCompanyDomain.bind(null, d.id, d.company_id)} className="flex gap-1">
                               <Input name={`cdnote_${d.id}`} placeholder="ملاحظة" className="h-8 w-24 text-xs" />
                               <Button size="sm" type="submit" formAction={approveCompanyDomain.bind(null, d.id, d.company_id)} className="bg-emerald-600 text-white hover:bg-emerald-700">
-                                <CheckCircle2 className="ml-1 h-3 w-3" /> اعتماد
+                                <CheckCircle2 className="ms-1 h-3 w-3" /> اعتماد
                               </Button>
                             </form>
                             <form action={rejectCompanyDomain.bind(null, d.id, d.company_id)} className="flex gap-1">
                               <Input name={`cdnote_${d.id}`} placeholder="سبب الرفض" className="h-8 w-28 text-xs" />
                               <Button size="sm" variant="destructive" type="submit" formAction={rejectCompanyDomain.bind(null, d.id, d.company_id)}>
-                                <XCircle className="ml-1 h-3 w-3" /> رفض
+                                <XCircle className="ms-1 h-3 w-3" /> رفض
                               </Button>
                             </form>
                           </div>
@@ -455,11 +455,11 @@ export default async function VerificationCenter({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-xs text-muted-foreground">
-                      <th className="p-2 text-right">الشركة</th>
-                      <th className="p-2 text-right">النطاق</th>
-                      <th className="p-2 text-right">الرمز (Token)</th>
-                      <th className="p-2 text-right">الحالة</th>
-                      <th className="p-2 text-right">إجراءات</th>
+                      <th className="p-2 text-start">الشركة</th>
+                      <th className="p-2 text-start">النطاق</th>
+                      <th className="p-2 text-start">الرمز (Token)</th>
+                      <th className="p-2 text-start">الحالة</th>
+                      <th className="p-2 text-start">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -490,19 +490,19 @@ export default async function VerificationCenter({
                           <div className="flex flex-wrap gap-1.5">
                             <form action={dnsCheck.bind(null, d.id, d.domain, d.token)}>
                               <Button size="sm" variant="outline" type="submit">
-                                <Search className="ml-1 h-3 w-3" /> فحص DNS
+                                <Search className="ms-1 h-3 w-3" /> فحص DNS
                               </Button>
                             </form>
                             <form action={verifyDomain.bind(null, d.id, d.company_id)} className="flex gap-1">
                               <Input name={`note_${d.id}`} placeholder="ملاحظة" className="h-8 w-24 text-xs" />
                               <Button size="sm" type="submit" formAction={verifyDomain.bind(null, d.id, d.company_id)} className="bg-emerald-600 text-white hover:bg-emerald-700">
-                                <CheckCircle2 className="ml-1 h-3 w-3" /> اعتماد
+                                <CheckCircle2 className="ms-1 h-3 w-3" /> اعتماد
                               </Button>
                             </form>
                             <form action={rejectDomain.bind(null, d.id, d.company_id)} className="flex gap-1">
                               <Input name={`note_${d.id}`} placeholder="سبب الرفض" className="h-8 w-28 text-xs" />
                               <Button size="sm" variant="destructive" type="submit" formAction={rejectDomain.bind(null, d.id, d.company_id)}>
-                                <XCircle className="ml-1 h-3 w-3" /> رفض
+                                <XCircle className="ms-1 h-3 w-3" /> رفض
                               </Button>
                             </form>
                           </div>
@@ -567,7 +567,7 @@ export default async function VerificationCenter({
                     <span className="font-bold">
                       {row.researcher_profiles?.display_name ?? '—'}
                       {row.researcher_profiles?.username && (
-                        <span className="ml-1 font-normal text-muted-foreground" dir="ltr">
+                        <span className="ms-1 font-normal text-muted-foreground" dir="ltr">
                           @{row.researcher_profiles.username}
                         </span>
                       )}

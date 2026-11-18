@@ -323,7 +323,8 @@ export function ProgramBuilderWizard(): React.JSX.Element {
             {saveState === 'saved' && (
               <>
                 <UploadCloud className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-                محفوظ على الخادم{lastSaved ? ` ${formatTime(lastSaved)}` : ''} ✓
+                محفوظ على الخادم{lastSaved ? ` ${formatTime(lastSaved)}` : ''}
+                <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
               </>
             )}
             {saveState === 'error' && (

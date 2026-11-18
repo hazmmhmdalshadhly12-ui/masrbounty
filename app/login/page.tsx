@@ -38,16 +38,16 @@ export default async function LoginPage({
           the server into visible messages (expired/reused recovery links). */}
       <AuthHashError />
       <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-10 lg:grid-cols-2 lg:gap-14">
-        <div className="relative hidden overflow-hidden rounded-3xl border border-navy-800/60 bg-navy p-10 text-white shadow-lift lg:block">
+        <div className="relative hidden overflow-hidden rounded-3xl border border-navy-800/60 bg-navy p-10 text-white shadow-card lg:block">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
           <div className="relative">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-navy-900 shadow-gold">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400 text-navy-900">
               <ShieldCheck className="h-6 w-6" strokeWidth={2.5} />
             </span>
             <h1 className="mt-6 text-3xl font-black leading-snug">
               مرحبًا بعودتك.
               <br />
-              <span className="text-gradient-gold">عملك ينتظرك.</span>
+              <span className="text-amber-400">عملك ينتظرك.</span>
             </h1>
             <ul className="mt-8 space-y-4">
               {perks.map(([Icon, text]) => (
@@ -61,7 +61,7 @@ export default async function LoginPage({
             </ul>
           </div>
         </div>
-        <Card className="mx-auto w-full max-w-md animate-fade-up shadow-lift">
+        <Card className="mx-auto w-full max-w-md animate-fade-up shadow-card">
           <CardContent className="p-8">
             <h2 className="text-2xl font-black">تسجيل الدخول</h2>
             <p className="mt-1 text-sm text-muted-foreground">

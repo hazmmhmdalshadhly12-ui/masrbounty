@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Trophy, Award, ShieldCheck, Globe, Github, Twitter, Linkedin, Medal, Star, Clock } from 'lucide-react';
+import { Trophy, Award, ShieldCheck, Globe, Github, Twitter, Linkedin, Medal, Star, Clock, Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -98,7 +98,9 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
     <div dir="rtl" lang="ar" className="container max-w-4xl py-8">
       {/* Header */}
       <Card className="overflow-hidden">
-        <div className="h-24 bg-gradient-to-l from-slate-900 via-slate-800 to-slate-900" aria-hidden />
+        <div className="relative h-24 overflow-hidden bg-navy" aria-hidden>
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid-ink" />
+        </div>
         <CardContent className="p-6">
           <div className="flex flex-col gap-6 md:flex-row md:items-start">
             <Avatar name={rp.display_name} src={profile.avatar_url} size="lg" className="h-20 w-20 border-4 border-white shadow-lg" />
@@ -119,9 +121,9 @@ export default async function ResearcherPublicPage({ params }: PageProps) {
                 )}
                 <Badge variant="outline">{levelLabel}</Badge>
                 {trustRow && <Badge variant="outline">ثقة {trustRow.score}/100</Badge>}
-                {vmap.email === 'verified' && <Badge variant="secondary">بريد موثق ✓</Badge>}
-                {vmap.phone === 'verified' && <Badge variant="secondary">هاتف موثق ✓</Badge>}
-                {vmap.identity === 'verified' && <Badge className="bg-emerald-600 hover:bg-emerald-700">هوية موثقة ✓</Badge>}
+                {vmap.email === 'verified' && <Badge variant="secondary"><span className="inline-flex items-center gap-1">بريد موثق <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>}
+                {vmap.phone === 'verified' && <Badge variant="secondary"><span className="inline-flex items-center gap-1">هاتف موثق <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>}
+                {vmap.identity === 'verified' && <Badge className="bg-emerald-600 hover:bg-emerald-700"><span className="inline-flex items-center gap-1">هوية موثقة <Check className="h-3.5 w-3.5 shrink-0 text-current" aria-hidden="true" /></span></Badge>}
               </div>
 
               {profile.bio && <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-relaxed">{profile.bio}</p>}

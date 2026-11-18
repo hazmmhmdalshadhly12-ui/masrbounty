@@ -6,6 +6,7 @@ import { NotificationBell } from '@/components/layout/notification-bell';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { UserMenu } from '@/components/layout/user-menu';
 import { HeaderNav } from '@/components/layout/header-nav';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 export async function Header() {
   let username: string | null = null;
@@ -42,6 +43,7 @@ export async function Header() {
         </div>
         <HeaderNav />
         <div className="flex items-center gap-1.5">
+          <ThemeToggle />
           {username ? (
             <>
               <NotificationBell />

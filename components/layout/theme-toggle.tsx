@@ -23,12 +23,12 @@ function ThemeToggle({ className, ...props }: React.ComponentProps<typeof Button
       variant="ghost"
       size="icon"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={isDark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الليلي'}
       className={cn(className)}
       {...props}
     >
       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      <span className="sr-only">Toggle theme</span>
+      <span className="sr-only">تبديل المظهر</span>
     </Button>
   );
 }

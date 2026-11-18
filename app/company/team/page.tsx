@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { Users, UserPlus, Building2, Inbox } from 'lucide-react';
+import { Users, UserPlus, Building2, Inbox, Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { SITE_URL } from '@/lib/site-url';
 import {
@@ -278,7 +278,7 @@ export default async function TeamPage({
                       <div className="flex items-center gap-2">
                         {status === 'accepted' ? (
                           <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                            مقبولة ✓
+                            <span className="inline-flex items-center gap-1">مقبولة <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span>
                           </span>
                         ) : status === 'expired' ? (
                           <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">

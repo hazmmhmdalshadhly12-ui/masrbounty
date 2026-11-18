@@ -1,36 +1,54 @@
 import { cn } from '@/lib/utils';
 
+/*
+ * Semantic status palette — every status key resolves to a design-token tint
+ * (info / warning / success / destructive / primary / muted) so light & dark
+ * themes stay in sync. Synonyms share a bucket:
+ *   blue · sky · cyan      → info
+ *   yellow · orange · amber→ warning
+ *   green · emerald · teal → success
+ *   red · rose             → destructive
+ *   violet · purple        → primary
+ *   zinc · slate · gray    → muted
+ */
+const INFO = 'bg-info/15 text-info ring-info/30';
+const WARNING = 'bg-warning/15 text-warning ring-warning/30';
+const SUCCESS = 'bg-success/15 text-success ring-success/30';
+const DESTRUCTIVE = 'bg-destructive/15 text-destructive ring-destructive/30';
+const PRIMARY = 'bg-primary/15 text-primary ring-primary/30';
+const MUTED = 'bg-muted text-muted-foreground ring-border';
+
 const statusStyles: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  submitted: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  under_review: 'bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
-  need_more_info: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
-  triaged: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
-  informative: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300',
-  duplicate: 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-  not_applicable: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-  spam: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
-  accepted: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  reward_approved: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
-  paid: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300',
-  resolved: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300',
-  closed: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-  active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  paused: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-  pending: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-  approved: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  rejected: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
-  completed: 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300',
-  failed: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
-  open: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  draft: MUTED,
+  submitted: INFO,
+  under_review: INFO,
+  need_more_info: WARNING,
+  triaged: PRIMARY,
+  informative: INFO,
+  duplicate: WARNING,
+  not_applicable: MUTED,
+  spam: MUTED,
+  accepted: SUCCESS,
+  reward_approved: SUCCESS,
+  paid: SUCCESS,
+  resolved: SUCCESS,
+  closed: MUTED,
+  active: SUCCESS,
+  paused: WARNING,
+  pending: WARNING,
+  approved: SUCCESS,
+  rejected: DESTRUCTIVE,
+  completed: SUCCESS,
+  failed: DESTRUCTIVE,
+  open: INFO,
 };
 
 const severityStyles: Record<string, string> = {
-  critical: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
-  high: 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-  medium: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-  low: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  informational: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  critical: DESTRUCTIVE,
+  high: WARNING,
+  medium: WARNING,
+  low: INFO,
+  informational: MUTED,
 };
 
 const ar: Record<string, string> = {
@@ -70,8 +88,8 @@ export function StatusPill({ value, kind = 'status' }: { value: string; kind?: '
   return (
     <span
       className={cn(
-        'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
-        styles[value] ?? 'bg-slate-100 text-slate-600'
+        'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+        styles[value] ?? MUTED
       )}
     >
       {ar[value] ?? value}

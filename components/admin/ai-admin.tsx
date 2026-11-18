@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Boxes, CheckCircle2, Loader2, Save, Stethoscope, XCircle } from 'lucide-react';
+import { Boxes, CheckCircle2, Loader2, Save, Stethoscope, XCircle, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -89,7 +89,11 @@ function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
       <CardContent className="space-y-3 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={diag.configured ? 'secondary' : 'default'} className={diag.configured ? '' : 'bg-red-600'}>
-            {diag.configured ? 'الإعدادات مكتملة ✓' : 'الإعدادات غير مكتملة ✕'}
+            {diag.configured ? (
+              <span className="inline-flex items-center gap-1">الإعدادات مكتملة <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span>
+            ) : (
+              <span className="inline-flex items-center gap-1">الإعدادات غير مكتملة <X className="h-3.5 w-3.5 shrink-0 text-current" aria-hidden="true" /></span>
+            )}
           </Badge>
           {diag.keyVar ? (
             <span className="text-xs text-muted-foreground">المفتاح مقروء من المتغير: <code dir="ltr" className="rounded bg-muted px-1">{diag.keyVar}</code></span>
@@ -115,7 +119,7 @@ function DiagnosticsCard({ diag }: { diag: AiEnvDiagnosticsShape }) {
           <div className="flex flex-wrap gap-1.5">
             {keyNames.map((n) => (
               <Badge key={n} variant="outline" className={`text-[10px] ${diag.keyVarsPresent[n] ? 'border-emerald-400 text-emerald-700' : 'text-muted-foreground'}`}>
-                <span dir="ltr">{n}{diag.keyVarsPresent[n] ? ' ✓' : ''}</span>
+                <span dir="ltr" className="inline-flex items-center gap-1">{n}{diag.keyVarsPresent[n] && <Check className="h-3 w-3 shrink-0" aria-hidden="true" />}</span>
               </Badge>
             ))}
           </div>

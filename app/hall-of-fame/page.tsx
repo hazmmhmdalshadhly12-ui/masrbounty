@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Trophy, Building2, ShieldCheck } from 'lucide-react';
+import { Trophy, Building2, ShieldCheck, Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PageHero } from '@/components/layout/page-hero';
@@ -107,7 +107,10 @@ export default async function HallOfFamePage() {
                         )}
                       </CardTitle>
                       <CardDescription>
-                        {group.entries.length} تكريم {group.company?.is_verified ? '• شركة موثقة ✓' : ''}
+                        {group.entries.length} تكريم{' '}
+                        {group.company?.is_verified ? (
+                          <span className="inline-flex items-center gap-1">• شركة موثقة <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span>
+                        ) : null}
                       </CardDescription>
                     </div>
                     <Trophy className="h-5 w-5 shrink-0 text-amber-500" />

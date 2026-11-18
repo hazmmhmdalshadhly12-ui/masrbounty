@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { SearchX } from 'lucide-react';
+import { SearchX, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -273,7 +273,18 @@ export function TriageInbox({
           </div>
         </Card>
       )}
-      <p className="text-xs text-muted-foreground">مؤشرات SLA: 🟢 ضمن المهلة · 🟡 قارب الانتهاء (&lt;25٪ متبقي) · 🔴 متجاوز · ✅ منجز · ⚪ مسودة</p>
+      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+        <span>مؤشرات SLA:</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />ضمن المهلة</span>
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-400" />قارب الانتهاء (&lt;25٪ متبقي)</span>
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-red-500" />متجاوز</span>
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />منجز</span>
+        <span aria-hidden="true">·</span>
+        <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-slate-400" />مسودة</span>
+      </p>
     </div>
   );
 }

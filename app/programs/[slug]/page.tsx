@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect, notFound } from 'next/navigation';
+import { Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { timeAgo } from '@/utils/time';
@@ -74,7 +75,7 @@ export default async function ProgramDetail({ params }: { params: Promise<{ slug
             {researcherId && (
               <form action={toggleSave}>
                 <Button size="sm" variant={savedRow ? 'default' : 'outline'} type="submit">
-                  {savedRow ? 'محفوظ ✓' : 'حفظ البرنامج'}
+                  {savedRow ? <span className="inline-flex items-center gap-1">محفوظ <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span> : 'حفظ البرنامج'}
                 </Button>
               </form>
             )}
