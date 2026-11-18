@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { CheckCircle2 } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { addCommentAction, submitReportAction } from '@/features/reports/services';
 import { openDisputeAction } from '@/features/disputes/services';
@@ -38,7 +39,7 @@ export default async function ReportDetail({
     <div className="py-2 max-w-3xl space-y-4">
       {justSubmitted && (
         <div className="rounded-lg border border-green-500/50 bg-green-50 p-4 text-sm dark:bg-green-950/40" role="status">
-          <p className="font-bold text-green-800 dark:text-green-300">✅ تم إرسال التقرير بنجاح</p>
+          <p className="flex items-center gap-1.5 font-bold text-green-800 dark:text-green-300"><CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" /> تم إرسال التقرير بنجاح</p>
           <p className="mt-1 text-green-700 dark:text-green-400">
             رقمك المرجعي: <span className="font-mono" dir="ltr">{report.report_number}</span> — وصل التقرير إلى الشركة وستصلك إشعارات عند أي تحديث في الحالة.
           </p>

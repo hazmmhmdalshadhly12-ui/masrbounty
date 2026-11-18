@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import {
   Landmark, Wallet as WalletIcon, TrendingUp, ArrowDownLeft, ArrowUpRight,
-  Hourglass, Scale, Settings2, ReceiptText,
+  Hourglass, Scale, Settings2, ReceiptText, Check,
 } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { approvePayoutAction, completePayoutAction } from '@/features/disputes/services';
@@ -151,7 +151,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Pr
                   {d.status === 'pending' && (
                     <div className="flex gap-2">
                       <form action={reviewDepositAction.bind(null, d.id, true)}>
-                        <Button size="sm" type="submit" className="cursor-pointer font-bold">اعتماد وإضافة للرصيد ✓</Button>
+                        <Button size="sm" type="submit" className="cursor-pointer font-bold"><span className="inline-flex items-center gap-1">اعتماد وإضافة للرصيد <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Button>
                       </form>
                       <form action={reviewDepositAction.bind(null, d.id, false)}>
                         <Button size="sm" type="submit" variant="outline" className="cursor-pointer">رفض</Button>
@@ -180,13 +180,13 @@ export default async function AdminPayments({ searchParams }: { searchParams: Pr
                 <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3 transition-colors hover:bg-muted/40">
                   <span className="text-sm">
                     <b className="tabular-nums" dir="ltr">{money(p.amount)} EGP</b> — <StatusPill value={p.status} />
-                    {p.payment_methods && <span className="ml-2 text-muted-foreground">{p.payment_methods.label} ({p.payment_methods.type})</span>}
+                    {p.payment_methods && <span className="me-2 text-muted-foreground">{p.payment_methods.label} ({p.payment_methods.type})</span>}
                     <span className="block text-xs text-muted-foreground">{STEPS[p.status] ?? p.status}</span>
                   </span>
                   {p.status === 'pending' && (
                     <span className="flex gap-2">
                       <form action={approvePayoutAction.bind(null, p.id, true)}>
-                        <Button size="sm" type="submit" className="cursor-pointer font-bold">اعتماد السحب ✓</Button>
+                        <Button size="sm" type="submit" className="cursor-pointer font-bold"><span className="inline-flex items-center gap-1">اعتماد السحب <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Button>
                       </form>
                       <form action={approvePayoutAction.bind(null, p.id, false)}>
                         <Button size="sm" type="submit" variant="outline" className="cursor-pointer">رفض</Button>
@@ -197,7 +197,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Pr
                     <span className="flex flex-wrap gap-2">
                       <form action={completePayoutAction.bind(null, p.id)} className="flex gap-2">
                         <Input name="reference" required maxLength={120} placeholder="مرجع التحويل للباحث" dir="ltr" className="h-9 w-48" aria-label="مرجع التحويل" />
-                        <Button size="sm" type="submit" className="cursor-pointer font-bold">تم التحويل ✓</Button>
+                        <Button size="sm" type="submit" className="cursor-pointer font-bold"><span className="inline-flex items-center gap-1">تم التحويل <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Button>
                       </form>
                       <form action={approvePayoutAction.bind(null, p.id, false)}>
                         <Button size="sm" type="submit" variant="outline" className="cursor-pointer">إلغاء واسترداد</Button>
@@ -310,7 +310,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Pr
             <table className="w-full min-w-[640px] text-sm">
               <caption className="sr-only">التقرير المالي الشهري</caption>
               <thead>
-                <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
+                <tr className="border-b bg-muted/50 text-start text-xs text-muted-foreground">
                   <th scope="col" className="px-4 py-2.5 font-medium">الشهر</th>
                   <th scope="col" className="px-4 py-2.5 font-medium">إيداعات</th>
                   <th scope="col" className="px-4 py-2.5 font-medium">إجمالي مكافآت</th>
@@ -350,7 +350,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Pr
               <table className="w-full min-w-[680px] text-sm">
                 <caption className="sr-only">دفتر التحولات الموحد</caption>
                 <thead>
-                  <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
+                  <tr className="border-b bg-muted/50 text-start text-xs text-muted-foreground">
                     <th scope="col" className="px-4 py-2.5 font-medium">الجهة</th>
                     <th scope="col" className="px-4 py-2.5 font-medium">النوع</th>
                     <th scope="col" className="px-4 py-2.5 font-medium">المبلغ</th>
@@ -366,7 +366,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Pr
                         <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${t.side === 'company' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300' : 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300'}`}>
                           {t.side === 'company' ? 'شركة' : 'باحث'}
                         </span>
-                        <span className="mr-1.5 text-xs text-muted-foreground">{t.owner_label}</span>
+                        <span className="me-1.5 text-xs text-muted-foreground">{t.owner_label}</span>
                       </td>
                       <td className="px-4 py-2.5">{txnLabel(t.type)}</td>
                       <td className={`px-4 py-2.5 font-bold tabular-nums ${t.amount < 0 ? 'text-red-600' : 'text-green-700 dark:text-green-400'}`} dir="ltr">

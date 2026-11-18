@@ -85,7 +85,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         {!rows.length ? <p className="text-muted-foreground">No researchers yet.</p> : (
           <div className="space-y-2">
             {rows.map((r: { researcher_id: string; display_name: string; score: number; rank: number; total_earned: number; accepted_reports: number }, i: number) => (
-              <Card key={r.researcher_id} className={i < 3 ? 'border-amber-400/50 bg-gradient-to-br from-amber-50 to-transparent shadow-gold dark:from-amber-950/30' : ''}>
+              <Card key={r.researcher_id} className={i < 3 ? 'border-amber-400/40 bg-amber-50 shadow-card dark:bg-amber-950/30' : ''}>
                 <CardContent className="flex items-center gap-4 p-4">
                   <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black', i < 3 ? 'bg-amber-400 text-navy-900 shadow-gold' : 'bg-navy text-amber-400')}>
                     {i < 3 ? <Medal className="h-5 w-5" /> : i + 1}

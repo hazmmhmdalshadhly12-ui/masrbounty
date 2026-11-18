@@ -9,7 +9,7 @@ export function StepPreview({ data }: { data: WizardData }) {
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-[#0a1628] to-[#1e3a5f] dark:from-slate-900 dark:to-slate-800 flex items-center px-6 gap-4">
+        <div className="h-24 bg-navy flex items-center px-6 gap-4">
           {data.basic.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.basic.logo_url} alt={data.basic.name} className="h-14 w-14 rounded-lg bg-white object-contain p-1" />

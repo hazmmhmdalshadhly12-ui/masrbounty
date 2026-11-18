@@ -227,7 +227,7 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {badges.map((b) => (
                   <div key={b.id} className="flex flex-col items-center gap-2 rounded-lg border bg-card p-3 text-center dark:border-slate-700">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/20 text-lg">{b.badges?.icon ?? '🏅'}</span>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/20 text-lg">{b.badges?.icon ? b.badges.icon : <Award className="h-5 w-5" aria-hidden="true" />}</span>
                     <span className="text-xs font-bold leading-tight">{b.badges?.name_ar ?? b.badges?.name_en ?? b.badges?.code ?? 'شارة'}</span>
                     <span className="text-[11px] text-muted-foreground">{new Date(b.awarded_at).toLocaleDateString('ar-EG')}</span>
                   </div>
@@ -252,7 +252,7 @@ export default async function DashboardPage() {
               <div className="overflow-hidden rounded-lg border dark:border-slate-700">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-muted-foreground">
-                    <tr className="text-right">
+                    <tr className="text-start">
                       <th className="px-3 py-2 font-medium">#</th>
                       <th className="px-3 py-2 font-medium">الباحث</th>
                       <th className="px-3 py-2 font-medium">النقاط</th>
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
                       return (
                         <tr key={e.researcher_id} className={`border-t dark:border-slate-800 ${isMe ? 'bg-amber-50 dark:bg-amber-950/30 font-bold' : 'hover:bg-muted/40'}`}>
                           <td className="px-3 py-2 tabular-nums">#{e.rank}</td>
-                          <td className="px-3 py-2" dir="ltr">{e.display_name} {isMe && <Badge variant="secondary" className="mr-1 text-[10px]">أنت</Badge>}</td>
+                          <td className="px-3 py-2" dir="ltr">{e.display_name} {isMe && <Badge variant="secondary" className="me-1 text-[10px]">أنت</Badge>}</td>
                           <td className="px-3 py-2 tabular-nums">{Number(e.score).toLocaleString('ar-EG')}</td>
                           <td className="px-3 py-2 tabular-nums" dir="ltr">{Number(e.total_earned).toLocaleString('ar-EG')} EGP</td>
                         </tr>

@@ -28,8 +28,7 @@ export function HeroVisual({ programs, reports, researchers }: { programs: numbe
   const bars = [42, 68, 55, 80, 64, 92, 74];
   return (
     <div className="relative">
-      <div className="pointer-events-none absolute -inset-4 rounded-3xl bg-gradient-to-bl from-amber-400/10 to-transparent blur-2xl" aria-hidden />
-      <Card className="relative shadow-2xl">
+      <Card className="relative shadow-card">
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

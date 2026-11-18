@@ -57,7 +57,7 @@ function expiryCountdown(expiresAt: string | null | undefined): { label: string;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === 'verified') return <Badge className="bg-emerald-600">موثّق ✓</Badge>;
+  if (status === 'verified') return <Badge className="bg-emerald-600"><span className="inline-flex items-center gap-1">موثّق <Check className="h-3.5 w-3.5 shrink-0 text-current" aria-hidden="true" /></span></Badge>;
   if (status === 'failed') return <Badge variant="destructive">فشل</Badge>;
   if (status === 'expired') return <Badge variant="destructive">منتهي</Badge>;
   return <Badge variant="secondary">قيد الانتظار</Badge>;
@@ -90,7 +90,7 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
     const fd = new FormData();
     fd.set('domain_id', id);
     const r = await verifyDomainAction(fd);
-    setMsg(r.ok ? { ok: true, text: 'تم التوثيق ✓' } : { ok: false, text: r.error ?? 'لم يتم العثور على السجل' });
+    setMsg(r.ok ? { ok: true, text: 'تم التوثيق' } : { ok: false, text: r.error ?? 'لم يتم العثور على السجل' });
     setPending(null);
     if (r.ok) window.location.reload();
     else setTimeout(() => window.location.reload(), 1200);
@@ -117,7 +117,8 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
       </CardHeader>
       <CardContent className="space-y-4">
         {msg && (
-          <div className={['rounded border p-2 text-xs', msg.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'].join(' ')}>
+          <div className={['flex items-center gap-1.5 rounded border p-2 text-xs', msg.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'].join(' ')}>
+            {msg.ok && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
             {msg.text}
           </div>
         )}
@@ -175,11 +176,11 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
                     {expired && <p className="text-red-700">انتهت صلاحية التوثيق (90 يوم) — احذف وأعد إنشاء النطاق.</p>}
                     <div className="mt-2 flex gap-2">
                       <Button size="sm" onClick={() => handleVerify(d.id)} disabled={pending === `verify-${d.id}`}>
-                        {pending === `verify-${d.id}` && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                        {pending === `verify-${d.id}` && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                         {failed || expired ? 'إعادة تحقق' : 'تحقق الآن'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleDelete(d.id)} disabled={pending === `del-${d.id}`}>
-                        <Trash2 className="ml-1 h-3 w-3" />
+                        <Trash2 className="ms-1 h-3 w-3" />
                         حذف
                       </Button>
                     </div>
@@ -189,7 +190,7 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
                     <span className="text-xs text-emerald-700">تم التوثيق {d.verified_at ? `— ${new Date(d.verified_at).toLocaleDateString('ar-EG')}` : ''}</span>
                     <div className="flex gap-1">
                       <Button size="sm" variant="outline" onClick={() => handleVerify(d.id)} disabled={pending === `verify-${d.id}`}>
-                        {pending === `verify-${d.id}` && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                        {pending === `verify-${d.id}` && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                         إعادة تحقق
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => handleDelete(d.id)} disabled={pending === `del-${d.id}`}>
@@ -206,7 +207,7 @@ export function DomainsManager({ companyId, initialDomains }: { companyId: strin
         <form onSubmit={handleAdd} className="flex gap-2 border-t pt-4">
           <Input value={input} onChange={(e) => setInput(e.target.value)} required placeholder="example.com" dir="ltr" className="flex-1" />
           <Button type="submit" disabled={pending === 'add'}>
-            {pending === 'add' && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+            {pending === 'add' && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
             إضافة نطاق
           </Button>
         </form>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2 } from 'lucide-react';
+import { Building2, Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ export default async function CompaniesPage() {
                     <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-amber-400">
                       <Building2 className="h-5 w-5" />
                     </span>
-                    {c.is_verified && <Badge>موثقة ✓</Badge>}
+                    {c.is_verified && <Badge><span className="inline-flex items-center gap-1">موثقة <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>}
                   </div>
                   <Link href={`/companies/${c.slug}`} className="mt-4 block text-lg font-black group-hover:text-amber-600">
                     {c.name}

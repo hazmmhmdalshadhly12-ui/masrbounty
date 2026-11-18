@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FileText, History, Loader2, ScrollText, Users } from 'lucide-react';
+import { FileText, History, Loader2, ScrollText, Users, Check } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -201,7 +201,7 @@ export function LegalManager({ docs, versions, acceptances }: { docs: DocRow[]; 
                           className="w-96"
                         />
                         <Button size="sm" type="submit" disabled={pending}>
-                          {pending && <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />} حفظ المسودة
+                          {pending && <Loader2 className="ms-1.5 h-3.5 w-3.5 animate-spin" />} حفظ المسودة
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground">الإصدارات المنشورة لا تُعدل أبدًا — أي تعديل يتطلب مسودة وإصدارًا جديدًا.</p>
@@ -210,7 +210,7 @@ export function LegalManager({ docs, versions, acceptances }: { docs: DocRow[]; 
 
                   <div className="flex flex-wrap gap-2 border-t pt-3">
                     <Button size="sm" variant="outline" disabled={pending || Boolean(draft)} onClick={() => run(() => createLegalDraftAction(doc.slug), 'أُنشئت مسودة إصدار جديد')}>
-                      <History className="ml-1 h-3.5 w-3.5" /> مسودة إصدار جديد
+                      <History className="ms-1 h-3.5 w-3.5" /> مسودة إصدار جديد
                     </Button>
                     <Button
                       size="sm"
@@ -245,7 +245,7 @@ export function LegalManager({ docs, versions, acceptances }: { docs: DocRow[]; 
                 <table className="w-full min-w-[640px] text-sm">
                   <caption className="sr-only">سجل الموافقات</caption>
                   <thead>
-                    <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
+                    <tr className="border-b bg-muted/50 text-start text-xs text-muted-foreground">
                       <th scope="col" className="px-3 py-2 font-medium">المستخدم</th>
                       <th scope="col" className="px-3 py-2 font-medium">الوثيقة</th>
                       <th scope="col" className="px-3 py-2 font-medium">الإصدار</th>
@@ -261,7 +261,7 @@ export function LegalManager({ docs, versions, acceptances }: { docs: DocRow[]; 
                         <td className="px-3 py-2">{titleBySlug.get(a.document_slug) ?? a.document_slug}</td>
                         <td className="px-3 py-2 tabular-nums">{a.version}</td>
                         <td className="px-3 py-2 text-xs">{a.context}</td>
-                        <td className="px-3 py-2">{a.age_confirmed ? '18+ ✓' : '—'}</td>
+                        <td className="px-3 py-2">{a.age_confirmed ? <span className="inline-flex items-center gap-1">18+ <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span> : '—'}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{dt(a.accepted_at)}</td>
                       </tr>
                     ))}

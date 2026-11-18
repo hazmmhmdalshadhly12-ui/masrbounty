@@ -96,9 +96,9 @@ export default async function AcademyPage({
               <Link key={c.course.id} href={`/academy/courses/${c.course.slug}`} className="group rounded-xl border bg-card p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card">
                 <p className="truncate text-sm font-bold transition-colors group-hover:text-primary">{c.course.title_ar}</p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" dir="ltr">
-                  <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all" style={{ width: `${c.percent}%` }} />
+                  <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${c.percent}%` }} />
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">{c.percent}% مكتمل{c.certificateNumber ? ' • 🎓 شهادة' : ''}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">{c.percent}% مكتمل{c.certificateNumber ? ' • شهادة' : ''}</p>
               </Link>
             ))}
           </CardContent>
@@ -143,7 +143,7 @@ export default async function AcademyPage({
                       </div>
                       {percent != null && (
                         <div className="h-1.5 overflow-hidden rounded-full bg-muted" dir="ltr">
-                          <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400" style={{ width: `${percent}%` }} />
+                          <div className="h-full rounded-full bg-amber-500" style={{ width: `${percent}%` }} />
                         </div>
                       )}
                     </CardContent>

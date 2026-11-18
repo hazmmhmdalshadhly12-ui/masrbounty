@@ -154,7 +154,7 @@ export default async function CompanyReports({
           <CardContent className="flex flex-col items-center p-10 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground" />
             <p className="mt-3 font-bold">لا توجد تقارير</p>
-            <p className="mt-1 text-sm text-muted-foreground">تظهر هنا التقارير المُقدمة على برامج شركتك فقط. مؤشرات SLA: 🟢 ضمن المهلة 🟡 قارب الانتهاء 🔴 متجاوز.</p>
+            <p className="mt-1 text-sm text-muted-foreground">تظهر هنا التقارير المُقدمة على برامج شركتك فقط. مؤشرات SLA: <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />ضمن المهلة</span> <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-400" />قارب الانتهاء</span> <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-red-500" />متجاوز.</span></p>
           </CardContent>
         </Card>
       </div>
@@ -165,7 +165,7 @@ export default async function CompanyReports({
     <div className="py-2">
       <div className="mb-4">
         <h1 className="text-xl font-black tracking-tight">التقارير الواردة — صندوق الفرز</h1>
-        <p className="mt-1 text-sm text-muted-foreground">فلترة بالحالة/الخطورة/الأصل/المكلف/SLA، بحث بالعنوان/الرقم، وترتيب حسب الأحدث أو الخطورة أو SLA. المؤشرات: 🟢 ضمن المهلة 🟡 قارب الانتهاء 🔴 متجاوز.</p>
+        <p className="mt-1 text-sm text-muted-foreground">فلترة بالحالة/الخطورة/الأصل/المكلف/SLA، بحث بالعنوان/الرقم، وترتيب حسب الأحدث أو الخطورة أو SLA. المؤشرات: <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />ضمن المهلة</span> <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-400" />قارب الانتهاء</span> <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-red-500" />متجاوز.</span></p>
       </div>
       <TriageInbox reports={enriched} assigneeMap={assigneeMap} members={members} assets={assets} />
     </div>

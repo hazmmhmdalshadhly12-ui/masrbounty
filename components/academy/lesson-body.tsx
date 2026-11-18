@@ -65,7 +65,7 @@ export function LessonBody({
       setPercent(res.percent ?? null);
       if (res.certificateNumber) {
         setCertNumber(res.certificateNumber);
-        toastSuccess('🎉 أكملت جميع الدروس — صدرت شهادتك!');
+        toastSuccess('أكملت جميع الدروس — صدرت شهادتك!');
       } else {
         toastSuccess('تم تسجيل إكمال الدرس');
       }

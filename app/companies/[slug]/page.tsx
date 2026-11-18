@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 import { createServerClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,9 +26,9 @@ export default async function CompanyPublic({ params }: { params: Promise<{ slug
       <div>
         <h1 className="text-3xl font-bold">{company.name}</h1>
         <div className="mt-2 flex flex-wrap gap-2">
-          {company.is_verified && <Badge>شركة موثقة ✓</Badge>}
+          {company.is_verified && <Badge><span className="inline-flex items-center gap-1">شركة موثقة <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>}
           {(domains ?? []).map((d: { domain: string }) => (
-            <Badge key={d.domain} variant="secondary"><span dir="ltr">{d.domain}</span> ✓</Badge>
+            <Badge key={d.domain} variant="secondary"><span className="inline-flex items-center gap-1"><span dir="ltr">{d.domain}</span> <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></Badge>
           ))}
           {trustRow && <Badge variant="outline">ثقة {trustRow.score}/100</Badge>}
         </div>

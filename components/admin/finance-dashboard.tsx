@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { BadgeCheck, Banknote, Coins, Download, Landmark, Loader2, Percent, PiggyBank, ShieldCheck, TrendingUp, Wallet, XCircle } from 'lucide-react';
+import { BadgeCheck, Banknote, Coins, Download, Landmark, Loader2, Percent, PiggyBank, ShieldCheck, TrendingUp, Wallet, XCircle, Check } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,7 +112,7 @@ function Msg({ error, ok }: { error?: string | null; ok?: string | null }) {
 function ActionButton({ busy, children, ...rest }: React.ComponentProps<typeof Button> & { busy?: boolean }) {
   return (
     <Button size="sm" type="button" disabled={busy} {...rest}>
-      {busy && <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />}
+      {busy && <Loader2 className="ms-1.5 h-3.5 w-3.5 animate-spin" />}
       {children}
     </Button>
   );
@@ -306,7 +306,7 @@ export function FinanceDashboard({
                           <label htmlFor={`ref-${p.id}`} className="block text-xs font-bold text-muted-foreground">المرجع (اختياري)</label>
                           <Input id={`ref-${p.id}`} name="reference" dir="ltr" maxLength={120} className="h-9 w-40" />
                         </div>
-                        <ActionButton busy={pending} type="submit">تسجيل الدفع ✓</ActionButton>
+                        <ActionButton busy={pending} type="submit"><span className="inline-flex items-center gap-1">تسجيل الدفع <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" /></span></ActionButton>
                       </form>
                       <form
                         action={(fd: FormData) => run(() => failRewardPayoutAction(p.id, String(fd.get('reason') ?? ''), fd.get('cancel') === 'on'), 'سُجّل الفشل وعاد الحجز للرصيد المتاح')}
@@ -461,7 +461,7 @@ export function FinanceDashboard({
                 <table className="w-full min-w-[720px] text-sm">
                   <caption className="sr-only">حركات المحافظ</caption>
                   <thead>
-                    <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
+                    <tr className="border-b bg-muted/50 text-start text-xs text-muted-foreground">
                       <th scope="col" className="px-4 py-2.5 font-medium">الشركة</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">النوع</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">المبلغ (قروش)</th>
@@ -498,7 +498,7 @@ export function FinanceDashboard({
                 <table className="w-full min-w-[680px] text-sm">
                   <caption className="sr-only">محافظ الشركات</caption>
                   <thead>
-                    <tr className="border-b bg-muted/50 text-right text-xs text-muted-foreground">
+                    <tr className="border-b bg-muted/50 text-start text-xs text-muted-foreground">
                       <th scope="col" className="px-4 py-2.5 font-medium">الشركة</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">المتاح</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">المحجوز</th>
